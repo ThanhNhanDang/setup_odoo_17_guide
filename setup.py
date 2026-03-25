@@ -189,10 +189,12 @@ def detect_native_postgres_details():
     psql = os.path.join(pg_bin, "psql.exe")
     if result["is_ready"]:
         try:
+            env = os.environ.copy()
+            env["PGPASSWORD"] = "postgres"
             r = subprocess.run(
-                '"{}" -U postgres -p {} -tAc "SELECT datname FROM pg_database WHERE datistemplate=false"'.format(
+                '"{}" -U postgres -p {} --no-password -tAc "SELECT datname FROM pg_database WHERE datistemplate=false"'.format(
                     psql, port),
-                shell=True, capture_output=True, text=True, timeout=10
+                shell=True, capture_output=True, text=True, timeout=10, env=env
             )
             if r.returncode == 0:
                 result["databases"] = [db.strip() for db in r.stdout.strip().split("\n") if db.strip()]
@@ -376,7 +378,8 @@ def step_install_postgres(base_dir, pg_super_password="postgres",
     return {"ok": False, "msg": "Install failed. Run as Administrator or install Docker."}
 
 
-def step_create_pg_user(db_user="odoo", db_password="odoo", db_port="5432"):
+def step_create_pg_user(db_user="odoo", db_password="odoo", db_port="5432",
+                        pg_super_password="postgres"):
     docker_pg = find_docker_postgres()
     for c in docker_pg:
         if c["port"] == str(db_port):
@@ -395,15 +398,29 @@ def step_create_pg_user(db_user="odoo", db_password="odoo", db_port="5432"):
     if not pg_bin:
         return {"ok": False, "msg": "PostgreSQL not found"}
     psql = os.path.join(pg_bin, "psql.exe")
-    code, out = run_cmd('"{}" -U postgres -p {} -tAc "SELECT 1 FROM pg_roles WHERE rolname=\'{}\'"'.format(
-        psql, db_port, db_user))
-    if "1" in out:
-        return {"ok": True, "msg": "User already exists"}
-    code, out = run_cmd('"{}" -U postgres -p {} -c "CREATE ROLE {} WITH LOGIN PASSWORD \'{}\' CREATEDB;"'.format(
-        psql, db_port, db_user, db_password))
-    if code == 0:
-        return {"ok": True, "msg": "User created"}
-    return {"ok": False, "msg": "Failed: {}".format(out)}
+    env = os.environ.copy()
+    env["PGPASSWORD"] = pg_super_password
+    log("  > Checking if user '{}' exists...".format(db_user))
+    try:
+        result = subprocess.run(
+            '"{}" -U postgres -p {} -tAc "SELECT 1 FROM pg_roles WHERE rolname=\'{}\'"'.format(
+                psql, db_port, db_user),
+            shell=True, capture_output=True, text=True, timeout=30, env=env)
+        if "1" in result.stdout:
+            return {"ok": True, "msg": "User already exists"}
+    except Exception as e:
+        log("    [ERROR] {}".format(e))
+    log("  > Creating user '{}'...".format(db_user))
+    try:
+        result = subprocess.run(
+            '"{}" -U postgres -p {} -c "CREATE ROLE {} WITH LOGIN PASSWORD \'{}\' CREATEDB;"'.format(
+                psql, db_port, db_user, db_password),
+            shell=True, capture_output=True, text=True, timeout=30, env=env)
+        if result.returncode == 0:
+            return {"ok": True, "msg": "User created"}
+        return {"ok": False, "msg": "Failed: {}".format(result.stderr)}
+    except Exception as e:
+        return {"ok": False, "msg": "Failed: {}".format(e)}
 
 
 def step_clone_odoo(base_dir):
@@ -476,6 +493,12 @@ def step_create_project(base_dir, projects_dir, project_name, **kwargs):
     # Build config values with defaults
     cfg = dict(PROJECT_DEFAULTS)
     cfg.update({k: v for k, v in kwargs.items() if v})
+    # Resolve addons_path to absolute paths
+    if cfg["addons_path"] == PROJECT_DEFAULTS["addons_path"]:
+        cfg["addons_path"] = ",".join([
+            str(proj / "addons"),
+            str(proj / "odoo" / "addons"),
+        ])
     if not cfg["longpolling_port"]:
         try:
             cfg["longpolling_port"] = str(int(cfg["http_port"]) + 3)
@@ -487,9 +510,10 @@ def step_create_project(base_dir, projects_dir, project_name, **kwargs):
     # launch.json
     venv_python = str(base / "venv" / "Scripts" / "python.exe").replace("\\", "\\\\")
     odoo_bin = str(base / "odoo" / "odoo-bin").replace("\\", "\\\\")
-    launch_template = (TEMPLATES_DIR / "launch.json").read_text(encoding="utf-8")
-    (proj / ".vscode" / "launch.json").write_text(
-        launch_template.format(python_path=venv_python, odoo_bin_path=odoo_bin), encoding="utf-8")
+    launch_content = (TEMPLATES_DIR / "launch.json").read_text(encoding="utf-8")
+    launch_content = launch_content.replace("{python_path}", venv_python)
+    launch_content = launch_content.replace("{odoo_bin_path}", odoo_bin)
+    (proj / ".vscode" / "launch.json").write_text(launch_content, encoding="utf-8")
     log("Project '{}' ready at {}".format(project_name, proj))
     return {"ok": True, "msg": str(proj)}
 
@@ -505,7 +529,7 @@ def step_full_install(base_dir, projects_dir, project_name, **kwargs):
         ("Installing Python 3.11...", lambda: step_install_python(base_dir)),
         ("Installing PostgreSQL...", lambda: step_install_postgres(
             base_dir, pg_super_password, db_port, db_user, db_password)),
-        ("Creating DB user...", lambda: step_create_pg_user(db_user, db_password, db_port)),
+        ("Creating DB user...", lambda: step_create_pg_user(db_user, db_password, db_port, pg_super_password)),
         ("Cloning Odoo 17...", lambda: step_clone_odoo(base_dir)),
         ("Creating virtual environment...", lambda: step_create_venv(base_dir)),
         ("Installing requirements...", lambda: step_install_requirements(base_dir)),
@@ -1168,9 +1192,24 @@ class InstallerHandler(http.server.BaseHTTPRequestHandler):
             self._json({"lines": log_lines[-200:], "task": current_task})
 
         elif path == "/api/full_install":
-            results = step_full_install(
-                bd, pd, body.get("project_name", "my_project"), **body)
-            self._json({"ok": True, "results": results})
+            if current_task["status"] == "running":
+                self._json({"ok": False, "msg": "Install already in progress"})
+                return
+            install_opts = {k: v for k, v in body.items()
+                           if k not in ("base_dir", "projects_dir", "project_name")}
+            project_name = body.get("project_name", "my_project")
+
+            def _run_install():
+                try:
+                    results = step_full_install(bd, pd, project_name, **install_opts)
+                    current_task["results"] = results
+                except Exception as e:
+                    current_task["status"] = "error"
+                    current_task["step"] = str(e)
+                    log("[ERROR] Full install failed: {}".format(e))
+
+            threading.Thread(target=_run_install, daemon=True).start()
+            self._json({"ok": True, "msg": "Install started in background. Poll /api/log for progress."})
 
         elif path == "/api/run_step":
             step = body.get("step", "")
@@ -1188,7 +1227,9 @@ class InstallerHandler(http.server.BaseHTTPRequestHandler):
             self._json(fn() if fn else {"ok": False, "msg": "Unknown step"})
 
         elif path == "/api/create_project":
-            self._json(step_create_project(bd, pd, body.get("project_name", ""), **body))
+            project_opts = {k: v for k, v in body.items()
+                           if k not in ("base_dir", "projects_dir", "project_name")}
+            self._json(step_create_project(bd, pd, body.get("project_name", ""), **project_opts))
 
         elif path == "/api/read_config":
             self._json(read_project_config(pd, body.get("project_name", "")))
@@ -1226,7 +1267,8 @@ class InstallerHandler(http.server.BaseHTTPRequestHandler):
             odoo_bin = os.path.join(bd, "odoo", "odoo-bin")
             cmd = '"{}" "{}" -c "{}"'.format(venv_py, odoo_bin, conf)
             try:
-                subprocess.Popen(cmd, shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
+                subprocess.Popen(cmd, shell=True, cwd=proj_path,
+                                 creationflags=subprocess.CREATE_NEW_CONSOLE)
                 self._json({"ok": True, "command": cmd})
             except Exception as e:
                 self._json({"ok": False, "msg": str(e)})

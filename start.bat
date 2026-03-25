@@ -3,6 +3,17 @@ setlocal EnableDelayedExpansion
 title Odoo 17 Setup Installer
 chcp 65001 >nul 2>&1
 
+:: -----------------------------------------------------------
+:: Auto-elevate to Administrator (needed for symlinks + PG)
+:: -----------------------------------------------------------
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo   Requesting Administrator privileges...
+    powershell -Command "Start-Process cmd -ArgumentList '/c cd /d \"%~dp0\" && \"%~f0\"' -Verb RunAs"
+    exit /b
+)
+cd /d "%~dp0"
+
 echo.
 echo   ╔══════════════════════════════════════════╗
 echo   ║   Odoo 17 Development Environment Setup  ║
