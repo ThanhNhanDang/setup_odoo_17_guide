@@ -67,6 +67,57 @@ def find_postgres_bin():
     return None
 
 
+def find_docker():
+    """Check if Docker is available."""
+    try:
+        result = subprocess.run(
+            "docker --version", shell=True,
+            capture_output=True, text=True, timeout=5
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def find_docker_postgres():
+    """Find running PostgreSQL containers in Docker."""
+    try:
+        result = subprocess.run(
+            'docker ps --filter "ancestor=postgres" --filter "ancestor=postgres:16" '
+            '--filter "ancestor=postgres:15" --filter "ancestor=postgres:14" '
+            '--filter "ancestor=postgres:16-alpine" --filter "ancestor=postgres:15-alpine" '
+            '--format "{{.Names}}\\t{{.Image}}\\t{{.Ports}}\\t{{.Status}}"',
+            shell=True, capture_output=True, text=True, timeout=10
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            # Try broader search - any container with "postgres" in image name
+            result = subprocess.run(
+                'docker ps --format "{{.Names}}\\t{{.Image}}\\t{{.Ports}}\\t{{.Status}}"',
+                shell=True, capture_output=True, text=True, timeout=10
+            )
+        containers = []
+        if result.returncode == 0 and result.stdout.strip():
+            for line in result.stdout.strip().split("\n"):
+                parts = line.split("\t")
+                if len(parts) >= 3 and "postgres" in parts[1].lower():
+                    # Extract host port from port mapping like "0.0.0.0:5432->5432/tcp"
+                    port = ""
+                    for mapping in parts[2].split(","):
+                        mapping = mapping.strip()
+                        if "->5432" in mapping and ":" in mapping:
+                            port = mapping.split(":")[1].split("->")[0]
+                            break
+                    containers.append({
+                        "name": parts[0],
+                        "image": parts[1],
+                        "port": port,
+                        "status": parts[3] if len(parts) > 3 else "",
+                    })
+        return containers
+    except Exception:
+        return []
+
+
 def run_cmd(cmd, cwd=None):
     log("  > {}".format(cmd if isinstance(cmd, str) else " ".join(cmd)))
     try:
@@ -94,11 +145,29 @@ def detect_status(base_dir, projects_dir):
     base = Path(base_dir)
     py311 = find_python311()
     pg_bin = find_postgres_bin()
+    docker_available = find_docker()
+    docker_pg = find_docker_postgres() if docker_available else []
+    pg_ok = pg_bin is not None or len(docker_pg) > 0
+
+    # Build postgres detail string
+    if docker_pg:
+        pg_detail = "Docker: " + ", ".join(
+            "{}({} port:{})".format(c["name"], c["image"], c["port"])
+            for c in docker_pg
+        )
+    elif pg_bin:
+        pg_detail = pg_bin
+    else:
+        pg_detail = ""
+
     status = {
         "python311": py311 is not None,
         "python311_path": py311 or "",
-        "postgres": pg_bin is not None,
-        "postgres_path": pg_bin or "",
+        "postgres": pg_ok,
+        "postgres_path": pg_detail,
+        "postgres_local": pg_bin is not None,
+        "docker": docker_available,
+        "docker_postgres": docker_pg,
         "odoo_cloned": (base / "odoo" / "odoo-bin").exists(),
         "venv_created": (base / "venv" / "Scripts" / "python.exe").exists(),
         "requirements_installed": (base / "venv" / "Lib" / "site-packages" / "lxml").exists(),
@@ -134,10 +203,38 @@ def step_install_python(base_dir):
     return {"ok": False, "msg": "Install may need admin rights. Run start.bat as Administrator."}
 
 
-def step_install_postgres(base_dir, pg_super_password="postgres"):
+def step_install_postgres(base_dir, pg_super_password="postgres",
+                          db_port="5432", db_user="odoo", db_password="odoo",
+                          use_docker=True, container_name=""):
+    # Check if already available
     if find_postgres_bin():
-        log("PostgreSQL already installed.")
-        return {"ok": True, "msg": "Already installed"}
+        log("PostgreSQL already installed locally.")
+        return {"ok": True, "msg": "Already installed (local)"}
+    docker_pg = find_docker_postgres()
+    if docker_pg:
+        log("PostgreSQL running in Docker: {}".format(
+            ", ".join(c["name"] for c in docker_pg)))
+        return {"ok": True, "msg": "Already running (Docker)"}
+
+    # Prefer Docker if available
+    if use_docker and find_docker():
+        cname = container_name or "odoo-postgres-{}".format(db_port)
+        log("Creating PostgreSQL container '{}'...".format(cname))
+        code, out = run_cmd(
+            'docker run -d --name {} '
+            '-e POSTGRES_USER={} '
+            '-e POSTGRES_PASSWORD={} '
+            '-e POSTGRES_DB=postgres '
+            '-p {}:5432 '
+            '--restart unless-stopped '
+            'postgres:16'.format(cname, db_user, db_password, db_port)
+        )
+        if code == 0:
+            log("PostgreSQL Docker container '{}' started on port {}!".format(cname, db_port))
+            return {"ok": True, "msg": "Docker container '{}' on port {}".format(cname, db_port)}
+        log("Docker failed, trying native install...")
+
+    # Fallback: native install
     log("Downloading PostgreSQL 16...")
     installer = os.path.join(base_dir, "postgresql-16-installer.exe")
     os.makedirs(base_dir, exist_ok=True)
@@ -149,21 +246,46 @@ def step_install_postgres(base_dir, pg_super_password="postgres"):
     run_cmd(
         '"{}" --mode unattended --superpassword "{}" '
         '--servicename postgresql-16 --servicepassword "{}" '
-        '--serverport 5432 --prefix "C:\\Program Files\\PostgreSQL\\16"'.format(
-            installer, pg_super_password, pg_super_password
+        '--serverport {} --prefix "C:\\Program Files\\PostgreSQL\\16"'.format(
+            installer, pg_super_password, pg_super_password, db_port
         )
     )
     time.sleep(10)
     if find_postgres_bin():
         log("PostgreSQL installed!")
-        return {"ok": True, "msg": "Installed"}
-    return {"ok": False, "msg": "Install may need admin rights. Run start.bat as Administrator."}
+        return {"ok": True, "msg": "Installed (native)"}
+    return {"ok": False, "msg": "Install failed. Run as Administrator or install Docker."}
 
 
 def step_create_pg_user(db_user="odoo", db_password="odoo", db_port="5432"):
+    # Check Docker containers first
+    docker_pg = find_docker_postgres()
+    for c in docker_pg:
+        if c["port"] == str(db_port):
+            log("PostgreSQL on port {} runs in Docker container '{}'.".format(db_port, c["name"]))
+            # Try creating user via docker exec
+            code, out = run_cmd(
+                'docker exec {} psql -U postgres -tAc '
+                '"SELECT 1 FROM pg_roles WHERE rolname=\'{}\'"'.format(c["name"], db_user)
+            )
+            if "1" in out:
+                log("User '{}' already exists in container.".format(db_user))
+                return {"ok": True, "msg": "User exists (Docker: {})".format(c["name"])}
+            log("Creating user '{}' in container '{}'...".format(db_user, c["name"]))
+            code, out = run_cmd(
+                'docker exec {} psql -U postgres -c '
+                '"CREATE ROLE {} WITH LOGIN PASSWORD \'{}\' CREATEDB;"'.format(
+                    c["name"], db_user, db_password
+                )
+            )
+            if code == 0:
+                return {"ok": True, "msg": "User created (Docker: {})".format(c["name"])}
+            return {"ok": False, "msg": "Failed in Docker: {}".format(out)}
+
+    # Fallback to local psql
     pg_bin = find_postgres_bin()
     if not pg_bin:
-        return {"ok": False, "msg": "PostgreSQL not found"}
+        return {"ok": False, "msg": "PostgreSQL not found (local or Docker)"}
     psql = os.path.join(pg_bin, "psql.exe")
     code, out = run_cmd(
         '"{}" -U postgres -p {} -tAc "SELECT 1 FROM pg_roles WHERE rolname=\'{}\'"'.format(
@@ -289,7 +411,8 @@ def step_full_install(base_dir, projects_dir, project_name,
                       http_port, db_port, db_user, db_password, pg_super_password):
     steps = [
         ("Installing Python 3.11...", lambda: step_install_python(base_dir)),
-        ("Installing PostgreSQL...", lambda: step_install_postgres(base_dir, pg_super_password)),
+        ("Installing PostgreSQL...", lambda: step_install_postgres(
+            base_dir, pg_super_password, db_port, db_user, db_password)),
         ("Creating DB user...", lambda: step_create_pg_user(db_user, db_password, db_port)),
         ("Cloning Odoo 17...", lambda: step_clone_odoo(base_dir)),
         ("Creating virtual environment...", lambda: step_create_venv(base_dir)),
@@ -505,7 +628,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#111;c
 
       <div class="btn-row">
         <button class="btn btn-outline btn-sm" onclick="runStep('install_python')">Python</button>
-        <button class="btn btn-outline btn-sm" onclick="runStep('install_postgres')">PostgreSQL</button>
+        <button class="btn btn-outline btn-sm" onclick="runStep('install_postgres')">PostgreSQL (Docker/Native)</button>
         <button class="btn btn-outline btn-sm" onclick="runStep('clone_odoo')">Clone Odoo</button>
         <button class="btn btn-outline btn-sm" onclick="runStep('create_venv')">Venv</button>
         <button class="btn btn-outline btn-sm" onclick="runStep('install_requirements')">Pip Install</button>
@@ -582,13 +705,14 @@ async function refreshStatus(){
   const data=getFormData();
   const s=await api('status',data);
   const items=[
-    ['Python 3.11',s.python311,s.python311_path,'P'],
-    ['PostgreSQL',s.postgres,s.postgres_path,'DB'],
-    ['Odoo Source',s.odoo_cloned,'','O'],
-    ['Virtual Env',s.venv_created,'','V'],
-    ['Requirements',s.requirements_installed,'','R'],
+    ['Python 3.11',s.python311,s.python311_path],
+    ['PostgreSQL',s.postgres,s.postgres_path],
+    ['Docker',s.docker,s.docker?'Available':'Not found'],
+    ['Odoo Source',s.odoo_cloned,''],
+    ['Virtual Env',s.venv_created,''],
+    ['Requirements',s.requirements_installed,''],
   ];
-  $('statusGrid').innerHTML=items.map(([label,ok,detail,letter])=>`
+  $('statusGrid').innerHTML=items.map(([label,ok,detail])=>`
     <div class="status-card">
       <div class="status-icon ${ok?'ok':'missing'}">${ok?'\u2713':'\u2717'}</div>
       <div class="status-info">
@@ -596,6 +720,17 @@ async function refreshStatus(){
         ${detail?`<div class="detail">${escHtml(detail)}</div>`:''}
       </div>
     </div>`).join('');
+  // Show Docker PG containers detail
+  if(s.docker_postgres&&s.docker_postgres.length>0){
+    $('statusGrid').innerHTML+=s.docker_postgres.map(c=>`
+      <div class="status-card" style="border-color:#1a3a1a">
+        <div class="status-icon ok">PG</div>
+        <div class="status-info">
+          <div class="label">${escHtml(c.name)}</div>
+          <div class="detail">${escHtml(c.image)} | port: ${escHtml(c.port)} | ${escHtml(c.status)}</div>
+        </div>
+      </div>`).join('');
+  }
   const list=$('projectsList');
   if(s.projects&&s.projects.length>0){
     list.innerHTML=s.projects.map(name=>`
@@ -734,7 +869,10 @@ class InstallerHandler(http.server.BaseHTTPRequestHandler):
             bd = body.get("base_dir", DEFAULT_BASE_DIR)
             fns = {
                 "install_python": lambda: step_install_python(bd),
-                "install_postgres": lambda: step_install_postgres(bd, body.get("pg_super_password", "postgres")),
+                "install_postgres": lambda: step_install_postgres(
+                    bd, body.get("pg_super_password", "postgres"),
+                    body.get("db_port", "5432"), body.get("db_user", "odoo"),
+                    body.get("db_password", "odoo")),
                 "clone_odoo": lambda: step_clone_odoo(bd),
                 "create_venv": lambda: step_create_venv(bd),
                 "install_requirements": lambda: step_install_requirements(bd),
