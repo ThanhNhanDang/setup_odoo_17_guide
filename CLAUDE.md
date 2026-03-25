@@ -48,6 +48,19 @@ The web UI opens automatically at `http://127.0.0.1:9017`.
 | `/api/start_odoo` / `/api/open_vscode` / `/api/open_explorer` | Launch external processes |
 | `/api/log` | Get installation log lines and task progress |
 
+## Testing
+
+```cmd
+# Unit tests (61 tests, ~2s)
+python -m unittest test_setup -v
+
+# E2E test (requires components installed, ~5 min first run)
+powershell -ExecutionPolicy Bypass -File e2e_test.ps1
+
+# Cleanup installed components for fresh test
+cleanup_test.bat
+```
+
 ## Key Design Decisions
 
 - **Zero dependencies**: Only Python stdlib. No Flask, no npm, no build tools. The installer's own `.venv` is separate from the Odoo venv it creates.
@@ -55,3 +68,8 @@ The web UI opens automatically at `http://127.0.0.1:9017`.
 - **Shared base, multiple projects**: One Odoo source + venv in `odoo_17_base/`, multiple project folders each with their own `odoo.conf`, `addons/`, and junction link to the shared Odoo source.
 - **Docker PostgreSQL support**: Auto-detects running Docker PostgreSQL containers; can create new ones as alternative to native install.
 - **Global mutable state**: `log_lines` list and `current_task` dict are module-level globals used across threads.
+- **Admin required**: `start.bat` auto-elevates to Administrator for PostgreSQL install and junction symlinks.
+- **Background install**: `/api/full_install` runs in a background thread; poll `/api/log` for progress.
+- **Relative addons_path**: `odoo.conf` uses `./addons,./odoo/addons` (relative). `start_odoo` sets `cwd=project_dir` so paths resolve correctly. Same as VS Code F5 via `launch.json`.
+- **launch.json template**: Uses `.replace()` instead of `.format()` to avoid conflicts with JSON braces.
+- **PostgreSQL auth**: `PGPASSWORD` env var is passed to `psql` commands to prevent password prompt hangs.
