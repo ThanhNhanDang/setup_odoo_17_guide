@@ -493,12 +493,7 @@ def step_create_project(base_dir, projects_dir, project_name, **kwargs):
     # Build config values with defaults
     cfg = dict(PROJECT_DEFAULTS)
     cfg.update({k: v for k, v in kwargs.items() if v})
-    # Resolve addons_path to absolute paths
-    if cfg["addons_path"] == PROJECT_DEFAULTS["addons_path"]:
-        cfg["addons_path"] = ",".join([
-            str(proj / "addons"),
-            str(proj / "odoo" / "addons"),
-        ])
+    # Keep relative addons_path (resolved by cwd when running Odoo)
     if not cfg["longpolling_port"]:
         try:
             cfg["longpolling_port"] = str(int(cfg["http_port"]) + 3)
