@@ -1,13 +1,13 @@
 {
   "name": "odoo17-installer",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "description": "One-click installer for Odoo 17 development environments on Windows",
   "main": "dist/main/index.js",
   "scripts": {
     "start": "tsc && electron .",
     "build": "tsc",
     "watch": "tsc -w",
-    "dev": "tsc && electron . --dev",
+    "dev": "rimraf dist && tsc && electron . --dev",
     "pack": "tsc && electron-builder --dir",
     "predist": "rimraf release",
     "dist": "tsc && electron-builder",
