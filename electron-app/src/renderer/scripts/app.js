@@ -636,6 +636,37 @@ if (window.electronAPI) {
 }
 
 // ---------------------------------------------------------------------------
+// Theme Toggle
+// ---------------------------------------------------------------------------
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const next = current === 'light' ? 'dark' : 'light';
+  applyTheme(next);
+  localStorage.setItem('theme', next);
+}
+
+function applyTheme(theme) {
+  if (theme === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+    $('themeIconDark').style.display = 'none';
+    $('themeIconLight').style.display = 'block';
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+    $('themeIconDark').style.display = 'block';
+    $('themeIconLight').style.display = 'none';
+  }
+  // Update titlebar brand SVG stroke color
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  document.querySelectorAll('.titlebar-brand svg').forEach(svg => svg.setAttribute('stroke', accent));
+}
+
+// Load saved theme
+(function() {
+  const saved = localStorage.getItem('theme') || 'dark';
+  applyTheme(saved);
+})();
+
+// ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
 refreshStatus();
