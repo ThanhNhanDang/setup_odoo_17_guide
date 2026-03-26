@@ -393,6 +393,11 @@ export async function stepCreateProject(
     cfg.longpolling_port = isNaN(httpPort) ? '8072' : String(httpPort + 3);
   }
 
+  // Per-project DB user (isolate databases between projects)
+  const projectDbUser = `odoo_${projectName.replace(/[^a-zA-Z0-9_]/g, '_')}`;
+  const projectDbPassword = cfg.db_password || 'odoo';
+  cfg.db_user = projectDbUser;
+
   // odoo.conf from template
   const templatesDir = getTemplatesDir();
   const confTemplate = fs.readFileSync(path.join(templatesDir, 'odoo.conf'), 'utf8');
@@ -421,9 +426,7 @@ export async function stepCreateProject(
     fs.writeFileSync(path.join(proj, '.vscode', 'settings.json'), settingsContent, 'utf8');
   }
 
-  // Ensure DB user exists (don't fail project creation if this fails)
-  const dbUser = cfg.db_user || 'odoo';
-  const dbPassword = cfg.db_password || 'odoo';
+  // Create per-project DB user (isolates databases between projects)
   const dbPort = cfg.db_port || '5434';
   try {
     const { detectNativePostgresDetails } = require('./detection');
@@ -432,19 +435,22 @@ export async function stepCreateProject(
       const psql = path.join(pgDetails.bin_path, 'psql.exe');
       const env = { ...process.env, PGPASSWORD: 'postgres' };
       const { output } = await runCmd(
-        `"${psql}" -U postgres -p ${dbPort} -tAc "SELECT 1 FROM pg_roles WHERE rolname='${dbUser}'"`,
+        `"${psql}" -U postgres -p ${dbPort} -tAc "SELECT 1 FROM pg_roles WHERE rolname='${projectDbUser}'"`,
         undefined, env
       );
       if (!output.includes('1')) {
-        logger.log(`  > Creating DB user '${dbUser}'...`);
+        logger.log(`  > Creating DB user '${projectDbUser}' for project '${projectName}'...`);
         await runCmd(
-          `"${psql}" -U postgres -p ${dbPort} -c "CREATE ROLE ${dbUser} WITH LOGIN PASSWORD '${dbPassword}' CREATEDB;"`,
+          `"${psql}" -U postgres -p ${dbPort} -c "CREATE ROLE ${projectDbUser} WITH LOGIN PASSWORD '${projectDbPassword}' CREATEDB;"`,
           undefined, env
         );
+        logger.log(`  > DB user '${projectDbUser}' created.`);
+      } else {
+        logger.log(`  > DB user '${projectDbUser}' already exists.`);
       }
     }
   } catch {
-    // Non-fatal: DB user creation is best-effort during project creation
+    // Non-fatal: DB user creation is best-effort
   }
 
   logger.log(`Project '${projectName}' ready at ${proj}`);

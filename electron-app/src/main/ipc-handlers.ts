@@ -244,24 +244,33 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         logger.log('  > Using Docker PostgreSQL instead.');
       }
 
-      // Ensure DB user exists before starting Odoo
+      // Ensure per-project DB user exists before starting Odoo
+      // Read db_user from project's odoo.conf
       const pgDetailsReady = detectNativePostgresDetails();
       if (pgDetailsReady?.is_ready) {
         const pgPort = pgDetailsReady.port || '5434';
-        logger.log(`  > Ensuring DB user exists on port ${pgPort}...`);
+        let projectDbUser = 'odoo';
+        try {
+          const { parseIniFile, iniGet } = require('./services/ini-parser');
+          const ini = parseIniFile(conf);
+          projectDbUser = iniGet(ini, 'options', 'db_user', 'odoo');
+        } catch { /* use default */ }
+
+        logger.log(`  > Ensuring DB user '${projectDbUser}' exists on port ${pgPort}...`);
         const { output: userCheck } = await runCmd(
-          `"${path.join(pgDetailsReady.bin_path, 'psql.exe')}" -U postgres -p ${pgPort} -tAc "SELECT 1 FROM pg_roles WHERE rolname='odoo'"`,
+          `"${path.join(pgDetailsReady.bin_path, 'psql.exe')}" -U postgres -p ${pgPort} -tAc "SELECT 1 FROM pg_roles WHERE rolname='${projectDbUser}'"`,
           undefined,
           { ...process.env, PGPASSWORD: 'postgres' }
         );
         if (!userCheck.includes('1')) {
-          logger.log('  > Creating DB user "odoo"...');
+          const dbPwd = 'odoo';
+          logger.log(`  > Creating DB user '${projectDbUser}'...`);
           await runCmd(
-            `"${path.join(pgDetailsReady.bin_path, 'psql.exe')}" -U postgres -p ${pgPort} -c "CREATE ROLE odoo WITH LOGIN PASSWORD 'odoo' CREATEDB;"`,
+            `"${path.join(pgDetailsReady.bin_path, 'psql.exe')}" -U postgres -p ${pgPort} -c "CREATE ROLE ${projectDbUser} WITH LOGIN PASSWORD '${dbPwd}' CREATEDB;"`,
             undefined,
             { ...process.env, PGPASSWORD: 'postgres' }
           );
-          logger.log('  > DB user "odoo" created.');
+          logger.log(`  > DB user '${projectDbUser}' created.`);
         }
       }
 
