@@ -337,7 +337,6 @@ function refreshInstallStatus() {
       updateStepCard(stepId, 'done', 'Installed');
     } else {
       updateStepCard(stepId, '', '');
-      // Restore number
       const icon = $('stepIcon-' + stepId);
       if (icon) {
         const idx = Object.keys(STEP_MAP).indexOf(stepId);
@@ -345,6 +344,43 @@ function refreshInstallStatus() {
       }
     }
   }
+}
+
+async function checkInstallStatus() {
+  const btn = $('btnCheckStatus');
+  if (btn) { btn.disabled = true; btn.textContent = 'Checking...'; }
+
+  // Set all steps to "checking" animation
+  const allSteps = Object.keys(STEP_MAP);
+  for (const stepId of allSteps) {
+    updateStepCard(stepId, 'running', 'Checking...');
+  }
+
+  // Fetch fresh status
+  await refreshStatus();
+
+  // Animate each step one by one with delay
+  for (let i = 0; i < allSteps.length; i++) {
+    const stepId = allSteps[i];
+    const info = STEP_MAP[stepId];
+    await new Promise(r => setTimeout(r, 300));
+    if (info.check && info.check(_status)) {
+      updateStepCard(stepId, 'done', 'Installed');
+    } else {
+      updateStepCard(stepId, 'error', 'Not found');
+    }
+  }
+
+  // Summary toast
+  const installed = allSteps.filter(id => STEP_MAP[id].check && STEP_MAP[id].check(_status)).length;
+  const total = allSteps.length;
+  if (installed === total) {
+    showToastMessage(`All ${total} components installed!`, 'success');
+  } else {
+    showToastMessage(`${installed}/${total} components installed`, installed > 0 ? 'info' : 'error');
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = 'Check Status'; }
 }
 
 function appendInstallLog(line) {
