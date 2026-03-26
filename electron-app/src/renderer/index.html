@@ -153,20 +153,73 @@
         </div>
       </div>
     </div>
-    <button class="btn btn-primary btn-block" id="btnFullInstall" onclick="fullInstall()">Install Everything</button>
-    <div class="btn-row">
-      <button class="btn btn-outline btn-sm" onclick="runStep('install_vscode')">VS Code</button>
-      <button class="btn btn-outline btn-sm" onclick="runStep('install_python')">Python</button>
-      <button class="btn btn-outline btn-sm" onclick="runStep('install_postgres')">PostgreSQL</button>
-      <button class="btn btn-outline btn-sm" onclick="runStep('clone_odoo')">Clone Odoo</button>
-      <button class="btn btn-outline btn-sm" onclick="runStep('create_venv')">Venv</button>
-      <button class="btn btn-outline btn-sm" onclick="runStep('install_requirements')">Pip Install</button>
+    <!-- Step Cards -->
+    <div class="install-steps" id="installSteps">
+      <div class="step-card" id="step-install_vscode" onclick="runStep('install_vscode')">
+        <div class="step-icon" id="stepIcon-install_vscode">1</div>
+        <div class="step-info">
+          <div class="step-name">VS Code</div>
+          <div class="step-desc">Code editor</div>
+        </div>
+        <div class="step-status" id="stepStatus-install_vscode"></div>
+      </div>
+      <div class="step-card" id="step-install_python" onclick="runStep('install_python')">
+        <div class="step-icon" id="stepIcon-install_python">2</div>
+        <div class="step-info">
+          <div class="step-name">Python 3.11</div>
+          <div class="step-desc">Runtime for Odoo</div>
+        </div>
+        <div class="step-status" id="stepStatus-install_python"></div>
+      </div>
+      <div class="step-card" id="step-install_postgres" onclick="runStep('install_postgres')">
+        <div class="step-icon" id="stepIcon-install_postgres">3</div>
+        <div class="step-info">
+          <div class="step-name">PostgreSQL 16</div>
+          <div class="step-desc">Database server</div>
+        </div>
+        <div class="step-status" id="stepStatus-install_postgres"></div>
+      </div>
+      <div class="step-card" id="step-clone_odoo" onclick="runStep('clone_odoo')">
+        <div class="step-icon" id="stepIcon-clone_odoo">4</div>
+        <div class="step-info">
+          <div class="step-name">Clone Odoo 17</div>
+          <div class="step-desc">Source code from GitHub</div>
+        </div>
+        <div class="step-status" id="stepStatus-clone_odoo"></div>
+      </div>
+      <div class="step-card" id="step-create_venv" onclick="runStep('create_venv')">
+        <div class="step-icon" id="stepIcon-create_venv">5</div>
+        <div class="step-info">
+          <div class="step-name">Virtual Env</div>
+          <div class="step-desc">Isolated Python packages</div>
+        </div>
+        <div class="step-status" id="stepStatus-create_venv"></div>
+      </div>
+      <div class="step-card" id="step-install_requirements" onclick="runStep('install_requirements')">
+        <div class="step-icon" id="stepIcon-install_requirements">6</div>
+        <div class="step-info">
+          <div class="step-name">Pip Requirements</div>
+          <div class="step-desc">Odoo dependencies</div>
+        </div>
+        <div class="step-status" id="stepStatus-install_requirements"></div>
+      </div>
+      <div class="step-card" id="step-create_project" onclick="runStep('create_project')">
+        <div class="step-icon" id="stepIcon-create_project">7</div>
+        <div class="step-info">
+          <div class="step-name">Create Project</div>
+          <div class="step-desc">Config + VS Code debug</div>
+        </div>
+        <div class="step-status" id="stepStatus-create_project"></div>
+      </div>
     </div>
-    <div class="progress-wrap" id="progressWrap">
-      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
-      <div class="progress-info"><span id="progressStep">Preparing...</span><span id="progressPct">0%</span></div>
+    <div class="btn-row" style="margin-top:16px">
+      <button class="btn btn-primary" id="btnFullInstall" onclick="fullInstall()">Install Everything</button>
+      <button class="btn btn-outline" onclick="refreshInstallStatus()">Check Status</button>
     </div>
-    <div id="results"></div>
+    <!-- Install Log (inline) -->
+    <div class="install-log" id="installLog" style="display:none">
+      <div class="log-box" id="installLogBox" style="max-height:200px"></div>
+    </div>
   </div>
 
   <!-- NEW PROJECT -->

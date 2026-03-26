@@ -173,7 +173,45 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .btn-block{width:100%;justify-content:center;margin-top:8px}
 .btn-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
 
-/* ===== Progress ===== */
+/* ===== Install Steps ===== */
+.install-steps{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:16px}
+.step-card{
+  background:var(--bg-surface);border:1px solid var(--border-default);border-radius:10px;
+  padding:14px;display:flex;align-items:center;gap:12px;cursor:pointer;
+  transition:all 0.2s;position:relative;overflow:hidden;
+}
+.step-card:hover{border-color:var(--accent);transform:translateY(-1px)}
+.step-card.running{border-color:var(--accent);animation:stepPulse 1.5s ease-in-out infinite}
+.step-card.done{border-color:var(--success)}
+.step-card.error{border-color:var(--danger)}
+.step-card.skip{opacity:0.5}
+@keyframes stepPulse{0%,100%{box-shadow:0 0 0 0 rgba(240,136,62,0)}50%{box-shadow:0 0 0 4px rgba(240,136,62,0.2)}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.step-icon{
+  width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:0.85rem;font-weight:700;flex-shrink:0;
+  background:var(--border-default);color:var(--text-secondary);
+  transition:all 0.3s;
+}
+.step-card.running .step-icon{background:var(--accent);color:#fff}
+.step-card.done .step-icon{background:var(--success);color:#fff}
+.step-card.error .step-icon{background:var(--danger);color:#fff}
+.step-info{flex:1;min-width:0}
+.step-name{font-size:0.85rem;color:var(--text-primary);font-weight:600}
+.step-desc{font-size:0.7rem;color:var(--text-tertiary);margin-top:1px}
+.step-status{font-size:0.7rem;color:var(--text-tertiary);text-align:right;min-width:50px}
+.step-card.running .step-status{color:var(--accent);font-weight:600}
+.step-card.done .step-status{color:var(--success);font-weight:600}
+.step-card.error .step-status{color:var(--danger);font-weight:600}
+/* Step progress bar inside card */
+.step-card::after{
+  content:'';position:absolute;bottom:0;left:0;height:3px;
+  background:var(--accent);transition:width 0.3s;width:0%;
+}
+.step-card.done::after{width:100%;background:var(--success)}
+.install-log{margin-top:12px}
+
+/* ===== Progress (legacy) ===== */
 .progress-wrap{margin-top:16px;display:none}.progress-wrap.visible{display:block}
 .progress-bar{height:4px;background:var(--border-default);border-radius:2px;overflow:hidden}
 .progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),#f5a623);transition:width 0.5s;width:0%}

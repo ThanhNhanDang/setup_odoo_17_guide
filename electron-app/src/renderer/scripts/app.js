@@ -141,9 +141,10 @@ async function refreshStatus() {
     pgModeGroup.style.display = hasDockerPg ? '' : 'none';
   }
 
-  // Projects list + Dashboard
+  // Projects list + Dashboard + Install steps
   renderProjects(s);
   renderDashboard(s);
+  refreshInstallStatus();
 }
 
 // ---------------------------------------------------------------------------
@@ -231,59 +232,164 @@ function stopLogPoll() {
 // Listen for real-time log push from main process (replaces polling)
 if (window.electronAPI) {
   window.electronAPI.onLogMessage((line) => {
+    // Log tab
     const el = $('log');
     if (el) {
       el.innerHTML += `<div class="line">${escHtml(line)}</div>`;
       el.scrollTop = el.scrollHeight;
     }
+    // Install inline log
+    appendInstallLog(line);
   });
 
   window.electronAPI.onTaskProgress((task) => {
+    // Map step labels to step IDs for card updates
+    const stepLabelMap = {
+      'Installing VS Code...': 'install_vscode',
+      'Installing Python 3.11...': 'install_python',
+      'Installing PostgreSQL...': 'install_postgres',
+      'Creating DB user...': 'install_postgres', // group with PG
+      'Cloning Odoo 17...': 'clone_odoo',
+      'Creating virtual environment...': 'create_venv',
+      'Installing requirements...': 'install_requirements',
+      'Creating project...': 'create_project',
+    };
+
     if (task.status === 'running') {
-      $('progressWrap').classList.add('visible');
-      $('progressFill').style.width = task.progress + '%';
-      $('progressStep').textContent = task.step;
-      $('progressPct').textContent = task.progress + '%';
+      const currentStep = stepLabelMap[task.step];
+      // Mark all previous steps as done, current as running
+      const allSteps = Object.keys(STEP_MAP);
+      const currentIdx = currentStep ? allSteps.indexOf(currentStep) : -1;
+      for (let i = 0; i < allSteps.length; i++) {
+        if (i < currentIdx) {
+          updateStepCard(allSteps[i], 'done', 'Done');
+        } else if (i === currentIdx) {
+          updateStepCard(allSteps[i], 'running', task.step);
+        }
+      }
     } else if (task.status === 'done') {
-      $('progressFill').style.width = '100%';
-      $('progressStep').textContent = 'Done!';
-      $('progressPct').textContent = '100%';
+      // Mark all steps based on results
+      if (task.results) {
+        const stepLabels = Object.values(stepLabelMap);
+        for (const r of task.results) {
+          const stepId = stepLabelMap[r.step];
+          if (stepId) {
+            updateStepCard(stepId, r.ok ? 'done' : 'error', r.msg);
+          }
+        }
+      }
+      const btn = $('btnFullInstall');
+      if (btn) { btn.disabled = false; btn.textContent = 'Install Everything'; }
+      showToastMessage('Installation complete!', 'success');
+      refreshStatus();
     }
   });
 }
 
 // ---------------------------------------------------------------------------
-// Installation
+// Installation - Step Cards UI
 // ---------------------------------------------------------------------------
+
+const STEP_MAP = {
+  install_vscode: { label: 'Installing VS Code...', check: s => s.vscode },
+  install_python: { label: 'Installing Python 3.11...', check: s => s.python311 },
+  install_postgres: { label: 'Installing PostgreSQL...', check: s => s.postgres },
+  clone_odoo: { label: 'Cloning Odoo 17...', check: s => s.odoo_cloned },
+  create_venv: { label: 'Creating virtual environment...', check: s => s.venv_created },
+  install_requirements: { label: 'Installing requirements...', check: s => s.requirements_installed },
+  create_project: { label: 'Creating project...', check: null },
+};
+
+function updateStepCard(stepId, state, statusText) {
+  const card = $('step-' + stepId);
+  const icon = $('stepIcon-' + stepId);
+  const status = $('stepStatus-' + stepId);
+  if (!card) return;
+
+  card.className = 'step-card' + (state ? ' ' + state : '');
+  if (state === 'done') {
+    icon.innerHTML = '\u2713';
+    status.textContent = statusText || 'Done';
+  } else if (state === 'running') {
+    icon.innerHTML = '<span style="animation:spin 1s linear infinite;display:inline-block">&#9696;</span>';
+    status.textContent = statusText || 'Installing...';
+  } else if (state === 'error') {
+    icon.innerHTML = '\u2717';
+    status.textContent = statusText || 'Failed';
+  } else if (state === 'skip') {
+    icon.innerHTML = '\u2212';
+    status.textContent = statusText || 'Skipped';
+  } else {
+    status.textContent = statusText || '';
+  }
+}
+
+function refreshInstallStatus() {
+  if (!_status) return;
+  for (const [stepId, info] of Object.entries(STEP_MAP)) {
+    if (info.check && info.check(_status)) {
+      updateStepCard(stepId, 'done', 'Installed');
+    } else {
+      updateStepCard(stepId, '', '');
+      // Restore number
+      const icon = $('stepIcon-' + stepId);
+      if (icon) {
+        const idx = Object.keys(STEP_MAP).indexOf(stepId);
+        icon.innerHTML = String(idx + 1);
+      }
+    }
+  }
+}
+
+function appendInstallLog(line) {
+  const logEl = $('installLogBox');
+  const wrap = $('installLog');
+  if (!logEl || !wrap) return;
+  wrap.style.display = 'block';
+  logEl.innerHTML += `<div class="line">${escHtml(line)}</div>`;
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
 async function fullInstall() {
   const btn = $('btnFullInstall');
   btn.disabled = true;
   btn.textContent = 'Installing...';
-  $('results').innerHTML = '';
-  startLogPoll();
+
+  // Clear log
+  const logEl = $('installLogBox');
+  if (logEl) logEl.innerHTML = '';
+  $('installLog').style.display = 'block';
+
+  // Reset all step cards
+  for (const stepId of Object.keys(STEP_MAP)) {
+    updateStepCard(stepId, '', 'Pending');
+  }
+
   const res = await api('full_install', getFormData());
   btn.disabled = false;
   btn.textContent = 'Install Everything';
-  stopLogPoll();
-  $('progressFill').style.width = '100%';
-  $('progressStep').textContent = 'Done!';
-  $('progressPct').textContent = '100%';
-  if (res.results) {
-    $('results').innerHTML = res.results.map(r => `
-      <div class="result-item" style="display:flex;align-items:center;gap:8px;padding:8px 0;font-size:0.9rem;border-bottom:1px solid #1e1e1e">
-        <span style="font-size:1.1rem">${r.ok ? '\u2705' : '\u274C'}</span><span>${escHtml(r.step)}</span>
-        <span style="color:#666;font-size:0.8rem;margin-left:auto">${escHtml(r.msg)}</span>
-      </div>`).join('');
+
+  // Results will be pushed via task-progress events
+  if (!res.ok) {
+    showToastMessage('Install failed: ' + res.msg, 'error');
   }
-  refreshStatus();
 }
 
 async function runStep(step) {
-  startLogPoll();
+  // Show running state
+  updateStepCard(step, 'running', 'Installing...');
+  $('installLog').style.display = 'block';
+
   const res = await api('run_step', { ...getFormData(), step });
-  stopLogPoll();
+
+  if (res.ok) {
+    updateStepCard(step, 'done', res.msg || 'Done');
+    showToastMessage('\u2713 ' + (STEP_MAP[step]?.label || step) + ' ' + res.msg, 'success');
+  } else {
+    updateStepCard(step, 'error', res.msg || 'Failed');
+    showToastMessage('\u2717 ' + res.msg, 'error');
+  }
   refreshStatus();
-  alert(res.ok ? '\u2705 ' + res.msg : '\u274C ' + res.msg);
 }
 
 // ---------------------------------------------------------------------------
