@@ -265,10 +265,11 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         }
       }
 
-      // Start Odoo with output logging
+      // Start Odoo with output logging (use shell:true to avoid cmd.exe quote mangling)
       logger.log(`Starting Odoo: ${cmd}`);
-      const proc = spawn('cmd.exe', ['/c', cmd], {
+      const proc = spawn(cmd, [], {
         cwd: projPath,
+        shell: true,
         detached: true,
         windowsHide: false,
       });
