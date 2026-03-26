@@ -189,7 +189,7 @@ function renderProjects(s) {
           ? `<button class="btn btn-danger btn-xs" onclick="stopOdoo('${escAttr(p.name)}')">Stop</button>`
           : `<button class="btn btn-success btn-xs" onclick="startOdoo('${escAttr(p.name)}')">Start</button>`}
         <button class="btn btn-outline btn-xs" onclick="openBrowser('${escAttr(p.http_port)}')">Open Browser</button>
-        <button class="btn btn-outline btn-xs" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
+        <button class="btn btn-vscode btn-xs" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
         <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
         <button class="btn btn-outline btn-xs" onclick="editConfig('${escAttr(p.name)}')">Edit Config</button>
         <button class="btn btn-outline btn-xs" onclick="duplicateProject('${escAttr(p.name)}','${escAttr(p.http_port)}')">Duplicate</button>
@@ -691,7 +691,7 @@ function renderKanban(projects) {
           ? `<button class="btn btn-danger btn-xs" onclick="stopOdoo('${escAttr(p.name)}')">Stop</button>`
           : `<button class="btn btn-success btn-xs" onclick="startOdoo('${escAttr(p.name)}')">Start</button>`}
         <button class="btn btn-outline btn-xs" onclick="openBrowser('${escAttr(p.http_port)}')">Browser</button>
-        <button class="btn btn-outline btn-xs" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
+        <button class="btn btn-vscode btn-xs" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
         <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
         <button class="btn btn-outline btn-xs" onclick="showProjectDetail('${escAttr(p.name)}')">Detail</button>
       </div>
@@ -760,7 +760,7 @@ function showProjectDetail(name) {
         ? `<button class="btn btn-danger btn-sm" onclick="stopOdoo('${escAttr(p.name)}');hideModal('modalDetail')">Stop Odoo</button>`
         : `<button class="btn btn-success btn-sm" onclick="startOdoo('${escAttr(p.name)}');hideModal('modalDetail')">Start Odoo</button>`}
       <button class="btn btn-outline btn-sm" onclick="openBrowser('${escAttr(p.http_port)}')">Open Browser</button>
-      <button class="btn btn-outline btn-sm" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
+      <button class="btn btn-vscode btn-sm" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
       <button class="btn btn-outline btn-sm" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
       <button class="btn btn-outline btn-sm" onclick="hideModal('modalDetail');editConfig('${escAttr(p.name)}')">Edit Config</button>
       <button class="btn btn-outline btn-sm" onclick="hideModal('modalDetail');duplicateProject('${escAttr(p.name)}','${escAttr(p.http_port)}')">Duplicate</button>

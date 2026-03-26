@@ -265,32 +265,31 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         }
       }
 
-      // Start Odoo with output logging (use shell:true to avoid cmd.exe quote mangling)
+      // Start Odoo using exec (no terminal window)
       logger.log(`Starting Odoo: ${cmd}`);
-      const proc = spawn(cmd, [], {
+      const { exec: execChild } = require('child_process');
+      const odooProc = execChild(cmd, {
         cwd: projPath,
-        shell: true,
-        detached: true,
         windowsHide: true,
+        maxBuffer: 10 * 1024 * 1024,
       });
 
       // Log Odoo stdout/stderr to installer log
-      proc.stdout?.on('data', (data: Buffer) => {
+      odooProc.stdout?.on('data', (data: string) => {
         for (const line of data.toString().split('\n').filter(Boolean)) {
           logger.log(`[odoo] ${line.trim()}`);
         }
       });
-      proc.stderr?.on('data', (data: Buffer) => {
+      odooProc.stderr?.on('data', (data: string) => {
         for (const line of data.toString().split('\n').filter(Boolean)) {
           logger.log(`[odoo:err] ${line.trim()}`);
         }
       });
-      proc.on('exit', (code) => {
+      odooProc.on('exit', (code: number | null) => {
         if (code !== null && code !== 0) {
           logger.log(`[odoo] Process exited with code ${code}`);
         }
       });
-      proc.unref();
 
       return { ok: true, command: cmd };
     } catch (e) {
@@ -329,9 +328,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const targetPath = data?.path;
     if (!targetPath) return { ok: false, msg: 'No path provided' };
     try {
-      // Use exec with windowsHide to avoid black terminal flash
-      const { exec } = require('child_process');
-      exec(`code "${targetPath}"`, { windowsHide: true });
+      // Use shell.openExternal with vscode:// protocol (no terminal window)
+      await shell.openExternal(`vscode://file/${targetPath.replace(/\\/g, '/')}`);
       return { ok: true };
     } catch (e) {
       return { ok: false, msg: String(e) };
