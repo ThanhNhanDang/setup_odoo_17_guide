@@ -78,11 +78,32 @@ async function generateSslCert(baseDir: string, domain: string, logger: LoggerSe
     return false;
   }
 
+  // Create config file for proper cert extensions (Chrome requires these)
+  const confFile = path.join(sslDir, `${domain}.cnf`);
+  const confContent = `[req]
+distinguished_name = req_dn
+x509_extensions = v3_ca
+prompt = no
+
+[req_dn]
+CN = ${domain}
+
+[v3_ca]
+subjectAltName = DNS:${domain}
+basicConstraints = CA:TRUE
+keyUsage = digitalSignature, keyEncipherment, keyCertSign
+extendedKeyUsage = serverAuth
+`;
+  fs.writeFileSync(confFile, confContent, 'utf8');
+
   const { code } = await runCmd(
     `"${openssl}" req -x509 -nodes -days 3650 -newkey rsa:2048 ` +
     `-keyout "${keyFile}" -out "${crtFile}" ` +
-    `-subj "/CN=${domain}" -addext "subjectAltName=DNS:${domain}"`
+    `-config "${confFile}"`
   );
+
+  // Cleanup config
+  if (fs.existsSync(confFile)) fs.unlinkSync(confFile);
 
   if (code !== 0 || !fs.existsSync(crtFile)) return false;
 
