@@ -31,28 +31,19 @@ echo   Publishing %TYPE% release...
 echo ============================================================
 echo.
 
-REM Show current version
-for /f "tokens=2 delims=:, " %%a in ('findstr "version" package.json') do (
-    echo   Current version: %%~a
-    goto :bump
-)
-:bump
+REM Get current version using node (reliable)
+for /f %%v in ('node -p "require('./package.json').version"') do set CURRENT_VER=%%v
+echo   Current version: %CURRENT_VER%
 
 REM Bump version
-call npm version %TYPE% --no-git-tag-version
+call npm version %TYPE% --no-git-tag-version >nul 2>&1
+
+REM Get new version
+for /f %%v in ('node -p "require('./package.json').version"') do set NEW_VER=%%v
+echo   New version:     %NEW_VER%
 echo.
 
-REM Show new version
-for /f "tokens=2 delims=:, " %%a in ('findstr "version" package.json') do (
-    echo   New version: %%~a
-    goto :build
-)
-:build
-
-echo.
-echo   Building and publishing...
-echo.
-
+echo   Building TypeScript...
 call npx tsc
 if errorlevel 1 (
     echo [ERROR] TypeScript build failed!
@@ -60,6 +51,8 @@ if errorlevel 1 (
     exit /b 1
 )
 
+echo   Packaging and uploading to GitHub...
+echo.
 call npx electron-builder --publish always
 if errorlevel 1 (
     echo [ERROR] Publish failed!
@@ -67,29 +60,26 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM Publish draft release on GitHub (electron-builder creates drafts by default)
-for /f "tokens=2 delims=:, " %%a in ('findstr "version" package.json') do (
-    echo   Publishing draft release v%%~a on GitHub...
-    call gh release edit v%%~a --draft=false 2>nul
-    goto :gitops
-)
-:gitops
+REM Publish draft release (electron-builder creates drafts by default)
+echo.
+echo   Publishing draft release v%NEW_VER% on GitHub...
+call gh release edit v%NEW_VER% --draft=false 2>nul
 
 echo.
 echo ============================================================
-echo   Published successfully!
-echo   Check: https://github.com/ThanhNhanDang/setup_odoo_17_guide/releases
+echo   Published v%NEW_VER% successfully!
+echo   https://github.com/ThanhNhanDang/setup_odoo_17_guide/releases
 echo ============================================================
 echo.
 
-REM Git commit the version bump
+REM Git commit + tag + push
 cd ..
 git add electron-app/package.json electron-app/package-lock.json
-for /f "tokens=2 delims=:, " %%a in ('findstr "version" electron-app\package.json') do (
-    git commit -m "release: v%%~a"
-    git tag v%%~a
-    git push origin main --tags
-)
+git commit -m "release: v%NEW_VER%"
+git tag -f v%NEW_VER%
+git push origin main
+git push origin v%NEW_VER% --force
 
-echo   Git tagged and pushed!
+echo.
+echo   Git tagged v%NEW_VER% and pushed!
 pause
