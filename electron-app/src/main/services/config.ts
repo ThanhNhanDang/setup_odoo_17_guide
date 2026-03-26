@@ -1,11 +1,30 @@
+import * as fs from 'fs';
 import * as path from 'path';
 import { app } from 'electron';
 
 // ---------------------------------------------------------------------------
 // Config Constants
 // ---------------------------------------------------------------------------
-export const DEFAULT_BASE_DIR = 'D:\\workspaces\\odoo_17_base';
-export const DEFAULT_PROJECTS_DIR = 'D:\\workspaces\\projects\\odoo17';
+
+function resolveDefaultDir(preferred: string, fallback: string): string {
+  // Use preferred path if drive exists, otherwise fallback to C:\
+  const drive = preferred.substring(0, 3); // e.g. "D:\"
+  try {
+    if (fs.existsSync(drive)) return preferred;
+  } catch {
+    // drive doesn't exist
+  }
+  return fallback;
+}
+
+export const DEFAULT_BASE_DIR = resolveDefaultDir(
+  'D:\\workspaces\\odoo_17_base',
+  'C:\\odoo17\\odoo_17_base'
+);
+export const DEFAULT_PROJECTS_DIR = resolveDefaultDir(
+  'D:\\workspaces\\projects\\odoo17',
+  'C:\\odoo17\\projects'
+);
 
 export const PYTHON_311_URL = 'https://www.python.org/ftp/python/3.11.4/python-3.11.4-amd64.exe';
 export const POSTGRES_URL = 'https://get.enterprisedb.com/postgresql/postgresql-16.6-1-windows-x64.exe';

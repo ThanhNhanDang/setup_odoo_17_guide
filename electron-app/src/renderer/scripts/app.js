@@ -816,10 +816,14 @@ function applyTheme(theme) {
 // ---------------------------------------------------------------------------
 refreshStatus();
 
-// Load app version into nav
+// Load app version + default paths
 if (window.electronAPI) {
   api('app-version').then(v => {
     const el = document.querySelector('.nav-version');
     if (el) el.textContent = 'v' + v;
+  });
+  api('default-paths').then(paths => {
+    if ($('baseDir') && !$('baseDir').value) $('baseDir').value = paths.base_dir || '';
+    if ($('projectsDir') && !$('projectsDir').value) $('projectsDir').value = paths.projects_dir || '';
   });
 }

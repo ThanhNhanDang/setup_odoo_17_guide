@@ -10,7 +10,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'start_odoo', 'open_vscode', 'open_explorer', 'open_browser',
       'window-minimize', 'window-maximize', 'window-close', 'window-is-maximized',
       'update-check', 'update-download', 'update-install', 'update-info',
-      'app-version',
+      'app-version', 'default-paths',
     ];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, data);

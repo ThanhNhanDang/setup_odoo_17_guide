@@ -41,6 +41,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     return app.getVersion();
   });
 
+  ipcMain.handle('default-paths', () => {
+    return { base_dir: DEFAULT_BASE_DIR, projects_dir: DEFAULT_PROJECTS_DIR };
+  });
+
   // --- Window Controls (frameless) ---
   ipcMain.handle('window-minimize', () => { mainWindow.minimize(); });
   ipcMain.handle('window-maximize', () => {
