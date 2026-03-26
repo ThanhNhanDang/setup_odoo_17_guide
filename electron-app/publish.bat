@@ -53,7 +53,7 @@ echo.
 echo   Building and publishing...
 echo.
 
-call tsc
+call npx tsc
 if errorlevel 1 (
     echo [ERROR] TypeScript build failed!
     pause
@@ -66,6 +66,14 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
+
+REM Publish draft release on GitHub (electron-builder creates drafts by default)
+for /f "tokens=2 delims=:, " %%a in ('findstr "version" package.json') do (
+    echo   Publishing draft release v%%~a on GitHub...
+    call gh release edit v%%~a --draft=false 2>nul
+    goto :gitops
+)
+:gitops
 
 echo.
 echo ============================================================
