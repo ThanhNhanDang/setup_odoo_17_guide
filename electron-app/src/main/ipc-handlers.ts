@@ -265,20 +265,31 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         }
       }
 
-      // Start Odoo and verify it's actually running
+      // Start Odoo with output logging
       logger.log(`Starting Odoo: ${cmd}`);
       const proc = spawn('cmd.exe', ['/c', cmd], {
         cwd: projPath,
         detached: true,
-        stdio: 'ignore',
         windowsHide: false,
       });
-      proc.unref();
 
-      // Wait and verify Odoo is listening on port
-      const confPort = parseInt(conf.split('odoo.conf')[0] ? '8069' : '8069', 10);
-      logger.log(`  > Waiting for Odoo to start on port...`);
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      // Log Odoo stdout/stderr to installer log
+      proc.stdout?.on('data', (data: Buffer) => {
+        for (const line of data.toString().split('\n').filter(Boolean)) {
+          logger.log(`[odoo] ${line.trim()}`);
+        }
+      });
+      proc.stderr?.on('data', (data: Buffer) => {
+        for (const line of data.toString().split('\n').filter(Boolean)) {
+          logger.log(`[odoo:err] ${line.trim()}`);
+        }
+      });
+      proc.on('exit', (code) => {
+        if (code !== null && code !== 0) {
+          logger.log(`[odoo] Process exited with code ${code}`);
+        }
+      });
+      proc.unref();
 
       return { ok: true, command: cmd };
     } catch (e) {
