@@ -271,7 +271,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         cwd: projPath,
         shell: true,
         detached: true,
-        windowsHide: false,
+        windowsHide: true,
       });
 
       // Log Odoo stdout/stderr to installer log
