@@ -65,8 +65,12 @@ async function generateSslCert(baseDir: string, domain: string, logger: LoggerSe
   const keyFile = path.join(sslDir, `${domain}.key`);
   const crtFile = path.join(sslDir, `${domain}.crt`);
 
-  // Skip if already exists
-  if (fs.existsSync(keyFile) && fs.existsSync(crtFile)) return true;
+  // If cert exists, ensure it's trusted and return
+  if (fs.existsSync(keyFile) && fs.existsSync(crtFile)) {
+    // Always try to trust (idempotent, no harm if already trusted)
+    await runCmd(`certutil -addstore -f "Root" "${crtFile}"`);
+    return true;
+  }
 
   const openssl = findOpenssl();
   if (!openssl) {
@@ -80,7 +84,20 @@ async function generateSslCert(baseDir: string, domain: string, logger: LoggerSe
     `-subj "/CN=${domain}" -addext "subjectAltName=DNS:${domain}"`
   );
 
-  return code === 0 && fs.existsSync(keyFile) && fs.existsSync(crtFile);
+  if (code !== 0 || !fs.existsSync(crtFile)) return false;
+
+  // Import cert to Windows Trusted Root CA store (requires Admin)
+  // This makes browsers trust the self-signed cert without warnings
+  const { code: trustCode } = await runCmd(
+    `certutil -addstore -f "Root" "${crtFile}"`
+  );
+  if (trustCode === 0) {
+    logger.log(`  > SSL cert for ${domain} trusted by Windows.`);
+  } else {
+    logger.log(`  > SSL cert created but not trusted (run as Admin to trust).`);
+  }
+
+  return true;
 }
 
 // ---------------------------------------------------------------------------
