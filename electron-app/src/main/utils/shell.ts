@@ -41,11 +41,17 @@ export function runCmd(cmd: string, cwd?: string, env?: NodeJS.ProcessEnv): Prom
 /**
  * Run a command with real-time output streaming to the logger.
  * Used for long-running operations (git clone, pip install).
+ *
+ * @param onData optional callback for each output line, used to parse progress
  */
 export function runCmdStreaming(
   cmd: string,
   logger: LoggerService,
-  options?: { cwd?: string; env?: NodeJS.ProcessEnv }
+  options?: {
+    cwd?: string;
+    env?: NodeJS.ProcessEnv;
+    onData?: (line: string) => void;
+  }
 ): Promise<number> {
   return new Promise((resolve) => {
     const proc: ChildProcess = spawn(cmd, [], {
@@ -55,19 +61,20 @@ export function runCmdStreaming(
       windowsHide: true,
     });
 
-    proc.stdout?.on('data', (data: Buffer) => {
-      const lines = data.toString().split('\n').filter(Boolean);
+    const handleData = (data: Buffer) => {
+      // Split on \n and \r for git progress which uses \r
+      const lines = data.toString().split(/[\r\n]+/).filter(Boolean);
       for (const line of lines) {
-        logger.log(`    ${line.trim()}`);
+        const trimmed = line.trim();
+        if (trimmed) {
+          logger.log(`    ${trimmed}`);
+          options?.onData?.(trimmed);
+        }
       }
-    });
+    };
 
-    proc.stderr?.on('data', (data: Buffer) => {
-      const lines = data.toString().split('\n').filter(Boolean);
-      for (const line of lines) {
-        logger.log(`    ${line.trim()}`);
-      }
-    });
+    proc.stdout?.on('data', handleData);
+    proc.stderr?.on('data', handleData);
 
     proc.on('error', (err) => {
       logger.log(`    [ERROR] ${err.message}`);

@@ -12,9 +12,10 @@ import {
   getTemplatesDir,
 } from './config';
 import { findPython311, findPostgresBin, findDocker, findDockerPostgres, findVSCode, findGit } from './detection';
-import { runCmd } from '../utils/shell';
+import { runCmd, runCmdStreaming } from '../utils/shell';
 import { downloadFile } from '../utils/download';
 import { installCaddy, isCaddyInstalled } from '../utils/caddy';
+import { StepLockManager } from './step-lock';
 
 // ---------------------------------------------------------------------------
 // Result type
@@ -61,7 +62,7 @@ export async function stepInstallGit(baseDir: string, logger: LoggerService): Pr
   fs.mkdirSync(baseDir, { recursive: true });
   const installer = path.join(baseDir, 'git-installer.exe');
   try {
-    await downloadFile(GIT_URL, installer, logger);
+    await downloadFile(GIT_URL, installer, logger, 'install_git');
   } catch (e) {
     return { ok: false, msg: `Download failed: ${e}` };
   }
@@ -87,14 +88,15 @@ export async function stepInstallVSCode(baseDir: string, logger: LoggerService):
   fs.mkdirSync(baseDir, { recursive: true });
   const installer = path.join(baseDir, 'vscode-installer.exe');
   try {
-    await downloadFile(VSCODE_URL, installer, logger);
+    await downloadFile(VSCODE_URL, installer, logger, 'install_vscode');
   } catch (e) {
     return { ok: false, msg: `Download failed: ${e}` };
   }
-  logger.log('Installing VS Code (silent)...');
+  logger.log('Installing VS Code (silent, user-level)...');
+  // User installer: no admin needed, installs to %LOCALAPPDATA%
   // /VERYSILENT = no UI, /MERGETASKS = add to PATH + context menu + file associations
   await runCmd(
-    `"${installer}" /VERYSILENT /NORESTART /MERGETASKS="!runcode,addcontextmenufiles,addcontextmenufolders,associatewithfiles,addtopath"`
+    `"${installer}" /VERYSILENT /NORESTART /CURRENTUSER /MERGETASKS="!runcode,addcontextmenufiles,addcontextmenufolders,associatewithfiles,addtopath"`
   );
   // Wait for installer to finish
   await new Promise(resolve => setTimeout(resolve, 5000));
@@ -120,7 +122,7 @@ export async function stepInstallPython(baseDir: string, logger: LoggerService):
   fs.mkdirSync(baseDir, { recursive: true });
   const installer = path.join(baseDir, 'python-3.11.4-amd64.exe');
   try {
-    await downloadFile(PYTHON_311_URL, installer, logger);
+    await downloadFile(PYTHON_311_URL, installer, logger, 'install_python');
   } catch (e) {
     return { ok: false, msg: `Download failed: ${e}` };
   }
@@ -188,7 +190,7 @@ export async function stepInstallPostgres(
     fs.mkdirSync(baseDir, { recursive: true });
     const installer = path.join(baseDir, 'postgresql-16-installer.exe');
     try {
-      await downloadFile(POSTGRES_URL, installer, logger);
+      await downloadFile(POSTGRES_URL, installer, logger, 'install_postgres');
     } catch (e) {
       return { ok: false, msg: `Download failed: ${e}` };
     }
@@ -305,9 +307,30 @@ export async function stepCloneOdoo(baseDir: string, logger: LoggerService): Pro
     return { ok: true, msg: 'Already cloned' };
   }
   logger.log('Cloning Odoo 17.0 (shallow clone)...');
-  const { code } = await runCmd(
-    `git clone --branch ${ODOO_BRANCH} --single-branch --depth 1 ${ODOO_GIT_URL}`,
-    baseDir
+  const code = await runCmdStreaming(
+    `git clone --progress --branch ${ODOO_BRANCH} --single-branch --depth 1 ${ODOO_GIT_URL}`,
+    logger,
+    {
+      cwd: baseDir,
+      onData: (line) => {
+        // Parse git clone progress: "Receiving objects:  45% (1234/2740)"
+        const match = line.match(/(\w[\w ]+):\s+(\d+)%/);
+        if (match) {
+          const phase = match[1]; // "Receiving objects", "Resolving deltas"
+          const pct = parseInt(match[2], 10);
+          // Map git phases to overall progress: Receiving 0-80%, Resolving 80-100%
+          const overall = phase.includes('Resolving')
+            ? 80 + Math.round(pct * 0.2)
+            : Math.round(pct * 0.8);
+          logger.emitDownloadProgress({
+            step: 'clone_odoo',
+            percent: overall,
+            downloadedMB: `${phase}`,
+            totalMB: `${pct}%`,
+          });
+        }
+      },
+    }
   );
   if (fs.existsSync(odooBin)) {
     return { ok: true, msg: 'Cloned' };
@@ -356,8 +379,44 @@ export async function stepInstallRequirements(baseDir: string, logger: LoggerSer
     return { ok: false, msg: 'requirements.txt not found.' };
   }
   logger.log('Installing dependencies...');
-  const { code, output } = await runCmd(`"${pipExe}" install -r "${reqFile}"`);
-  if (code === 0 || output.includes('Successfully installed')) {
+  // Count total packages for progress tracking
+  const reqLines = fs.readFileSync(reqFile, 'utf8')
+    .split('\n')
+    .filter(l => l.trim() && !l.trim().startsWith('#'));
+  const totalPkgs = reqLines.length || 1;
+  let installedCount = 0;
+  let success = false;
+
+  const code = await runCmdStreaming(
+    `"${pipExe}" install -r "${reqFile}"`,
+    logger,
+    {
+      onData: (line) => {
+        // Track "Successfully installed ..." or "Collecting ..." or "Downloading ..."
+        if (line.startsWith('Collecting') || line.startsWith('Downloading') || line.match(/^Installing collected/)) {
+          installedCount++;
+          const pct = Math.min(99, Math.round((installedCount / totalPkgs) * 100));
+          logger.emitDownloadProgress({
+            step: 'install_requirements',
+            percent: pct,
+            downloadedMB: `${installedCount}`,
+            totalMB: `${totalPkgs} pkgs`,
+          });
+        }
+        if (line.includes('Successfully installed')) {
+          success = true;
+          logger.emitDownloadProgress({
+            step: 'install_requirements',
+            percent: 100,
+            downloadedMB: `${totalPkgs}`,
+            totalMB: `${totalPkgs} pkgs`,
+          });
+        }
+      },
+    }
+  );
+
+  if (code === 0 || success) {
     return { ok: true, msg: 'Installed' };
   }
   return { ok: false, msg: 'Failed. Check logs.' };
@@ -494,23 +553,44 @@ interface FullInstallResult {
 }
 
 /**
- * Run a named step, log it, and push progress to renderer.
+ * Run a named step with lock support.
+ * If step is already locked (running via run_step), wait for its result instead of re-running.
  */
 async function runNamedStep(
   label: string,
+  stepId: string,
   fn: () => Promise<StepResult>,
   logger: LoggerService,
+  lock: StepLockManager,
 ): Promise<FullInstallResult> {
+  // If already running (e.g. user clicked individual step), wait for that result
+  if (lock.isLocked(stepId)) {
+    logger.log('');
+    logger.log(`>> ${label} - already running, waiting for result...`);
+    const existing = await lock.getResult(stepId);
+    const result = existing || { ok: true, msg: 'Already handled' };
+    logger.log(`[OK] ${label} - ${result.msg} (from individual step)`);
+    return { step: label, ok: result.ok, msg: result.msg };
+  }
+
+  // Normal: acquire lock, run, release
   logger.updateTask({ status: 'running', step: label, progress: 0 });
   logger.log('');
   logger.log(`>> ${label}`);
-  const result = await fn();
-  if (!result.ok) {
-    logger.log(`[WARN] ${label} - ${result.msg}`);
-  } else {
-    logger.log(`[OK] ${label} - ${result.msg}`);
+
+  const promise = fn();
+  lock.acquire(stepId, 'full_install', promise);
+  try {
+    const result = await promise;
+    if (!result.ok) {
+      logger.log(`[WARN] ${label} - ${result.msg}`);
+    } else {
+      logger.log(`[OK] ${label} - ${result.msg}`);
+    }
+    return { step: label, ok: result.ok, msg: result.msg };
+  } finally {
+    lock.release(stepId);
   }
-  return { step: label, ok: result.ok, msg: result.msg };
 }
 
 /**
@@ -532,6 +612,7 @@ export async function stepFullInstall(
   projectName: string,
   logger: LoggerService,
   opts: Record<string, string> = {},
+  lock: StepLockManager = new StepLockManager(),
 ): Promise<readonly FullInstallResult[]> {
   fs.mkdirSync(baseDir, { recursive: true });
   fs.mkdirSync(projectsDir, { recursive: true });
@@ -548,39 +629,39 @@ export async function stepFullInstall(
   logger.log('Starting parallel installation pipeline...');
   logger.log('==================================================');
 
-  // Fire all independent tasks simultaneously
-  const gitPromise = runNamedStep('Installing Git...', () => stepInstallGit(baseDir, logger), logger);
-  const vscodePromise = runNamedStep('Installing VS Code...', () => stepInstallVSCode(baseDir, logger), logger);
-  const pythonPromise = runNamedStep('Installing Python 3.11...', () => stepInstallPython(baseDir, logger), logger);
-  const pgPromise = runNamedStep('Installing PostgreSQL...', () => stepInstallPostgres(baseDir, logger, pgSuperPassword, dbPort, dbUser, dbPassword, pgMode), logger);
-  const caddyPromise = runNamedStep('Installing Caddy (HTTPS)...', () => stepInstallCaddy(baseDir, logger), logger);
+  // Fire all independent tasks simultaneously (with lock support)
+  const gitPromise = runNamedStep('Installing Git...', 'install_git', () => stepInstallGit(baseDir, logger), logger, lock);
+  const vscodePromise = runNamedStep('Installing VS Code...', 'install_vscode', () => stepInstallVSCode(baseDir, logger), logger, lock);
+  const pythonPromise = runNamedStep('Installing Python 3.11...', 'install_python', () => stepInstallPython(baseDir, logger), logger, lock);
+  const pgPromise = runNamedStep('Installing PostgreSQL...', 'install_postgres', () => stepInstallPostgres(baseDir, logger, pgSuperPassword, dbPort, dbUser, dbPassword, pgMode), logger, lock);
+  const caddyPromise = runNamedStep('Installing Caddy (HTTPS)...', 'install_caddy', () => stepInstallCaddy(baseDir, logger), logger, lock);
 
   // ── Chain: Git done → Clone Odoo ──
   const clonePromise = gitPromise.then(gitResult => {
     results.push(gitResult);
     logger.updateTask({ status: 'running', step: 'Cloning Odoo 17...', progress: 20 });
-    return runNamedStep('Cloning Odoo 17...', () => stepCloneOdoo(baseDir, logger), logger);
+    return runNamedStep('Cloning Odoo 17...', 'clone_odoo', () => stepCloneOdoo(baseDir, logger), logger, lock);
   });
 
   // ── Chain: Python done → Venv → Pip Install ──
   const pipPromise = pythonPromise.then(async pyResult => {
     results.push(pyResult);
     logger.updateTask({ status: 'running', step: 'Creating venv...', progress: 30 });
-    const venvResult = await runNamedStep('Creating virtual environment...', () => stepCreateVenv(baseDir, logger), logger);
+    const venvResult = await runNamedStep('Creating virtual environment...', 'create_venv', () => stepCreateVenv(baseDir, logger), logger, lock);
     results.push(venvResult);
 
     // Wait for Odoo clone too (need requirements.txt)
     const cloneResult = await clonePromise;
     results.push(cloneResult);
     logger.updateTask({ status: 'running', step: 'Installing pip requirements...', progress: 50 });
-    return runNamedStep('Installing requirements...', () => stepInstallRequirements(baseDir, logger), logger);
+    return runNamedStep('Installing requirements...', 'install_requirements', () => stepInstallRequirements(baseDir, logger), logger, lock);
   });
 
   // ── Chain: PG done → Create DB User ──
   const dbUserPromise = pgPromise.then(pgResult => {
     results.push(pgResult);
     logger.updateTask({ status: 'running', step: 'Creating DB user...', progress: 60 });
-    return runNamedStep('Creating DB user...', () => stepCreatePgUser(logger, dbUser, dbPassword, dbPort, pgSuperPassword, pgMode), logger);
+    return runNamedStep('Creating DB user...', 'create_db_user', () => stepCreatePgUser(logger, dbUser, dbPassword, dbPort, pgSuperPassword, pgMode), logger, lock);
   });
 
   // ── Wait for VS Code + Caddy (independent, just collect results) ──

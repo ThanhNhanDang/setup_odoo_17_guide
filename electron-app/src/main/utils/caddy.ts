@@ -59,7 +59,7 @@ export async function installCaddy(baseDir: string, logger: LoggerService): Prom
   logger.log('Downloading Caddy server...');
 
   try {
-    await downloadFile(CADDY_URL, caddyExe, logger);
+    await downloadFile(CADDY_URL, caddyExe, logger, 'install_caddy');
     logger.log('Caddy installed!');
 
     // Trust Caddy's root CA (so browsers accept the self-signed certs)

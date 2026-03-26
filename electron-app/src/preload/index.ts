@@ -27,6 +27,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('task-progress', (_event, task) => callback(task));
   },
 
+  onDownloadProgress: (callback: (data: { step: string; percent: number; downloadedMB: string; totalMB: string }) => void): void => {
+    ipcRenderer.on('download-progress', (_event, data) => callback(data));
+  },
+
   // Generic event listener (for update-status and other push events)
   onEvent: (eventName: string, callback: (...args: unknown[]) => void): void => {
     ipcRenderer.on(eventName, (_event, ...args) => callback(...args));

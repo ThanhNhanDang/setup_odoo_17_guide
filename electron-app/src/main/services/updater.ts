@@ -22,8 +22,8 @@ export class UpdaterService {
   private updateInfo: UpdateInfo | null = null;
 
   constructor(private readonly window: BrowserWindow) {
-    // Don't auto-download - let user decide
-    autoUpdater.autoDownload = false;
+    // Auto-download updates immediately
+    autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
     autoUpdater.autoRunAppAfterInstall = true;
 

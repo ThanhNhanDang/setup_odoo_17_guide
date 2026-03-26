@@ -90,7 +90,7 @@ function createWindow(): void {
     const updater = new UpdaterService(mainWindow!);
     registerUpdateHandlers(mainWindow!, updater);
     // Check for updates after 3 seconds (let UI load first)
-    setTimeout(() => updater.checkForUpdates(), 3000);
+    setTimeout(() => updater.checkForUpdates(), 1000);
   });
 
   mainWindow.on('closed', () => {
@@ -134,6 +134,27 @@ if (!gotTheLock) {
   app.whenReady().then(() => {
     ensureAdmin();
     createWindow();
+  });
+
+  // Cleanup partial downloads on quit
+  app.on('before-quit', () => {
+    const { DEFAULT_BASE_DIR } = require('./services/config');
+    const partialFiles = [
+      'vscode-installer.exe', 'git-installer.exe',
+      'python-3.11.4-amd64.exe', 'postgresql-16-installer.exe',
+    ];
+    for (const f of partialFiles) {
+      const fp = path.join(DEFAULT_BASE_DIR, f);
+      try {
+        if (fs.existsSync(fp)) {
+          const stat = fs.statSync(fp);
+          // Delete if file is suspiciously small (partial download)
+          if (stat.size < 1_000_000) {
+            fs.unlinkSync(fp);
+          }
+        }
+      } catch { /* ignore cleanup errors */ }
+    }
   });
 
   app.on('window-all-closed', () => {

@@ -3,6 +3,60 @@ import * as path from 'path';
 import { execFileSync, execSync } from 'child_process';
 
 // ---------------------------------------------------------------------------
+// .lnk shortcut parser — reads target path from Windows Shell Link binary
+// Reference: [MS-SHLLINK] https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-shllink
+// ---------------------------------------------------------------------------
+
+function readLnkTarget(lnkPath: string): string | null {
+  try {
+    const buf = fs.readFileSync(lnkPath);
+    // Validate header magic: 4C 00 00 00
+    if (buf.length < 76 || buf.readUInt32LE(0) !== 0x0000004C) return null;
+
+    const flags = buf.readUInt32LE(0x14);
+    let offset = 76; // HeaderSize
+
+    // If HasLinkTargetIDList flag (bit 0), skip the IDList
+    if (flags & 0x01) {
+      if (offset + 2 > buf.length) return null;
+      const idListSize = buf.readUInt16LE(offset);
+      offset += 2 + idListSize;
+    }
+
+    // If HasLinkInfo flag (bit 1), parse LinkInfo for LocalBasePath
+    if (flags & 0x02) {
+      if (offset + 4 > buf.length) return null;
+      const linkInfoStart = offset;
+      const linkInfoSize = buf.readUInt32LE(offset);
+      if (linkInfoSize < 28) return null;
+
+      const linkInfoFlags = buf.readUInt32LE(offset + 8);
+      // VolumeIDAndLocalBasePath flag (bit 0)
+      if (linkInfoFlags & 0x01) {
+        const localBasePathOffset = buf.readUInt32LE(offset + 16);
+        const pathStart = linkInfoStart + localBasePathOffset;
+        // Read null-terminated string
+        let end = pathStart;
+        while (end < buf.length && buf[end] !== 0) end++;
+        const targetPath = buf.slice(pathStart, end).toString('utf8');
+        if (targetPath && targetPath.includes('\\')) return targetPath;
+      }
+
+      offset += linkInfoSize;
+    }
+
+    // Fallback: scan buffer for path pattern (e.g., "X:\...\Code.exe")
+    const content = buf.toString('utf8', 76, Math.min(buf.length, 2048));
+    const match = content.match(/[A-Z]:\\[^\0]+?Code\.exe/i);
+    if (match) return match[0];
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Detection Functions
 // Ports: find_python311, find_postgres_bin, find_docker,
 //        find_docker_postgres, detect_native_postgres_details
@@ -68,7 +122,8 @@ export function findVSCode(): string | null {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
     });
-    if (output.trim()) return 'code'; // Available in PATH
+    const ver = output.trim().split('\n')[0]?.trim();
+    if (ver && /^\d+\.\d+/.test(ver)) return 'code'; // Available in PATH
   } catch {
     // not in PATH
   }
@@ -85,6 +140,40 @@ export function findVSCode(): string | null {
   for (const p of candidates) {
     if (p && fs.existsSync(p)) return p;
   }
+
+  // Check Start Menu shortcuts for VS Code (.lnk files)
+  // Parse .lnk binary directly (no PowerShell dependency)
+  const startMenuDirs = [
+    path.join(process.env.APPDATA || '', 'Microsoft', 'Windows', 'Start Menu', 'Programs'),
+    'C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs',
+  ];
+  for (const menuDir of startMenuDirs) {
+    try {
+      if (!fs.existsSync(menuDir)) continue;
+      const findLnk = (dir: string): string | null => {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          const fullPath = path.join(dir, entry.name);
+          if (entry.isDirectory()) {
+            const found = findLnk(fullPath);
+            if (found) return found;
+          } else if (
+            entry.name.toLowerCase().includes('code') &&
+            entry.name.endsWith('.lnk')
+          ) {
+            const target = readLnkTarget(fullPath);
+            if (target && target.toLowerCase().endsWith('code.exe') && fs.existsSync(target)) {
+              return target;
+            }
+          }
+        }
+        return null;
+      };
+      const found = findLnk(menuDir);
+      if (found) return found;
+    } catch { /* menu dir not accessible */ }
+  }
+
   return null;
 }
 
@@ -92,6 +181,7 @@ export function findVSCode(): string | null {
  * Get VS Code version string (if installed).
  */
 export function getVSCodeVersion(): string {
+  // Try 'code --version' from PATH first
   try {
     const output = execFileSync('cmd.exe', ['/c', 'code --version'], {
       timeout: 5000,
@@ -100,10 +190,23 @@ export function getVSCodeVersion(): string {
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     // First line is version number (e.g., "1.96.0")
-    return output.trim().split('\n')[0].trim();
+    const ver = output.trim().split('\n')[0].trim();
+    if (ver) return ver;
+  } catch { /* not in PATH */ }
+
+  // Try extracting version from portable path (e.g., VSCode-win32-x64-1.109.5)
+  try {
+    const vscodePath = findVSCode();
+    if (vscodePath && vscodePath !== 'code') {
+      const dirName = path.basename(path.dirname(vscodePath));
+      const match = dirName.match(/(\d+\.\d+\.\d+)/);
+      if (match) return match[1];
+    }
   } catch {
-    return '';
+    // portable path not accessible
   }
+
+  return '';
 }
 
 /**

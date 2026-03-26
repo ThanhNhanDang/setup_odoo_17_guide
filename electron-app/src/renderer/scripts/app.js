@@ -189,7 +189,6 @@ function renderProjects(s) {
         ${p.is_running
           ? `<button class="btn btn-danger btn-xs" onclick="stopOdoo('${escAttr(p.name)}')">Stop</button>`
           : `<button class="btn btn-success btn-xs" onclick="startOdoo('${escAttr(p.name)}')">Start</button>`}
-        <button class="btn btn-outline btn-xs" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port)}')">Open Browser</button>
         <button class="btn btn-vscode btn-xs" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
         <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
         <button class="btn btn-outline btn-xs" onclick="editConfig('${escAttr(p.name)}')">Edit Config</button>
@@ -265,32 +264,48 @@ if (window.electronAPI) {
 
     if (task.status === 'running') {
       const currentStep = stepLabelMap[task.step];
-      // Mark all previous steps as done, current as running
-      const allSteps = Object.keys(STEP_MAP);
-      const currentIdx = currentStep ? allSteps.indexOf(currentStep) : -1;
-      for (let i = 0; i < allSteps.length; i++) {
-        if (i < currentIdx) {
-          updateStepCard(allSteps[i], 'done', 'Done');
-        } else if (i === currentIdx) {
-          updateStepCard(allSteps[i], 'running', task.step);
+      if (currentStep) {
+        const st = _stepStates.get(currentStep);
+        // Don't overwrite user-initiated step
+        if (!st || st.source !== 'user') {
+          _stepStates.set(currentStep, { state: 'running', source: 'full' });
+          updateStepCard(currentStep, 'running', task.step);
         }
       }
     } else if (task.status === 'done') {
-      // Mark all steps based on results
       if (task.results) {
-        const stepLabels = Object.values(stepLabelMap);
         for (const r of task.results) {
           const stepId = stepLabelMap[r.step];
-          if (stepId) {
-            updateStepCard(stepId, r.ok ? 'done' : 'error', r.msg);
-          }
+          if (!stepId) continue;
+          const st = _stepStates.get(stepId);
+          if (st && st.source === 'user') continue; // Don't overwrite user step
+          _stepStates.set(stepId, { state: r.ok ? 'done' : 'error', source: 'full' });
+          updateStepCard(stepId, r.ok ? 'done' : 'error', r.msg);
         }
       }
       const btn = $('btnFullInstall');
       if (btn) { btn.disabled = false; btn.textContent = 'Install Everything'; }
+      _fullInstallRunning = false;
+      // Downgrade full sources so refreshStatus can update
+      for (const [sid, st] of _stepStates) {
+        if (st.source === 'full') _stepStates.set(sid, { ...st, source: 'status' });
+      }
       showToastMessage('Installation complete!', 'success');
       refreshStatus();
     }
+  });
+
+  // Download progress → only update if step is actually running
+  window.electronAPI.onDownloadProgress((data) => {
+    const st = _stepStates.get(data.step);
+    if (!st || st.state !== 'running') return;
+    const card = $('step-' + data.step);
+    if (!card) return;
+    const prog = $('stepProgress-' + data.step);
+    if (prog) {
+      prog.textContent = `${data.percent}% · ${data.downloadedMB}/${data.totalMB} MB`;
+    }
+    card.style.setProperty('--dl-progress', data.percent + '%');
   });
 }
 
@@ -315,6 +330,13 @@ function updateStepCard(stepId, state, statusText) {
   const status = $('stepStatus-' + stepId);
   if (!card) return;
 
+  // Reset download progress when step completes or errors
+  if (state === 'done' || state === 'error') {
+    card.style.setProperty('--dl-progress', state === 'done' ? '100%' : '0%');
+    const prog = $('stepProgress-' + stepId);
+    if (prog) prog.textContent = '';
+  }
+
   card.className = 'step-card' + (state ? ' ' + state : '');
   if (state === 'done') {
     icon.innerHTML = '\u2713';
@@ -336,9 +358,15 @@ function updateStepCard(stepId, state, statusText) {
 function refreshInstallStatus() {
   if (!_status) return;
   for (const [stepId, info] of Object.entries(STEP_MAP)) {
+    const st = _stepStates.get(stepId);
+    // Don't overwrite running steps or recently completed user steps
+    if (st && (st.state === 'running' || st.source === 'user')) continue;
+
     if (info.check && info.check(_status)) {
+      _stepStates.set(stepId, { state: 'done', source: 'status' });
       updateStepCard(stepId, 'done', 'Installed');
     } else {
+      _stepStates.set(stepId, { state: 'idle', source: 'status' });
       updateStepCard(stepId, '', '');
       const icon = $('stepIcon-' + stepId);
       if (icon) {
@@ -353,18 +381,23 @@ async function checkInstallStatus() {
   const btn = $('btnCheckStatus');
   if (btn) { btn.disabled = true; btn.textContent = 'Checking...'; }
 
-  // Set all steps to "checking" animation
   const allSteps = Object.keys(STEP_MAP);
+
+  // Set non-running steps to "checking" animation
   for (const stepId of allSteps) {
+    const st = _stepStates.get(stepId);
+    if (st && st.state === 'running') continue; // Skip running steps
     updateStepCard(stepId, 'running', 'Checking...');
   }
 
   // Fetch fresh status
   await refreshStatus();
 
-  // Animate each step one by one with delay
+  // Animate each step one by one with delay — skip running steps
   for (let i = 0; i < allSteps.length; i++) {
     const stepId = allSteps[i];
+    const st = _stepStates.get(stepId);
+    if (st && st.state === 'running') continue; // Skip running steps
     const info = STEP_MAP[stepId];
     await new Promise(r => setTimeout(r, 300));
     if (info.check && info.check(_status)) {
@@ -395,7 +428,34 @@ function appendInstallLog(line) {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
+const _stepStates = new Map(); // { state: 'idle'|'running'|'done'|'error', source: 'user'|'full'|'status' }
+let _fullInstallRunning = false;
+
+/** Sync Install Everything button disabled state based on running steps */
+function syncFullInstallBtn() {
+  const btn = $('btnFullInstall');
+  if (!btn) return;
+  if (_fullInstallRunning) return; // Already managed by fullInstall()
+  let anyRunning = false;
+  for (const [, s] of _stepStates) {
+    if (s.state === 'running') { anyRunning = true; break; }
+  }
+  btn.disabled = anyRunning;
+  if (anyRunning) {
+    btn.title = 'Wait for running step to finish';
+  } else {
+    btn.title = '';
+  }
+}
+
 async function fullInstall() {
+  if (_fullInstallRunning) return;
+  // Block if any step is running individually
+  for (const [, s] of _stepStates) {
+    if (s.state === 'running' && s.source === 'user') return;
+  }
+  _fullInstallRunning = true;
+
   const btn = $('btnFullInstall');
   btn.disabled = true;
   btn.textContent = 'Installing...';
@@ -405,36 +465,62 @@ async function fullInstall() {
   if (logEl) logEl.innerHTML = '';
   $('installLog').style.display = 'block';
 
-  // Reset all step cards
+  // Reset step cards — skip user-initiated running steps
   for (const stepId of Object.keys(STEP_MAP)) {
+    const st = _stepStates.get(stepId);
+    if (st && st.state === 'running' && st.source === 'user') continue;
+    _stepStates.set(stepId, { state: 'idle', source: 'full' });
     updateStepCard(stepId, '', 'Pending');
   }
 
   const res = await api('full_install', getFormData());
-  btn.disabled = false;
-  btn.textContent = 'Install Everything';
 
-  // Results will be pushed via task-progress events
   if (!res.ok) {
+    btn.disabled = false;
+    btn.textContent = 'Install Everything';
+    _fullInstallRunning = false;
     showToastMessage('Install failed: ' + res.msg, 'error');
   }
 }
 
 async function runStep(step) {
-  // Show running state
+  // Block if full install running or any step running
+  const st = _stepStates.get(step);
+  if (_fullInstallRunning || (st && st.state === 'running')) return;
+  // Block if another step is running individually
+  for (const [, s] of _stepStates) {
+    if (s.state === 'running' && s.source === 'user') return;
+  }
+
+  _stepStates.set(step, { state: 'running', source: 'user' });
   updateStepCard(step, 'running', 'Installing...');
+  syncFullInstallBtn();
   $('installLog').style.display = 'block';
 
-  const res = await api('run_step', { ...getFormData(), step });
-
-  if (res.ok) {
-    updateStepCard(step, 'done', res.msg || 'Done');
-    showToastMessage('\u2713 ' + (STEP_MAP[step]?.label || step) + ' ' + res.msg, 'success');
-  } else {
-    updateStepCard(step, 'error', res.msg || 'Failed');
-    showToastMessage('\u2717 ' + res.msg, 'error');
+  try {
+    const res = await api('run_step', { ...getFormData(), step });
+    const state = res.ok ? 'done' : 'error';
+    _stepStates.set(step, { state, source: 'user' });
+    updateStepCard(step, state, res.msg || (res.ok ? 'Done' : 'Failed'));
+    if (res.ok) {
+      showToastMessage('\u2713 ' + (STEP_MAP[step]?.label || step) + ' ' + res.msg, 'success');
+    } else {
+      showToastMessage('\u2717 ' + res.msg, 'error');
+    }
+    refreshStatus();
+  } catch (e) {
+    _stepStates.set(step, { state: 'error', source: 'user' });
+    updateStepCard(step, 'error', 'Failed');
+  } finally {
+    syncFullInstallBtn();
+    // After 2s, downgrade source so refreshStatus can update
+    setTimeout(() => {
+      const cur = _stepStates.get(step);
+      if (cur && cur.source === 'user' && cur.state !== 'running') {
+        _stepStates.set(step, { ...cur, source: 'status' });
+      }
+    }, 2000);
   }
-  refreshStatus();
 }
 
 // ---------------------------------------------------------------------------
@@ -479,8 +565,8 @@ async function createProject() {
     refreshStatus();
     if (res.ok) {
       showToastMessage('Project created: ' + name, 'success');
-      // Switch to My Projects tab
-      showPanel('projects', document.querySelectorAll('.nav-tab')[3]);
+      // Switch to Dashboard to see new project
+      showPanel('dashboard', document.querySelectorAll('.nav-tab')[0]);
     } else {
       showToastMessage('Failed: ' + (res.msg || 'Unknown error'), 'error');
     }
@@ -716,24 +802,6 @@ function renderKanban(projects) {
       </div>
       <div class="kanban-card-url" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port || '8069')}')" title="Click to open">${escHtml(getProjectUrl(p.domain, p.http_port || '8069'))}</div>
       <div class="kanban-card-body">
-        <div class="kanban-card-meta">
-          <div class="kanban-meta-item">
-            <span class="kanban-meta-label">Database</span>
-            <span class="kanban-meta-value">${escHtml(p.db_host || 'localhost')}:${escHtml(p.db_port || '5432')}</span>
-          </div>
-          <div class="kanban-meta-item">
-            <span class="kanban-meta-label">DB User</span>
-            <span class="kanban-meta-value">${escHtml(p.db_user || 'odoo')}</span>
-          </div>
-          <div class="kanban-meta-item">
-            <span class="kanban-meta-label">Workers</span>
-            <span class="kanban-meta-value">${escHtml(p.workers || '0')}</span>
-          </div>
-          <div class="kanban-meta-item">
-            <span class="kanban-meta-label">Log Level</span>
-            <span class="kanban-meta-value">${escHtml(p.log_level || 'error')}</span>
-          </div>
-        </div>
         <div class="kanban-card-tags">
           ${p.is_running
             ? '<span class="kanban-tag kanban-tag-running">running</span>'
@@ -745,10 +813,10 @@ function renderKanban(projects) {
         ${p.is_running
           ? `<button class="btn btn-danger btn-xs" onclick="stopOdoo('${escAttr(p.name)}')">Stop</button>`
           : `<button class="btn btn-success btn-xs" onclick="startOdoo('${escAttr(p.name)}')">Start</button>`}
-        <button class="btn btn-outline btn-xs" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port)}')">Browser</button>
         <button class="btn btn-vscode btn-xs" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
         <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
         <button class="btn btn-outline btn-xs" onclick="showProjectDetail('${escAttr(p.name)}')">Detail</button>
+        <button class="btn btn-danger btn-xs" onclick="deleteProject('${escAttr(p.name)}')">Delete</button>
       </div>
     </div>
   `).join('');
@@ -857,7 +925,6 @@ function showProjectDetail(name) {
         ${p.is_running
           ? `<button class="btn btn-danger btn-sm" onclick="stopOdoo('${escAttr(p.name)}');hideModal('modalDetail')">Stop</button>`
           : `<button class="btn btn-success btn-sm" onclick="startOdoo('${escAttr(p.name)}');hideModal('modalDetail')">Start</button>`}
-        <button class="btn btn-outline btn-sm" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port)}')">Browser</button>
         <button class="btn btn-vscode btn-sm" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
         <button class="btn btn-outline btn-sm" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
         <button class="btn btn-outline btn-sm" onclick="hideModal('modalDetail');duplicateProject('${escAttr(p.name)}','${escAttr(p.http_port)}')">Duplicate</button>
@@ -964,39 +1031,32 @@ async function saveDetailAndRestart(name) {
 }
 
 // ---------------------------------------------------------------------------
-// Auto-Update
+// Auto-Update — auto download + auto restart
 // ---------------------------------------------------------------------------
-let _updateState = 'idle'; // idle, available, downloading, ready
 
-function showUpdateToast(title, desc, btnText, state) {
+function showUpdateCard(version) {
   const toast = $('updateToast');
-  $('updateTitle').textContent = title;
-  $('updateDesc').textContent = desc;
-  $('updateBtn').textContent = btnText;
-  _updateState = state;
-
-  toast.className = 'update-toast visible';
-  if (state === 'downloading') toast.classList.add('downloading');
-  if (state === 'ready') toast.classList.add('ready');
-
-  $('updateBtn').className = 'update-toast-btn';
-  if (state === 'downloading') $('updateBtn').classList.add('downloading');
+  $('updateTitle').textContent = 'New version available';
+  $('updateVersion').textContent = 'v' + version;
+  $('updateDesc').textContent = 'Downloading update...';
+  $('updateFill').style.width = '0%';
+  $('updatePct').textContent = '0%';
+  $('updateSpinner').classList.remove('hidden');
+  toast.classList.add('visible');
 }
 
-function dismissUpdate() {
-  $('updateToast').classList.remove('visible');
+function updateProgress(pct) {
+  $('updateFill').style.width = pct + '%';
+  $('updatePct').textContent = pct + '%';
 }
 
-function handleUpdateAction() {
-  if (_updateState === 'available') {
-    // Start download
-    api('update-download');
-    showUpdateToast('Downloading...', 'Please wait', 'Downloading...', 'downloading');
-    $('updateBtn').disabled = true;
-  } else if (_updateState === 'ready') {
-    // Install and restart
-    api('update-install');
-  }
+function updateReady(version) {
+  $('updateDesc').textContent = 'Download complete! Restarting...';
+  $('updateFill').style.width = '100%';
+  $('updatePct').textContent = '100%';
+  $('updateSpinner').classList.add('hidden');
+  // Auto-install after short delay so user sees 100%
+  setTimeout(() => api('update-install'), 1500);
 }
 
 // Listen for update events from main process
@@ -1004,87 +1064,171 @@ if (window.electronAPI) {
   window.electronAPI.onEvent('update-status', (data) => {
     switch (data.status) {
       case 'available':
-        showUpdateToast(
-          'Update Available',
-          `Version ${data.version} is ready to download`,
-          'Update Now',
-          'available'
-        );
+        // Show card immediately — download starts automatically
+        showUpdateCard(data.version);
         break;
 
       case 'downloading':
-        showUpdateToast(
-          'Downloading Update...',
-          `${data.percent || 0}% complete`,
-          `${data.percent || 0}%`,
-          'downloading'
-        );
-        $('updateBtn').disabled = true;
+        // Update progress bar
+        if (!$('updateToast').classList.contains('visible')) {
+          showUpdateCard('');
+        }
+        updateProgress(data.percent || 0);
         break;
 
       case 'ready':
-        showUpdateToast(
-          'Update Ready',
-          `Version ${data.version} downloaded. Restart to apply.`,
-          'Restart Now',
-          'ready'
-        );
-        $('updateBtn').disabled = false;
+        // Download complete — auto restart
+        updateReady(data.version);
         break;
 
       case 'error':
-        // Silently ignore update errors (network issues, etc.)
+        // Silently ignore update errors
         console.log('Update check:', data.message);
+        $('updateToast').classList.remove('visible');
         break;
     }
   });
 }
 
 // ---------------------------------------------------------------------------
-// Theme Toggle
+// Theme System: Mode (dark/light) + Preset (default/autonsi/cyberpunk/luxury)
 // ---------------------------------------------------------------------------
-function toggleTheme() {
-  const current = document.documentElement.getAttribute('data-theme') || 'dark';
-  const order = ['dark', 'light', 'autonsi'];
-  const next = order[(order.indexOf(current) + 1) % order.length];
-  applyTheme(next);
-  localStorage.setItem('theme', next);
+
+/** Toggle dark/light mode with View Transition API circle reveal */
+function toggleMode() {
+  const current = document.documentElement.getAttribute('data-mode') || 'dark';
+  const next = current === 'dark' ? 'light' : 'dark';
+  const btn = $('themeToggle');
+
+  // Fallback if View Transition API not available
+  if (!document.startViewTransition || !btn) {
+    applyMode(next);
+    localStorage.setItem('mode', next);
+    return;
+  }
+
+  // Get button center for circle origin
+  const rect = btn.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const maxR = Math.hypot(
+    Math.max(cx, window.innerWidth - cx),
+    Math.max(cy, window.innerHeight - cy)
+  );
+
+  // Store origin for CSS to use
+  document.documentElement.style.setProperty('--vt-cx', cx + 'px');
+  document.documentElement.style.setProperty('--vt-cy', cy + 'px');
+  document.documentElement.style.setProperty('--vt-r', maxR + 'px');
+
+  // Mark direction for CSS z-index control
+  const goingDark = next === 'dark';
+  document.documentElement.classList.toggle('vt-going-dark', goingDark);
+
+  const transition = document.startViewTransition(() => {
+    applyMode(next);
+    localStorage.setItem('mode', next);
+  });
+
+  transition.finished.then(() => {
+    document.documentElement.classList.remove('vt-going-dark');
+    document.documentElement.style.removeProperty('--vt-cx');
+    document.documentElement.style.removeProperty('--vt-cy');
+    document.documentElement.style.removeProperty('--vt-r');
+  });
 }
 
-function applyTheme(theme) {
+/** Apply dark/light mode (no animation) */
+function applyMode(mode) {
   const iconDark = $('themeIconDark');
   const iconLight = $('themeIconLight');
-  const iconAutonsi = $('themeIconAutonsi');
-  iconDark.style.display = 'none';
-  iconLight.style.display = 'none';
-  iconAutonsi.style.display = 'none';
-  if (theme === 'light') {
-    document.documentElement.setAttribute('data-theme', 'light');
-    iconLight.style.display = 'block';
-  } else if (theme === 'autonsi') {
-    document.documentElement.setAttribute('data-theme', 'autonsi');
-    iconAutonsi.style.display = 'block';
+  if (mode === 'light') {
+    document.documentElement.setAttribute('data-mode', 'light');
+    if (iconDark) iconDark.style.display = 'none';
+    if (iconLight) iconLight.style.display = 'block';
   } else {
-    document.documentElement.removeAttribute('data-theme');
-    iconDark.style.display = 'block';
+    document.documentElement.removeAttribute('data-mode');
+    if (iconDark) iconDark.style.display = 'block';
+    if (iconLight) iconLight.style.display = 'none';
   }
-  // Update titlebar brand SVG stroke color
-  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-  document.querySelectorAll('.titlebar-brand svg').forEach(svg => svg.setAttribute('stroke', accent));
-  // Sync theme selector in Settings
-  const sel = $('themeSelect');
-  if (sel) sel.value = theme;
+  syncTitlebarAccent();
 }
 
-// Load saved theme
+/** Apply a theme preset */
+function applyPreset(preset) {
+  // Clear custom colors when switching preset
+  localStorage.removeItem('customColors');
+  document.documentElement.style.cssText = '';
+
+  if (preset && preset !== 'default') {
+    document.documentElement.setAttribute('data-preset', preset);
+  } else {
+    document.documentElement.removeAttribute('data-preset');
+  }
+  localStorage.setItem('preset', preset || 'default');
+
+  // Update preset card active state
+  document.querySelectorAll('.preset-card').forEach(card => {
+    card.classList.toggle('active', card.getAttribute('data-preset') === (preset || 'default'));
+  });
+
+  syncTitlebarAccent();
+  syncColorPickers();
+}
+
+/** Sync titlebar SVG stroke to current accent color */
+function syncTitlebarAccent() {
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  const svg = $('titlebarSvg');
+  if (svg) svg.setAttribute('stroke', accent);
+}
+
+// Legacy compat: applyTheme maps to mode for old localStorage
+function applyTheme(theme) {
+  if (theme === 'autonsi') {
+    applyPreset('autonsi');
+    applyMode('dark');
+  } else {
+    applyMode(theme);
+  }
+}
+
+// Load saved mode + preset on startup
 (function() {
-  const saved = localStorage.getItem('theme') || 'dark';
-  applyTheme(saved);
+  // Migrate old 'theme' key
+  const oldTheme = localStorage.getItem('theme');
+  if (oldTheme) {
+    if (oldTheme === 'autonsi') {
+      localStorage.setItem('preset', 'autonsi');
+      localStorage.setItem('mode', 'dark');
+    } else {
+      localStorage.setItem('mode', oldTheme);
+    }
+    localStorage.removeItem('theme');
+  }
+
+  const mode = localStorage.getItem('mode') || 'dark';
+  const preset = localStorage.getItem('preset') || 'default';
+  applyMode(mode);
+  // Apply preset attribute (without clearing custom colors on load)
+  if (preset && preset !== 'default') {
+    document.documentElement.setAttribute('data-preset', preset);
+  }
+  // Mark active preset card
+  setTimeout(() => {
+    document.querySelectorAll('.preset-card').forEach(card => {
+      card.classList.toggle('active', card.getAttribute('data-preset') === preset);
+    });
+  }, 0);
 })();
 
 // --- Settings Modal ---
 function openSettingsModal() {
-  $('themeSelect').value = localStorage.getItem('theme') || 'dark';
+  // Sync preset cards
+  const preset = localStorage.getItem('preset') || 'default';
+  document.querySelectorAll('.preset-card').forEach(card => {
+    card.classList.toggle('active', card.getAttribute('data-preset') === preset);
+  });
   syncColorPickers();
   loadIconPreview();
   $('settingsModal').classList.add('visible');
@@ -1093,22 +1237,22 @@ function openSettingsModal() {
 // --- Custom Colors ---
 function applyCustomColor(varName, value) {
   document.documentElement.style.setProperty(varName, value);
-  // Save to localStorage
   const custom = JSON.parse(localStorage.getItem('customColors') || '{}');
   custom[varName] = value;
   localStorage.setItem('customColors', JSON.stringify(custom));
-  // Update titlebar brand SVG
   if (varName === '--accent') {
-    document.querySelectorAll('.titlebar-brand svg').forEach(svg => svg.setAttribute('stroke', value));
+    const svg = $('titlebarSvg');
+    if (svg) svg.setAttribute('stroke', value);
   }
 }
 
 function syncColorPickers() {
   const style = getComputedStyle(document.documentElement);
-  $('colorAccent').value = rgbToHex(style.getPropertyValue('--accent').trim());
-  $('colorBg').value = rgbToHex(style.getPropertyValue('--bg-canvas').trim());
-  $('colorSurface').value = rgbToHex(style.getPropertyValue('--bg-surface').trim());
-  $('colorText').value = rgbToHex(style.getPropertyValue('--text-primary').trim());
+  const pick = (id, v) => { const el = $(id); if (el) el.value = rgbToHex(style.getPropertyValue(v).trim()); };
+  pick('colorAccent', '--accent');
+  pick('colorBg', '--bg-canvas');
+  pick('colorSurface', '--bg-surface');
+  pick('colorText', '--text-primary');
 }
 
 function rgbToHex(color) {
@@ -1123,7 +1267,10 @@ function rgbToHex(color) {
 function resetCustomColors() {
   localStorage.removeItem('customColors');
   document.documentElement.style.cssText = '';
-  applyTheme(localStorage.getItem('theme') || 'dark');
+  // Re-apply current mode + preset
+  applyMode(localStorage.getItem('mode') || 'dark');
+  const preset = localStorage.getItem('preset') || 'default';
+  if (preset !== 'default') document.documentElement.setAttribute('data-preset', preset);
   syncColorPickers();
   showToast('Colors reset to theme defaults', 'success');
 }
@@ -1137,14 +1284,31 @@ function resetCustomColors() {
 })();
 
 // --- Icon ---
+/** Update titlebar icon: show custom image or default SVG */
+function syncTitlebarIcon(dataUrl, isCustom) {
+  const img = $('titlebarIcon');
+  const svg = $('titlebarSvg');
+  if (isCustom && dataUrl) {
+    img.src = dataUrl;
+    img.style.display = 'block';
+    svg.style.display = 'none';
+  } else {
+    img.style.display = 'none';
+    svg.style.display = 'block';
+  }
+}
+
 async function loadIconPreview() {
   try {
     const res = await window.electronAPI.invoke('get-icon');
     if (res.ok) {
       $('iconPreview').src = res.dataUrl;
       if (res.path) $('iconPath').textContent = res.path;
+      syncTitlebarIcon(res.dataUrl, res.isCustom);
+    } else {
+      syncTitlebarIcon(null, false);
     }
-  } catch { /* ignore */ }
+  } catch { syncTitlebarIcon(null, false); }
 }
 loadIconPreview();
 
@@ -1154,6 +1318,7 @@ async function pickIcon() {
     if (res.ok) {
       $('iconPreview').src = res.dataUrl;
       $('iconPath').textContent = 'Custom: ' + res.fileName;
+      syncTitlebarIcon(res.dataUrl, true);
       showToast('Icon applied!', 'success');
     }
   } catch (e) {

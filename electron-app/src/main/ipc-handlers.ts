@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { runCmd } from './utils/shell';
 import { LoggerService } from './services/logger';
+import { StepLockManager } from './services/step-lock';
 import { DEFAULT_BASE_DIR, DEFAULT_PROJECTS_DIR } from './services/config';
 import { detectStatus } from './services/status';
 import {
@@ -37,6 +38,7 @@ function safe<T>(fn: () => Promise<T>): Promise<T | { ok: false; msg: string }> 
 
 export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   const logger = new LoggerService(mainWindow);
+  const stepLock = new StepLockManager();
 
   // --- App Info ---
   ipcMain.handle('app-version', () => {
@@ -88,7 +90,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
 
     // Run in background (non-blocking)
-    stepFullInstall(baseDir, projectsDir, projectName, logger, opts)
+    stepFullInstall(baseDir, projectsDir, projectName, logger, opts, stepLock)
       .then(results => {
         logger.updateTask({ status: 'done', step: 'Complete!', progress: 100, results });
       })
@@ -127,7 +129,16 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     if (!fn) {
       return { ok: false, msg: `Unknown step: ${step}` };
     }
-    return fn();
+    if (stepLock.isLocked(step)) {
+      return { ok: false, msg: 'Step already running' };
+    }
+    const promise = fn();
+    stepLock.acquire(step, 'run_step', promise);
+    try {
+      return await promise;
+    } finally {
+      stepLock.release(step);
+    }
   });
 
   // --- Create Project ---
@@ -383,9 +394,18 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const targetPath = data?.path;
     if (!targetPath) return { ok: false, msg: 'No path provided' };
     try {
+      const { findVSCode } = require('./services/detection');
+      const vscodePath = findVSCode();
+      if (!vscodePath) return { ok: false, msg: 'VS Code not found' };
+
       const { exec } = require('child_process');
-      // Open folder then focus Explorer sidebar
-      exec(`code "${targetPath}" && code -r --command workbench.view.explorer`, { windowsHide: true });
+      if (vscodePath === 'code') {
+        // In PATH — use code command
+        exec(`code "${targetPath}"`, { windowsHide: true });
+      } else {
+        // Portable/custom install — use full path to Code.exe
+        exec(`"${vscodePath}" "${targetPath}"`, { windowsHide: true });
+      }
       return { ok: true };
     } catch (e) {
       return { ok: false, msg: String(e) };
@@ -419,22 +439,26 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   // --- Get current app icon as data URL ---
   ipcMain.handle('get-icon', async () => {
     const customDir = path.join(app.getPath('userData'), 'custom-icon');
-    // Check custom icon first, then fallback to bundled
-    const searchDirs = [
-      customDir,
-      app.isPackaged ? process.resourcesPath : path.join(__dirname, '..', '..', 'resources'),
-    ];
-    for (const dir of searchDirs) {
-      for (const ext of ['.ico', '.png', '.svg']) {
-        const p = path.join(dir, `icon${ext}`);
-        if (fs.existsSync(p)) {
-          const buf = fs.readFileSync(p);
-          const mime = ext === '.svg' ? 'image/svg+xml' : ext === '.png' ? 'image/png' : 'image/x-icon';
-          return { ok: true, dataUrl: `data:${mime};base64,${buf.toString('base64')}`, path: p };
-        }
+    const defaultDir = app.isPackaged ? process.resourcesPath : path.join(__dirname, '..', '..', 'resources');
+    // Check custom icon first
+    for (const ext of ['.ico', '.png', '.svg']) {
+      const p = path.join(customDir, `icon${ext}`);
+      if (fs.existsSync(p)) {
+        const buf = fs.readFileSync(p);
+        const mime = ext === '.svg' ? 'image/svg+xml' : ext === '.png' ? 'image/png' : 'image/x-icon';
+        return { ok: true, dataUrl: `data:${mime};base64,${buf.toString('base64')}`, path: p, isCustom: true };
       }
     }
-    return { ok: false, dataUrl: '' };
+    // Fallback to bundled default
+    for (const ext of ['.ico', '.png', '.svg']) {
+      const p = path.join(defaultDir, `icon${ext}`);
+      if (fs.existsSync(p)) {
+        const buf = fs.readFileSync(p);
+        const mime = ext === '.svg' ? 'image/svg+xml' : ext === '.png' ? 'image/png' : 'image/x-icon';
+        return { ok: true, dataUrl: `data:${mime};base64,${buf.toString('base64')}`, path: '', isCustom: false };
+      }
+    }
+    return { ok: false, dataUrl: '', isCustom: false };
   });
 
   // --- Pick and apply a custom icon (immediate) ---

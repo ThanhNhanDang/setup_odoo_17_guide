@@ -46,4 +46,16 @@ export class LoggerService {
   resetTask(): void {
     this.task = { status: 'idle', step: '', progress: 0 };
   }
+
+  /** Emit download progress to renderer for real-time progress bars */
+  emitDownloadProgress(data: {
+    readonly step: string;
+    readonly percent: number;
+    readonly downloadedMB: string;
+    readonly totalMB: string;
+  }): void {
+    if (!this.window.isDestroyed()) {
+      this.window.webContents.send('download-progress', data);
+    }
+  }
 }

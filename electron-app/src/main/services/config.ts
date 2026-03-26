@@ -30,7 +30,7 @@ export const PYTHON_311_URL = 'https://www.python.org/ftp/python/3.11.4/python-3
 export const POSTGRES_URL = 'https://get.enterprisedb.com/postgresql/postgresql-16.6-1-windows-x64.exe';
 export const ODOO_GIT_URL = 'https://github.com/odoo/odoo.git';
 export const ODOO_BRANCH = '17.0';
-export const VSCODE_URL = 'https://update.code.visualstudio.com/latest/win32-x64/stable';
+export const VSCODE_URL = 'https://update.code.visualstudio.com/latest/win32-x64-user/stable';
 export const GIT_URL = 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe';
 
 export const PROJECT_DEFAULTS: Readonly<Record<string, string>> = {
