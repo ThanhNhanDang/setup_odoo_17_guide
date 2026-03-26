@@ -13,7 +13,9 @@ import { LoggerService } from '../services/logger';
 // Caddy handles TLS with internal (self-signed) certificates
 // ---------------------------------------------------------------------------
 
-const CADDY_URL = 'https://caddyserver.com/api/download?os=windows&arch=amd64';
+// GitHub Releases: much faster CDN than caddyserver.com API
+const CADDY_VERSION = '2.9.1';
+const CADDY_URL = `https://github.com/caddyserver/caddy/releases/download/v${CADDY_VERSION}/caddy_${CADDY_VERSION}_windows_amd64.zip`;
 const CADDY_DIR_NAME = 'caddy';
 const CADDYFILE_NAME = 'Caddyfile';
 
@@ -50,16 +52,39 @@ export async function installCaddy(baseDir: string, logger: LoggerService): Prom
   const caddyDir = getCaddyDir(baseDir);
   const caddyExe = getCaddyExe(baseDir);
 
+  // Verify existing binary is valid (not corrupt/truncated)
   if (fs.existsSync(caddyExe)) {
-    logger.log('Caddy already installed.');
-    return true;
+    const size = fs.statSync(caddyExe).size;
+    if (size > 10_000_000) { // Valid caddy binary is >10MB
+      logger.log('Caddy already installed.');
+      return true;
+    }
+    // Corrupt file — delete and re-download
+    logger.log('Caddy binary appears corrupt, re-downloading...');
+    fs.unlinkSync(caddyExe);
   }
 
   fs.mkdirSync(caddyDir, { recursive: true });
   logger.log('Downloading Caddy server...');
 
   try {
-    await downloadFile(CADDY_URL, caddyExe, logger, 'install_caddy');
+    // Download zip from GitHub Releases (fast CDN)
+    const zipPath = path.join(caddyDir, 'caddy.zip');
+    logger.log('  > Downloading from GitHub...');
+    const { code } = await runCmd(`curl -L -o "${zipPath}" --connect-timeout 10 --max-time 300 "${CADDY_URL}"`);
+    if (code !== 0 || !fs.existsSync(zipPath) || fs.statSync(zipPath).size < 1_000_000) {
+      if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
+      throw new Error('Download failed');
+    }
+    // Extract caddy.exe from zip using PowerShell
+    logger.log('  > Extracting...');
+    await runCmd(`powershell -NoProfile -Command "Expand-Archive -Path '${zipPath}' -DestinationPath '${caddyDir}' -Force"`);
+    // Cleanup zip
+    if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
+    // Validate
+    if (!fs.existsSync(caddyExe) || fs.statSync(caddyExe).size < 10_000_000) {
+      throw new Error('Extract failed or binary corrupt');
+    }
     logger.log('Caddy installed!');
 
     // Trust Caddy's root CA (so browsers accept the self-signed certs)

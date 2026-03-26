@@ -187,8 +187,8 @@ function renderProjects(s) {
       </div>
       <div class="project-actions">
         ${p.is_running
-          ? `<button class="btn btn-danger btn-xs" onclick="stopOdoo('${escAttr(p.name)}')">Stop</button>`
-          : `<button class="btn btn-success btn-xs" onclick="startOdoo('${escAttr(p.name)}')">Start</button>`}
+          ? `<button class="btn btn-danger btn-xs" data-project-action="${escAttr(p.name)}" onclick="stopOdoo('${escAttr(p.name)}')">Stop</button>`
+          : `<button class="btn btn-success btn-xs" data-project-action="${escAttr(p.name)}" onclick="startOdoo('${escAttr(p.name)}')">Start</button>`}
         <button class="btn btn-vscode btn-xs" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
         <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
         <button class="btn btn-outline btn-xs" onclick="editConfig('${escAttr(p.name)}')">Edit Config</button>
@@ -579,7 +579,26 @@ async function createProject() {
 // ---------------------------------------------------------------------------
 // Project Actions
 // ---------------------------------------------------------------------------
+const _pendingProjects = new Set(); // projects with start/stop in progress
+
+function setProjectPending(name, label) {
+  _pendingProjects.add(name);
+  // Update all Start/Stop buttons for this project to pending state
+  document.querySelectorAll(`[data-project-action="${name}"]`).forEach(btn => {
+    btn.disabled = true;
+    btn.textContent = label;
+    btn.className = btn.className.replace(/btn-danger|btn-success/g, 'btn-outline');
+  });
+}
+
+function clearProjectPending(name) {
+  _pendingProjects.delete(name);
+}
+
 async function startOdoo(name) {
+  if (_pendingProjects.has(name)) return;
+  setProjectPending(name, 'Starting...');
+
   const data = getFormData();
   data.project_name = name;
   showToastMessage('Starting Odoo...', 'info');
@@ -601,14 +620,19 @@ async function startOdoo(name) {
       showToastMessage('Odoo is running!', 'success');
       openProjectUrl(domain, port);
     } else {
-      showToastMessage('Odoo process started but not responding yet. Check Log tab.', 'error');
+      showToastMessage('Odoo process started but not responding yet.', 'error');
     }
   } else {
     showToastMessage('Failed: ' + res.msg, 'error');
   }
+  clearProjectPending(name);
+  await refreshStatus();
 }
 
 async function stopOdoo(name) {
+  if (_pendingProjects.has(name)) return;
+  setProjectPending(name, 'Stopping...');
+
   const port = _status?.projects?.find(p => p.name === name)?.http_port || '8069';
   showToastMessage('Stopping Odoo...', 'info');
   const res = await api('stop_odoo', { http_port: port });
@@ -617,10 +641,12 @@ async function stopOdoo(name) {
   } else {
     showToastMessage('Failed: ' + res.msg, 'error');
   }
+  clearProjectPending(name);
   await refreshStatus();
 }
 
 function toggleOdoo(name, isRunning) {
+  if (_pendingProjects.has(name)) return;
   if (isRunning) stopOdoo(name);
   else startOdoo(name);
 }
@@ -811,8 +837,8 @@ function renderKanban(projects) {
       </div>
       <div class="kanban-card-actions">
         ${p.is_running
-          ? `<button class="btn btn-danger btn-xs" onclick="stopOdoo('${escAttr(p.name)}')">Stop</button>`
-          : `<button class="btn btn-success btn-xs" onclick="startOdoo('${escAttr(p.name)}')">Start</button>`}
+          ? `<button class="btn btn-danger btn-xs" data-project-action="${escAttr(p.name)}" onclick="stopOdoo('${escAttr(p.name)}')">Stop</button>`
+          : `<button class="btn btn-success btn-xs" data-project-action="${escAttr(p.name)}" onclick="startOdoo('${escAttr(p.name)}')">Start</button>`}
         <button class="btn btn-vscode btn-xs" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
         <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
         <button class="btn btn-outline btn-xs" onclick="showProjectDetail('${escAttr(p.name)}')">Detail</button>
@@ -923,8 +949,8 @@ function showProjectDetail(name) {
     <div class="btn-row" style="justify-content:space-between">
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         ${p.is_running
-          ? `<button class="btn btn-danger btn-sm" onclick="stopOdoo('${escAttr(p.name)}');hideModal('modalDetail')">Stop</button>`
-          : `<button class="btn btn-success btn-sm" onclick="startOdoo('${escAttr(p.name)}');hideModal('modalDetail')">Start</button>`}
+          ? `<button class="btn btn-danger btn-sm" data-project-action="${escAttr(p.name)}" onclick="stopOdoo('${escAttr(p.name)}');hideModal('modalDetail')">Stop</button>`
+          : `<button class="btn btn-success btn-sm" data-project-action="${escAttr(p.name)}" onclick="startOdoo('${escAttr(p.name)}');hideModal('modalDetail')">Start</button>`}
         <button class="btn btn-vscode btn-sm" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
         <button class="btn btn-outline btn-sm" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
         <button class="btn btn-outline btn-sm" onclick="hideModal('modalDetail');duplicateProject('${escAttr(p.name)}','${escAttr(p.http_port)}')">Duplicate</button>
