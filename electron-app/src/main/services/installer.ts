@@ -419,6 +419,32 @@ export async function stepCreateProject(
     fs.writeFileSync(path.join(proj, '.vscode', 'settings.json'), settingsContent, 'utf8');
   }
 
+  // Ensure DB user exists (don't fail project creation if this fails)
+  const dbUser = cfg.db_user || 'odoo';
+  const dbPassword = cfg.db_password || 'odoo';
+  const dbPort = cfg.db_port || '5434';
+  try {
+    const { detectNativePostgresDetails } = require('./detection');
+    const pgDetails = detectNativePostgresDetails();
+    if (pgDetails?.is_ready) {
+      const psql = path.join(pgDetails.bin_path, 'psql.exe');
+      const env = { ...process.env, PGPASSWORD: 'postgres' };
+      const { output } = await runCmd(
+        `"${psql}" -U postgres -p ${dbPort} -tAc "SELECT 1 FROM pg_roles WHERE rolname='${dbUser}'"`,
+        undefined, env
+      );
+      if (!output.includes('1')) {
+        logger.log(`  > Creating DB user '${dbUser}'...`);
+        await runCmd(
+          `"${psql}" -U postgres -p ${dbPort} -c "CREATE ROLE ${dbUser} WITH LOGIN PASSWORD '${dbPassword}' CREATEDB;"`,
+          undefined, env
+        );
+      }
+    }
+  } catch {
+    // Non-fatal: DB user creation is best-effort during project creation
+  }
+
   logger.log(`Project '${projectName}' ready at ${proj}`);
   return { ok: true, msg: proj };
 }

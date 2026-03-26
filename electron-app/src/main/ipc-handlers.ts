@@ -244,6 +244,28 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         logger.log('  > Using Docker PostgreSQL instead.');
       }
 
+      // Ensure DB user exists before starting Odoo
+      const pgDetailsReady = detectNativePostgresDetails();
+      if (pgDetailsReady?.is_ready) {
+        const pgPort = pgDetailsReady.port || '5434';
+        logger.log(`  > Ensuring DB user exists on port ${pgPort}...`);
+        const { output: userCheck } = await runCmd(
+          `"${path.join(pgDetailsReady.bin_path, 'psql.exe')}" -U postgres -p ${pgPort} -tAc "SELECT 1 FROM pg_roles WHERE rolname='odoo'"`,
+          undefined,
+          { ...process.env, PGPASSWORD: 'postgres' }
+        );
+        if (!userCheck.includes('1')) {
+          logger.log('  > Creating DB user "odoo"...');
+          await runCmd(
+            `"${path.join(pgDetailsReady.bin_path, 'psql.exe')}" -U postgres -p ${pgPort} -c "CREATE ROLE odoo WITH LOGIN PASSWORD 'odoo' CREATEDB;"`,
+            undefined,
+            { ...process.env, PGPASSWORD: 'postgres' }
+          );
+          logger.log('  > DB user "odoo" created.');
+        }
+      }
+
+      // Start Odoo and verify it's actually running
       logger.log(`Starting Odoo: ${cmd}`);
       const proc = spawn('cmd.exe', ['/c', cmd], {
         cwd: projPath,
@@ -252,6 +274,12 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         windowsHide: false,
       });
       proc.unref();
+
+      // Wait and verify Odoo is listening on port
+      const confPort = parseInt(conf.split('odoo.conf')[0] ? '8069' : '8069', 10);
+      logger.log(`  > Waiting for Odoo to start on port...`);
+      await new Promise(resolve => setTimeout(resolve, 5000));
+
       return { ok: true, command: cmd };
     } catch (e) {
       return { ok: false, msg: String(e) };
