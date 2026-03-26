@@ -1,6 +1,6 @@
 {
   "name": "odoo17-installer",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "description": "One-click installer for Odoo 17 development environments on Windows",
   "main": "dist/main/index.js",
   "scripts": {
