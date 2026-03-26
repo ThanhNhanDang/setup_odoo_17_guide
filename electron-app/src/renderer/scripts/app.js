@@ -1082,18 +1082,68 @@ function applyTheme(theme) {
   applyTheme(saved);
 })();
 
-// --- Appearance Modal ---
-function openAppearanceModal() {
+// --- Settings Modal ---
+function openSettingsModal() {
   $('themeSelect').value = localStorage.getItem('theme') || 'dark';
+  syncColorPickers();
   loadIconPreview();
-  $('appearanceModal').classList.add('visible');
+  $('settingsModal').classList.add('visible');
 }
 
-// --- Icon preview ---
+// --- Custom Colors ---
+function applyCustomColor(varName, value) {
+  document.documentElement.style.setProperty(varName, value);
+  // Save to localStorage
+  const custom = JSON.parse(localStorage.getItem('customColors') || '{}');
+  custom[varName] = value;
+  localStorage.setItem('customColors', JSON.stringify(custom));
+  // Update titlebar brand SVG
+  if (varName === '--accent') {
+    document.querySelectorAll('.titlebar-brand svg').forEach(svg => svg.setAttribute('stroke', value));
+  }
+}
+
+function syncColorPickers() {
+  const style = getComputedStyle(document.documentElement);
+  $('colorAccent').value = rgbToHex(style.getPropertyValue('--accent').trim());
+  $('colorBg').value = rgbToHex(style.getPropertyValue('--bg-canvas').trim());
+  $('colorSurface').value = rgbToHex(style.getPropertyValue('--bg-surface').trim());
+  $('colorText').value = rgbToHex(style.getPropertyValue('--text-primary').trim());
+}
+
+function rgbToHex(color) {
+  if (color.startsWith('#')) return color.length === 4
+    ? '#' + color[1]+color[1]+color[2]+color[2]+color[3]+color[3]
+    : color;
+  const m = color.match(/(\d+)/g);
+  if (!m) return '#000000';
+  return '#' + m.slice(0,3).map(n => parseInt(n).toString(16).padStart(2,'0')).join('');
+}
+
+function resetCustomColors() {
+  localStorage.removeItem('customColors');
+  document.documentElement.style.cssText = '';
+  applyTheme(localStorage.getItem('theme') || 'dark');
+  syncColorPickers();
+  showToast('Colors reset to theme defaults', 'success');
+}
+
+// Restore custom colors on load
+(function() {
+  const custom = JSON.parse(localStorage.getItem('customColors') || '{}');
+  for (const [k, v] of Object.entries(custom)) {
+    document.documentElement.style.setProperty(k, v);
+  }
+})();
+
+// --- Icon ---
 async function loadIconPreview() {
   try {
     const res = await window.electronAPI.invoke('get-icon');
-    if (res.ok) $('iconPreview').src = res.dataUrl;
+    if (res.ok) {
+      $('iconPreview').src = res.dataUrl;
+      if (res.path) $('iconPath').textContent = res.path;
+    }
   } catch { /* ignore */ }
 }
 loadIconPreview();
@@ -1103,10 +1153,21 @@ async function pickIcon() {
     const res = await window.electronAPI.invoke('pick-icon');
     if (res.ok) {
       $('iconPreview').src = res.dataUrl;
-      showToast('Icon updated: ' + res.fileName + '. Rebuild to apply.', 'success');
+      $('iconPath').textContent = 'Custom: ' + res.fileName;
+      showToast('Icon applied!', 'success');
     }
   } catch (e) {
     showToast('Failed to upload icon: ' + e, 'error');
+  }
+}
+
+async function resetIcon() {
+  try {
+    await window.electronAPI.invoke('reset-icon');
+    await loadIconPreview();
+    showToast('Icon reset to default', 'success');
+  } catch (e) {
+    showToast('Failed to reset icon: ' + e, 'error');
   }
 }
 

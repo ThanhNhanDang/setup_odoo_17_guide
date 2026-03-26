@@ -1,5 +1,6 @@
-import { app, BrowserWindow, dialog, Menu } from 'electron';
+import { app, BrowserWindow, dialog, Menu, nativeImage } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
 import { execSync } from 'child_process';
 import { registerIpcHandlers } from './ipc-handlers';
 import { UpdaterService } from './services/updater';
@@ -32,6 +33,15 @@ function ensureAdmin(): void {
 let mainWindow: BrowserWindow | null = null;
 
 function getIconPath(): string {
+  // Check for user-custom icon first
+  const customDir = path.join(app.getPath('userData'), 'custom-icon');
+  if (fs.existsSync(customDir)) {
+    for (const ext of ['.ico', '.png', '.svg']) {
+      const p = path.join(customDir, `icon${ext}`);
+      if (fs.existsSync(p)) return p;
+    }
+  }
+  // Fallback to bundled icon
   if (app.isPackaged) {
     return path.join(process.resourcesPath, 'icon.ico');
   }

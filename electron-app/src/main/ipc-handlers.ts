@@ -1,6 +1,7 @@
-import { ipcMain, BrowserWindow, shell } from 'electron';
+import { ipcMain, BrowserWindow, shell, dialog, app } from 'electron';
 import { spawn } from 'child_process';
 import * as path from 'path';
+import * as fs from 'fs';
 import { runCmd } from './utils/shell';
 import { LoggerService } from './services/logger';
 import { DEFAULT_BASE_DIR, DEFAULT_PROJECTS_DIR } from './services/config';
@@ -409,6 +410,90 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     if (!targetPath) return { ok: false, msg: 'No path provided' };
     try {
       await shell.openPath(targetPath);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, msg: String(e) };
+    }
+  });
+
+  // --- Get current app icon as data URL ---
+  ipcMain.handle('get-icon', async () => {
+    const customDir = path.join(app.getPath('userData'), 'custom-icon');
+    // Check custom icon first, then fallback to bundled
+    const searchDirs = [
+      customDir,
+      app.isPackaged ? process.resourcesPath : path.join(__dirname, '..', '..', 'resources'),
+    ];
+    for (const dir of searchDirs) {
+      for (const ext of ['.ico', '.png', '.svg']) {
+        const p = path.join(dir, `icon${ext}`);
+        if (fs.existsSync(p)) {
+          const buf = fs.readFileSync(p);
+          const mime = ext === '.svg' ? 'image/svg+xml' : ext === '.png' ? 'image/png' : 'image/x-icon';
+          return { ok: true, dataUrl: `data:${mime};base64,${buf.toString('base64')}`, path: p };
+        }
+      }
+    }
+    return { ok: false, dataUrl: '' };
+  });
+
+  // --- Pick and apply a custom icon (immediate) ---
+  ipcMain.handle('pick-icon', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select App Icon',
+      filters: [
+        { name: 'Icons', extensions: ['ico', 'png', 'svg'] },
+      ],
+      properties: ['openFile'],
+    });
+    if (result.canceled || result.filePaths.length === 0) return { ok: false, msg: 'cancelled' };
+    const src = result.filePaths[0];
+    const ext = path.extname(src).toLowerCase();
+    const customDir = path.join(app.getPath('userData'), 'custom-icon');
+    try {
+      // Ensure custom-icon directory exists
+      if (!fs.existsSync(customDir)) fs.mkdirSync(customDir, { recursive: true });
+      // Remove old custom icons
+      for (const old of ['.ico', '.png', '.svg']) {
+        const oldPath = path.join(customDir, `icon${old}`);
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      }
+      // Copy new icon
+      const destName = `icon${ext}`;
+      const destPath = path.join(customDir, destName);
+      fs.copyFileSync(src, destPath);
+      // Apply to window immediately
+      if (ext === '.ico' || ext === '.png') {
+        const { nativeImage } = require('electron');
+        mainWindow.setIcon(nativeImage.createFromPath(destPath));
+      }
+      // Return preview data
+      const buf = fs.readFileSync(src);
+      const mime = ext === '.svg' ? 'image/svg+xml' : ext === '.png' ? 'image/png' : 'image/x-icon';
+      return { ok: true, dataUrl: `data:${mime};base64,${buf.toString('base64')}`, fileName: destName };
+    } catch (e) {
+      return { ok: false, msg: String(e) };
+    }
+  });
+
+  // --- Reset icon to default ---
+  ipcMain.handle('reset-icon', async () => {
+    const customDir = path.join(app.getPath('userData'), 'custom-icon');
+    try {
+      if (fs.existsSync(customDir)) {
+        for (const ext of ['.ico', '.png', '.svg']) {
+          const p = path.join(customDir, `icon${ext}`);
+          if (fs.existsSync(p)) fs.unlinkSync(p);
+        }
+      }
+      // Restore default icon
+      const defaultIcon = app.isPackaged
+        ? path.join(process.resourcesPath, 'icon.ico')
+        : path.join(__dirname, '..', '..', 'resources', 'icon.ico');
+      if (fs.existsSync(defaultIcon)) {
+        const { nativeImage } = require('electron');
+        mainWindow.setIcon(nativeImage.createFromPath(defaultIcon));
+      }
       return { ok: true };
     } catch (e) {
       return { ok: false, msg: String(e) };
