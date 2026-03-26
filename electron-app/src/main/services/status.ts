@@ -46,6 +46,7 @@ export interface ProjectInfo {
   readonly custom_modules: number;
   readonly addon_dirs: readonly AddonDir[];
   readonly start_command: string;
+  readonly domain: string;
   readonly is_running: boolean;
 }
 
@@ -111,6 +112,7 @@ export async function parseProjectConfig(projectPath: string, baseDir: string = 
     custom_modules: number;
     addon_dirs: AddonDir[];
     start_command: string;
+    domain: string;
     is_running: boolean;
   } = {
     name: path.basename(projectPath),
@@ -132,6 +134,7 @@ export async function parseProjectConfig(projectPath: string, baseDir: string = 
     custom_modules: 0,
     addon_dirs: [],
     start_command: '',
+    domain: '',
     is_running: false,
   };
 
@@ -196,6 +199,13 @@ export async function parseProjectConfig(projectPath: string, baseDir: string = 
   const venvPy = path.join(baseDir, 'venv', 'Scripts', 'python.exe');
   const odooBin = path.join(baseDir, 'odoo', 'odoo-bin');
   info.start_command = `"${venvPy}" "${odooBin}" -c "${confFile}"`;
+
+  // Read domain from comment line in odoo.conf
+  try {
+    const rawConf = fs.readFileSync(confFile, 'utf8');
+    const domainMatch = rawConf.match(/^;\s*project_domain\s*=\s*(.+)$/m);
+    if (domainMatch) info.domain = domainMatch[1].trim();
+  } catch { /* ignore */ }
 
   // Check if Odoo is running on this port
   const httpPort = parseInt(info.http_port, 10);

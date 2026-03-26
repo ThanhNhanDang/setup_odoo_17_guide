@@ -398,6 +398,11 @@ export async function stepCreateProject(
   const projectDbPassword = cfg.db_password || 'odoo';
   cfg.db_user = projectDbUser;
 
+  // Per-project domain (isolate browser sessions)
+  const { projectToDomain, addHostEntry } = require('../utils/hosts');
+  const projectDomain = opts.project_domain || projectToDomain(projectName);
+  cfg.project_domain = projectDomain;
+
   // odoo.conf from template
   const templatesDir = getTemplatesDir();
   const confTemplate = fs.readFileSync(path.join(templatesDir, 'odoo.conf'), 'utf8');
@@ -453,7 +458,16 @@ export async function stepCreateProject(
     // Non-fatal: DB user creation is best-effort
   }
 
+  // Add domain to hosts file
+  const hostsResult = addHostEntry(projectDomain);
+  if (hostsResult.ok) {
+    logger.log(`  > Domain '${projectDomain}' added to hosts file.`);
+  } else {
+    logger.log(`  > Could not add domain to hosts: ${hostsResult.msg}`);
+  }
+
   logger.log(`Project '${projectName}' ready at ${proj}`);
+  logger.log(`  > URL: http://${projectDomain}:${cfg.http_port}`);
   return { ok: true, msg: proj };
 }
 

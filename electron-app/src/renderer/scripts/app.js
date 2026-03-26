@@ -168,11 +168,11 @@ function renderProjects(s) {
     return `<div class="project-card">
       <div class="project-header">
         <div><span class="name">${escHtml(p.name)}</span>
-          <span class="tag tag-port" onclick="openBrowser('${escAttr(p.http_port)}')" style="cursor:pointer" title="Open in browser">:${escHtml(p.http_port)}</span>
+          <span class="tag tag-port" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port)}')" style="cursor:pointer" title="Open in browser">:${escHtml(p.http_port)}</span>
           ${p.is_running
             ? '<span class="tag tag-running">running</span>'
             : '<span class="tag tag-stopped">stopped</span>'}
-          <span class="project-url" onclick="openBrowser('${escAttr(p.http_port)}')" title="Click to open">http://localhost:${escHtml(p.http_port)}</span></div>
+          <span class="project-url" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port)}')" title="Click to open">${p.domain ? 'http://' + escHtml(p.domain) + ':' + escHtml(p.http_port) : 'http://localhost:' + escHtml(p.http_port)}</span></div>
         <div style="font-size:0.75rem;color:var(--text-tertiary)">${escHtml(p.path)}</div>
       </div>
       <div class="project-detail-grid">
@@ -188,7 +188,7 @@ function renderProjects(s) {
         ${p.is_running
           ? `<button class="btn btn-danger btn-xs" onclick="stopOdoo('${escAttr(p.name)}')">Stop</button>`
           : `<button class="btn btn-success btn-xs" onclick="startOdoo('${escAttr(p.name)}')">Start</button>`}
-        <button class="btn btn-outline btn-xs" onclick="openBrowser('${escAttr(p.http_port)}')">Open Browser</button>
+        <button class="btn btn-outline btn-xs" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port)}')">Open Browser</button>
         <button class="btn btn-vscode btn-xs" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
         <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
         <button class="btn btn-outline btn-xs" onclick="editConfig('${escAttr(p.name)}')">Edit Config</button>
@@ -464,6 +464,7 @@ async function createProject() {
     data.workers = $('newWorkers')?.value || '0';
     data.dbfilter = $('newDbfilter')?.value || '';
     data.proxy_mode = $('newProxyMode')?.value || 'True';
+    data.project_domain = $('newProjDomain')?.value || '';
 
     console.log('Creating project with data:', JSON.stringify(data));
     showToastMessage('Creating project "' + name + '"...', 'info');
@@ -506,8 +507,10 @@ async function startOdoo(name) {
       if (proj?.is_running) { running = true; break; }
     }
     if (running) {
+      const proj = _status?.projects?.find(p => p.name === name);
+      const domain = proj?.domain || '';
       showToastMessage('Odoo is running!', 'success');
-      openBrowser(port);
+      openProjectUrl(domain, port);
     } else {
       showToastMessage('Odoo process started but not responding yet. Check Log tab.', 'error');
     }
@@ -536,6 +539,10 @@ function toggleOdoo(name, isRunning) {
 async function openVSCode(path) { await api('open_vscode', { path }); }
 async function openExplorer(path) { await api('open_explorer', { path }); }
 async function openBrowser(port) { await api('open_browser', { url: `http://localhost:${port}` }); }
+async function openProjectUrl(domain, port) {
+  const host = domain || 'localhost';
+  await api('open_browser', { url: `http://${host}:${port}` });
+}
 
 // Simple toast notification (bottom-right)
 function showToastMessage(msg, type = 'info') {
@@ -691,9 +698,9 @@ function renderKanban(projects) {
     <div class="kanban-card">
       <div class="kanban-card-header">
         <span class="kanban-card-name">${escHtml(p.name)}</span>
-        <span class="kanban-card-port" onclick="openBrowser('${escAttr(p.http_port || '8069')}')" title="Open in browser" style="cursor:pointer">:${escHtml(p.http_port || '8069')}</span>
+        <span class="kanban-card-port" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port || '8069')}')" title="Open in browser" style="cursor:pointer">:${escHtml(p.http_port || '8069')}</span>
       </div>
-      <div class="kanban-card-url" onclick="openBrowser('${escAttr(p.http_port || '8069')}')" title="Click to open">http://localhost:${escHtml(p.http_port || '8069')}</div>
+      <div class="kanban-card-url" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port || '8069')}')" title="Click to open">${p.domain ? 'http://' + escHtml(p.domain) + ':' + escHtml(p.http_port || '8069') : 'http://localhost:' + escHtml(p.http_port || '8069')}</div>
       <div class="kanban-card-body">
         <div class="kanban-card-meta">
           <div class="kanban-meta-item">
@@ -724,7 +731,7 @@ function renderKanban(projects) {
         ${p.is_running
           ? `<button class="btn btn-danger btn-xs" onclick="stopOdoo('${escAttr(p.name)}')">Stop</button>`
           : `<button class="btn btn-success btn-xs" onclick="startOdoo('${escAttr(p.name)}')">Start</button>`}
-        <button class="btn btn-outline btn-xs" onclick="openBrowser('${escAttr(p.http_port)}')">Browser</button>
+        <button class="btn btn-outline btn-xs" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port)}')">Browser</button>
         <button class="btn btn-vscode btn-xs" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
         <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
         <button class="btn btn-outline btn-xs" onclick="showProjectDetail('${escAttr(p.name)}')">Detail</button>
@@ -834,7 +841,7 @@ function showProjectDetail(name) {
         ${p.is_running
           ? `<button class="btn btn-danger btn-sm" onclick="stopOdoo('${escAttr(p.name)}');hideModal('modalDetail')">Stop</button>`
           : `<button class="btn btn-success btn-sm" onclick="startOdoo('${escAttr(p.name)}');hideModal('modalDetail')">Start</button>`}
-        <button class="btn btn-outline btn-sm" onclick="openBrowser('${escAttr(p.http_port)}')">Browser</button>
+        <button class="btn btn-outline btn-sm" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port)}')">Browser</button>
         <button class="btn btn-vscode btn-sm" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
         <button class="btn btn-outline btn-sm" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
         <button class="btn btn-outline btn-sm" onclick="hideModal('modalDetail');duplicateProject('${escAttr(p.name)}','${escAttr(p.http_port)}')">Duplicate</button>
@@ -845,6 +852,12 @@ function showProjectDetail(name) {
   `;
 
   showModal('modalDetail');
+}
+
+function autoGenerateDomain() {
+  const name = ($('newProjName')?.value || '').trim();
+  const domain = name ? name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase() + '.odoo.local' : '';
+  if ($('newProjDomain')) $('newProjDomain').value = domain;
 }
 
 function togglePwdVisibility(id) {
