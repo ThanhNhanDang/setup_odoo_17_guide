@@ -173,6 +173,7 @@ function renderProjects(s) {
       </div>
       <div class="project-actions">
         <button class="btn btn-success btn-xs" onclick="startOdoo('${escAttr(p.name)}')">Start Odoo</button>
+        <button class="btn btn-outline btn-xs" onclick="openBrowser('${escAttr(p.http_port)}')">Open Browser</button>
         <button class="btn btn-outline btn-xs" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
         <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
         <button class="btn btn-outline btn-xs" onclick="editConfig('${escAttr(p.name)}')">Edit Config</button>
@@ -314,6 +315,7 @@ async function startOdoo(name) {
 
 async function openVSCode(path) { await api('open_vscode', { path }); }
 async function openExplorer(path) { await api('open_explorer', { path }); }
+async function openBrowser(port) { await api('open_browser', { url: `http://localhost:${port}` }); }
 
 let _editingProject = '';
 async function editConfig(name) {
@@ -482,6 +484,7 @@ function renderKanban(projects) {
       </div>
       <div class="kanban-card-actions">
         <button class="btn btn-success btn-xs" onclick="startOdoo('${escAttr(p.name)}')">Start</button>
+        <button class="btn btn-outline btn-xs" onclick="openBrowser('${escAttr(p.http_port)}')">Browser</button>
         <button class="btn btn-outline btn-xs" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
         <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
         <button class="btn btn-outline btn-xs" onclick="showProjectDetail('${escAttr(p.name)}')">Detail</button>
@@ -548,6 +551,7 @@ function showProjectDetail(name) {
     </div>
     <div class="btn-row">
       <button class="btn btn-success btn-sm" onclick="startOdoo('${escAttr(p.name)}');hideModal('modalDetail')">Start Odoo</button>
+      <button class="btn btn-outline btn-sm" onclick="openBrowser('${escAttr(p.http_port)}')">Open Browser</button>
       <button class="btn btn-outline btn-sm" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
       <button class="btn btn-outline btn-sm" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
       <button class="btn btn-outline btn-sm" onclick="hideModal('modalDetail');editConfig('${escAttr(p.name)}')">Edit Config</button>

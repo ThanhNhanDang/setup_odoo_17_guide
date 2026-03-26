@@ -207,6 +207,18 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
+  // --- Open Browser ---
+  ipcMain.handle('open_browser', async (_event, data: Record<string, string>) => {
+    const url = data?.url;
+    if (!url) return { ok: false, msg: 'No URL provided' };
+    try {
+      await shell.openExternal(url);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, msg: String(e) };
+    }
+  });
+
   // --- Open Explorer ---
   ipcMain.handle('open_explorer', async (_event, data: Record<string, string>) => {
     const targetPath = data?.path;
