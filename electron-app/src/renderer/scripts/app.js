@@ -134,6 +134,12 @@ async function refreshStatus() {
     $('nativePgDetail').innerHTML = '';
   }
 
+  // Show PostgreSQL Mode dropdown only when Docker is available
+  const pgModeGroup = $('pgModeGroup');
+  if (pgModeGroup) {
+    pgModeGroup.style.display = s.docker ? '' : 'none';
+  }
+
   // Projects list + Dashboard
   renderProjects(s);
   renderDashboard(s);
