@@ -1,7 +1,7 @@
 {
-  "name": "odoo17-installer",
+  "name": "odoo-installer",
   "version": "1.0.25",
-  "description": "One-click installer for Odoo 17 development environments on Windows",
+  "description": "One-click installer for Odoo 15/17/19 development environments on Windows",
   "main": "dist/main/index.js",
   "scripts": {
     "start": "tsc && electron .",

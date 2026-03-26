@@ -58,7 +58,7 @@ function createWindow(): void {
     minWidth: 900,
     minHeight: 600,
     show: false,              // Don't show until content is ready
-    title: 'Odoo 17 Installer',
+    title: 'Odoo Installer',
     backgroundColor: '#0d1117',
     icon: getIconPath(),
     frame: false,             // Frameless - custom title bar
