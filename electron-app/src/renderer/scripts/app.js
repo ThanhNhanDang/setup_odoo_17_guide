@@ -952,7 +952,7 @@ function showProjectDetail(name) {
     </div>
     <div style="margin-bottom:16px">
       <div class="detail-label" style="margin-bottom:8px">Odoo Log (realtime)</div>
-      <div class="log-box" id="detailLogBox" style="max-height:250px;font-size:0.72rem" data-logpath="${escAttr(p.path + '/odoo.log')}">
+      <div class="log-box" id="detailLogBox" style="max-height:250px;font-size:0.72rem" data-logpath="${escAttr(p.logfile || (p.path + '\\odoo.log'))}">
         <div style="color:var(--text-tertiary);padding:8px">Loading log...</div>
       </div>
     </div>

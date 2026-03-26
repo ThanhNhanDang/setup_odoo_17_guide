@@ -49,6 +49,7 @@ export interface ProjectInfo {
   readonly dbfilter: string;
   readonly proxy_mode: string;
   readonly server_wide_modules: string;
+  readonly logfile: string;
   readonly custom_modules: number;
   readonly addon_dirs: readonly AddonDir[];
   readonly start_command: string;
@@ -116,6 +117,7 @@ export async function parseProjectConfig(projectPath: string, baseDir: string = 
     dbfilter: string;
     proxy_mode: string;
     server_wide_modules: string;
+    logfile: string;
     custom_modules: number;
     addon_dirs: AddonDir[];
     start_command: string;
@@ -138,6 +140,7 @@ export async function parseProjectConfig(projectPath: string, baseDir: string = 
     dbfilter: '',
     proxy_mode: '',
     server_wide_modules: '',
+    logfile: '',
     custom_modules: 0,
     addon_dirs: [],
     start_command: '',
@@ -166,6 +169,13 @@ export async function parseProjectConfig(projectPath: string, baseDir: string = 
     info.dbfilter = get('dbfilter');
     info.proxy_mode = get('proxy_mode');
     info.server_wide_modules = get('server_wide_modules');
+    const rawLogfile = get('logfile');
+    // Resolve logfile path (may be relative like ./odoo.log or absolute)
+    if (rawLogfile) {
+      info.logfile = path.isAbsolute(rawLogfile) ? rawLogfile : path.join(projectPath, rawLogfile);
+    } else {
+      info.logfile = path.join(projectPath, 'odoo.log');
+    }
   } catch {
     // ignore parse errors
   }
