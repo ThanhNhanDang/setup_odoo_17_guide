@@ -193,10 +193,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const targetPath = data?.path;
     if (!targetPath) return { ok: false, msg: 'No path provided' };
     try {
-      spawn('cmd.exe', ['/c', 'code', targetPath], {
+      spawn('cmd.exe', ['/c', `code "${targetPath}"`], {
         detached: true,
         stdio: 'ignore',
-        windowsHide: true,
+        shell: true,
       }).unref();
       return { ok: true };
     } catch (e) {
