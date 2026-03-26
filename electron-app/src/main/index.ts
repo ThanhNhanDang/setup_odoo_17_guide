@@ -1,10 +1,20 @@
-import { app, BrowserWindow, dialog } from 'electron';
+import { app, BrowserWindow, dialog, Menu } from 'electron';
 import * as path from 'path';
 import { registerIpcHandlers } from './ipc-handlers';
 
 let mainWindow: BrowserWindow | null = null;
 
+function getIconPath(): string {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'icon.ico');
+  }
+  return path.join(__dirname, '..', '..', 'resources', 'icon.ico');
+}
+
 function createWindow(): void {
+  // Remove default menu bar entirely (File, Edit, View, Window, Help)
+  Menu.setApplicationMenu(null);
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -12,7 +22,8 @@ function createWindow(): void {
     minHeight: 600,
     title: 'Odoo 17 Installer',
     backgroundColor: '#111111',
-    icon: path.join(__dirname, '..', '..', 'resources', 'icon.ico'),
+    icon: getIconPath(),
+    autoHideMenuBar: true,  // Extra safety: hide menu bar
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -27,7 +38,7 @@ function createWindow(): void {
   const rendererPath = path.join(__dirname, '..', '..', 'src', 'renderer', 'index.html');
   mainWindow.loadFile(rendererPath);
 
-  // Open DevTools in development
+  // Open DevTools in development (Ctrl+Shift+I still works)
   if (process.argv.includes('--dev')) {
     mainWindow.webContents.openDevTools();
   }
@@ -39,6 +50,9 @@ function createWindow(): void {
     mainWindow = null;
   });
 }
+
+// Set app name (shows in taskbar, Alt+Tab, etc.)
+app.setName('Odoo 17 Installer');
 
 // Global error handlers
 process.on('uncaughtException', (error) => {

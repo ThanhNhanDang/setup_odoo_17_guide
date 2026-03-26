@@ -12,6 +12,8 @@ files:
 extraResources:
   - from: templates
     to: templates
+  - from: resources/icon.ico
+    to: icon.ico
 
 win:
   target:
@@ -28,5 +30,8 @@ nsis:
   perMachine: false
   allowToChangeInstallationDirectory: true
   runAfterFinish: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: "Odoo 17 Installer"
 
 asar: true
