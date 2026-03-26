@@ -7,7 +7,7 @@
     "start": "tsc && electron .",
     "build": "tsc",
     "watch": "tsc -w",
-    "dev": "npx rimraf dist && npx tsc && electron . --dev",
+    "dev": "npx rimraf dist && npx tsc && copy dev-app-update.yml dist\\dev-app-update.yml >nul 2>&1 & electron . --dev",
     "pack": "tsc && electron-builder --dir",
     "predist": "rimraf release",
     "dist": "tsc && electron-builder",
