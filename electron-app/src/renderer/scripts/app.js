@@ -316,14 +316,39 @@ async function createProject() {
 async function startOdoo(name) {
   const data = getFormData();
   data.project_name = name;
+  // Show starting state
+  showToastMessage('Starting Odoo...', 'info');
   const res = await api('start_odoo', data);
-  if (res.ok) alert('\u2705 Odoo started!\nCommand: ' + res.command);
-  else alert('\u274C ' + res.msg);
+  if (res.ok) {
+    showToastMessage('Odoo started! Opening browser in 5s...', 'success');
+    // Auto-open browser after delay (give Odoo time to boot)
+    const port = _status?.projects?.find(p => p.name === name)?.http_port || '8069';
+    setTimeout(() => openBrowser(port), 5000);
+  } else {
+    showToastMessage('Failed: ' + res.msg, 'error');
+  }
+  // Refresh to update status
+  setTimeout(() => refreshStatus(), 2000);
 }
 
 async function openVSCode(path) { await api('open_vscode', { path }); }
 async function openExplorer(path) { await api('open_explorer', { path }); }
 async function openBrowser(port) { await api('open_browser', { url: `http://localhost:${port}` }); }
+
+// Simple toast notification (bottom-right)
+function showToastMessage(msg, type = 'info') {
+  // Remove existing toast
+  const existing = document.querySelector('.msg-toast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.className = 'msg-toast msg-toast-' + type;
+  toast.innerHTML = `<span>${escHtml(msg)}</span><button onclick="this.parentElement.remove()">&#10005;</button>`;
+  document.body.appendChild(toast);
+
+  // Auto-remove after 6 seconds
+  setTimeout(() => { if (toast.parentElement) toast.remove(); }, 6000);
+}
 
 let _editingProject = '';
 async function editConfig(name) {

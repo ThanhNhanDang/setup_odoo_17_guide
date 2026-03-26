@@ -217,6 +217,13 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         }
       }
 
+      // Verify PostgreSQL is ready before starting Odoo
+      const pgDetailsAfter = detectNativePostgresDetails();
+      if (pgDetailsAfter && !pgDetailsAfter.is_ready) {
+        return { ok: false, msg: 'PostgreSQL is not running. Start it manually: net start postgresql-x64-15' };
+      }
+
+      logger.log(`Starting Odoo: ${cmd}`);
       const proc = spawn('cmd.exe', ['/c', cmd], {
         cwd: projPath,
         detached: true,
