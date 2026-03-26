@@ -35,7 +35,11 @@ function toggleAdvanced(id) {
 }
 
 function showModal(id) { $(id).classList.add('visible'); }
-function hideModal(id) { $(id).classList.remove('visible'); }
+function hideModal(id) {
+  $(id).classList.remove('visible');
+  // Stop log watcher when detail modal closes
+  if (id === 'modalDetail') stopLogWatch();
+}
 
 // ---------------------------------------------------------------------------
 // API layer - uses IPC instead of HTTP fetch
@@ -97,7 +101,7 @@ async function refreshStatus() {
     ['Python 3.11', s.python311, s.python311_path],
     ['PostgreSQL', s.postgres, s.postgres_path],
     ['VS Code', s.vscode, s.vscode_version || ''],
-    ['Caddy', s.caddy, s.caddy ? 'HTTPS proxy' : ''],
+    ['Nginx', s.nginx, s.nginx ? 'HTTPS proxy' : ''],
     ['Odoo Source', s.odoo_cloned, ''],
     ['Virtual Env', s.venv_created, ''],
     ['Requirements', s.requirements_installed, ''],
@@ -251,7 +255,7 @@ if (window.electronAPI) {
   window.electronAPI.onTaskProgress((task) => {
     // Map step labels to step IDs for card updates
     const stepLabelMap = {
-      'Installing Caddy (HTTPS)...': 'install_caddy',
+      'Installing Nginx (HTTPS)...': 'install_nginx',
       'Installing Git...': 'install_git',
       'Installing VS Code...': 'install_vscode',
       'Installing Python 3.11...': 'install_python',
@@ -314,7 +318,7 @@ if (window.electronAPI) {
 // ---------------------------------------------------------------------------
 
 const STEP_MAP = {
-  install_caddy: { label: 'Installing Caddy (HTTPS)...', check: s => s.caddy },
+  install_nginx: { label: 'Installing Nginx (HTTPS)...', check: s => s.nginx },
   install_git: { label: 'Installing Git...', check: s => s.git },
   install_vscode: { label: 'Installing VS Code...', check: s => s.vscode },
   install_python: { label: 'Installing Python 3.11...', check: s => s.python311 },
@@ -655,8 +659,8 @@ async function openVSCode(path) { await api('open_vscode', { path }); }
 async function openExplorer(path) { await api('open_explorer', { path }); }
 async function openBrowser(port) { await api('open_browser', { url: `http://localhost:${port}` }); }
 async function openProjectUrl(domain, port) {
-  if (domain && _status?.caddy) {
-    // Caddy HTTPS proxy - no port needed
+  if (domain && _status?.nginx) {
+    // Nginx HTTPS proxy - no port needed
     await api('open_browser', { url: `https://${domain}` });
   } else if (domain) {
     await api('open_browser', { url: `http://${domain}:${port}` });
@@ -665,7 +669,7 @@ async function openProjectUrl(domain, port) {
   }
 }
 function getProjectUrl(domain, port) {
-  if (domain && _status?.caddy) return `https://${domain}`;
+  if (domain && _status?.nginx) return `https://${domain}`;
   if (domain) return `http://${domain}:${port}`;
   return `http://localhost:${port}`;
 }
@@ -946,6 +950,12 @@ function showProjectDetail(name) {
       <span>${escHtml(p.start_command)}</span>
       <span class="copy-hint">click to copy</span>
     </div>
+    <div style="margin-bottom:16px">
+      <div class="detail-label" style="margin-bottom:8px">Odoo Log (realtime)</div>
+      <div class="log-box" id="detailLogBox" style="max-height:250px;font-size:0.72rem" data-logpath="${escAttr(p.path + '/odoo.log')}">
+        <div style="color:var(--text-tertiary);padding:8px">Loading log...</div>
+      </div>
+    </div>
     <div class="btn-row" style="justify-content:space-between">
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         ${p.is_running
@@ -961,7 +971,67 @@ function showProjectDetail(name) {
   `;
 
   showModal('modalDetail');
+
+  // Start watching log file
+  startLogWatch();
 }
+
+let _currentLogPath = null;
+
+async function startLogWatch() {
+  const logBox = $('detailLogBox');
+  if (!logBox) return;
+  const logPath = logBox.getAttribute('data-logpath');
+  if (!logPath) return;
+
+  // Stop previous watcher
+  await stopLogWatch();
+  _currentLogPath = logPath;
+
+  try {
+    const res = await api('watch-log', { logPath });
+    if (res.ok && res.lines) {
+      logBox.innerHTML = res.lines
+        .filter(l => l.trim())
+        .map(l => `<div class="line">${escHtml(l)}</div>`)
+        .join('');
+      logBox.scrollTop = logBox.scrollHeight;
+    } else {
+      logBox.innerHTML = '<div style="color:var(--text-tertiary);padding:8px">No log file yet. Start Odoo to generate logs.</div>';
+    }
+  } catch {
+    logBox.innerHTML = '<div style="color:var(--text-tertiary);padding:8px">No log file found.</div>';
+  }
+
+  // Listen for new lines
+  if (window.electronAPI) {
+    window.electronAPI.removeAllListeners('project-log');
+    window.electronAPI.onEvent('project-log', (data) => {
+      if (data.logPath !== _currentLogPath) return;
+      const box = $('detailLogBox');
+      if (!box) return;
+      for (const line of data.lines) {
+        box.innerHTML += `<div class="line">${escHtml(line)}</div>`;
+      }
+      box.scrollTop = box.scrollHeight;
+      // Keep max 1000 lines in DOM
+      while (box.children.length > 1000) box.removeChild(box.firstChild);
+    });
+  }
+}
+
+async function stopLogWatch() {
+  if (_currentLogPath) {
+    try { await api('unwatch-log', { logPath: _currentLogPath }); } catch {}
+    _currentLogPath = null;
+  }
+  if (window.electronAPI) {
+    window.electronAPI.removeAllListeners('project-log');
+  }
+}
+
+// Stop log watch when modal closes
+const _origHideModal = typeof hideModal === 'function' ? hideModal : null;
 
 function autoGenerateDomain() {
   const name = ($('newProjName')?.value || '').trim();

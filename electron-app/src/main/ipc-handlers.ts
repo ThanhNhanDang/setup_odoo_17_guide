@@ -8,7 +8,7 @@ import { StepLockManager } from './services/step-lock';
 import { DEFAULT_BASE_DIR, DEFAULT_PROJECTS_DIR } from './services/config';
 import { detectStatus, invalidateStatusCache } from './services/status';
 import {
-  stepInstallCaddy,
+  stepInstallNginx,
   stepInstallGit,
   stepInstallVSCode,
   stepInstallPython,
@@ -109,7 +109,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const baseDir = data?.base_dir || DEFAULT_BASE_DIR;
 
     const stepFns: Record<string, () => Promise<{ ok: boolean; msg: string }>> = {
-      install_caddy: () => stepInstallCaddy(baseDir, logger),
+      install_nginx: () => stepInstallNginx(baseDir, logger),
       install_git: () => stepInstallGit(baseDir, logger),
       install_vscode: () => stepInstallVSCode(baseDir, logger),
       install_python: () => stepInstallPython(baseDir, logger),
@@ -317,36 +317,35 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         }
       });
 
-      // Start/reload Caddy for HTTPS proxy
+      // Start/reload Nginx for HTTPS proxy
       try {
-        const { generateCaddyfile, startCaddy, isCaddyInstalled } = require('./utils/caddy');
-        if (isCaddyInstalled(baseDir)) {
-          // Collect all running projects for Caddyfile
+        const { generateNginxConfig, startNginx, isNginxInstalled } = require('./utils/nginx');
+        if (isNginxInstalled(baseDir)) {
           const { detectStatus } = require('./services/status');
           const status = await detectStatus(baseDir, projectsDir);
-          const caddyProjects = (status.projects || [])
+          const nginxProjects = (status.projects || [])
             .filter((p: any) => p.domain)
-            .map((p: any) => ({ domain: p.domain, port: p.http_port }));
+            .map((p: any) => ({ domain: p.domain, port: p.http_port, longpollingPort: p.longpolling_port }));
           // Ensure current project is included
           let projectDomain = '';
           try {
-            const { parseIniFile } = require('./services/ini-parser');
             const raw = require('fs').readFileSync(conf, 'utf8');
             const dm = raw.match(/^;\s*project_domain\s*=\s*(.+)$/m);
             if (dm) projectDomain = dm[1].trim();
           } catch {}
-          if (projectDomain && !caddyProjects.some((p: any) => p.domain === projectDomain)) {
-            const httpPort = conf.includes('http_port') ? '8069' : '8069';
-            caddyProjects.push({ domain: projectDomain, port: data?.http_port || '8069' });
+          if (projectDomain && !nginxProjects.some((p: any) => p.domain === projectDomain)) {
+            const httpPort = data?.http_port || '8069';
+            const lpPort = String(parseInt(httpPort, 10) + 3);
+            nginxProjects.push({ domain: projectDomain, port: httpPort, longpollingPort: lpPort });
           }
-          if (caddyProjects.length > 0) {
-            generateCaddyfile(baseDir, caddyProjects);
-            await startCaddy(baseDir, logger);
+          if (nginxProjects.length > 0) {
+            await generateNginxConfig(baseDir, nginxProjects, logger);
+            await startNginx(baseDir, logger);
             logger.log(`  > HTTPS: https://${projectDomain}`);
           }
         }
       } catch (e) {
-        logger.log(`  > Caddy HTTPS proxy: ${e}`);
+        logger.log(`  > Nginx HTTPS proxy: ${e}`);
       }
 
       return { ok: true, command: cmd };
@@ -437,6 +436,57 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     } catch (e) {
       return { ok: false, msg: String(e) };
     }
+  });
+
+  // --- Watch project log file (realtime tail) ---
+  const logWatchers = new Map<string, fs.FSWatcher>();
+
+  ipcMain.handle('watch-log', async (_event, data: { logPath: string }) => {
+    const logPath = data?.logPath;
+    if (!logPath || !fs.existsSync(logPath)) return { ok: false, lines: [] };
+
+    // Read last 1000 lines
+    const content = fs.readFileSync(logPath, 'utf8');
+    const allLines = content.split('\n');
+    const last1000 = allLines.slice(-1000);
+
+    // Stop existing watcher for this path
+    if (logWatchers.has(logPath)) {
+      logWatchers.get(logPath)!.close();
+      logWatchers.delete(logPath);
+    }
+
+    // Watch for changes
+    let lastSize = fs.statSync(logPath).size;
+    const watcher = fs.watch(logPath, () => {
+      try {
+        const newSize = fs.statSync(logPath).size;
+        if (newSize <= lastSize) { lastSize = newSize; return; }
+        // Read only new bytes
+        const stream = fs.createReadStream(logPath, { start: lastSize, encoding: 'utf8' });
+        let newData = '';
+        stream.on('data', (chunk) => { newData += String(chunk); });
+        stream.on('end', () => {
+          lastSize = newSize;
+          const newLines = newData.split('\n').filter(Boolean);
+          if (newLines.length > 0 && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('project-log', { logPath, lines: newLines });
+          }
+        });
+      } catch { /* ignore */ }
+    });
+
+    logWatchers.set(logPath, watcher);
+    return { ok: true, lines: last1000 };
+  });
+
+  ipcMain.handle('unwatch-log', async (_event, data: { logPath: string }) => {
+    const logPath = data?.logPath;
+    if (logPath && logWatchers.has(logPath)) {
+      logWatchers.get(logPath)!.close();
+      logWatchers.delete(logPath);
+    }
+    return { ok: true };
   });
 
   // --- Get current app icon as data URL ---

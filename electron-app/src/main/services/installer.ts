@@ -14,7 +14,7 @@ import {
 import { findPython311, findPostgresBin, findDocker, findDockerPostgres, findVSCode, findGit } from './detection';
 import { runCmd, runCmdStreaming } from '../utils/shell';
 import { downloadFile } from '../utils/download';
-import { installCaddy, isCaddyInstalled } from '../utils/caddy';
+import { installNginx, isNginxInstalled } from '../utils/nginx';
 import { StepLockManager } from './step-lock';
 
 // ---------------------------------------------------------------------------
@@ -33,12 +33,12 @@ interface StepResult {
 //        step_create_project, step_full_install
 // ---------------------------------------------------------------------------
 
-export async function stepInstallCaddy(baseDir: string, logger: LoggerService): Promise<StepResult> {
-  if (isCaddyInstalled(baseDir)) {
-    logger.log('Caddy already installed.');
+export async function stepInstallNginx(baseDir: string, logger: LoggerService): Promise<StepResult> {
+  if (isNginxInstalled(baseDir)) {
+    logger.log('Nginx already installed.');
     return { ok: true, msg: 'Already installed' };
   }
-  const success = await installCaddy(baseDir, logger);
+  const success = await installNginx(baseDir, logger);
   return success
     ? { ok: true, msg: 'Installed' }
     : { ok: false, msg: 'Download failed' };
@@ -464,15 +464,20 @@ export async function stepCreateProject(
     cfg.longpolling_port = isNaN(httpPort) ? '8072' : String(httpPort + 3);
   }
 
-  // Per-project DB user (isolate databases between projects)
-  const projectDbUser = `odoo_${projectName.replace(/[^a-zA-Z0-9_]/g, '_')}`;
-  const projectDbPassword = cfg.db_password || 'odoo';
-  cfg.db_user = projectDbUser;
+  // Log file in project directory
+  cfg.logfile = path.join(proj, 'odoo.log').replace(/\\/g, '/');
 
   // Per-project domain (isolate browser sessions)
   const { projectToDomain, addHostEntry } = require('../utils/hosts');
   const projectDomain = opts.project_domain || projectToDomain(projectName);
   cfg.project_domain = projectDomain;
+
+  // Auto-set dbfilter from domain's first subdomain (DB isolation without manual config)
+  // e.g. "test.odoo.local" → dbfilter "^test.*$", "w2.odoo.local" → "^w2.*$"
+  if (!cfg.dbfilter) {
+    const firstSubdomain = projectDomain.split('.')[0];
+    cfg.dbfilter = `^${firstSubdomain}.*$`;
+  }
 
   // odoo.conf from template
   const templatesDir = getTemplatesDir();
@@ -500,33 +505,6 @@ export async function stepCreateProject(
     let settingsContent = fs.readFileSync(settingsTemplate, 'utf8');
     settingsContent = settingsContent.replace(/\{python_path\}/g, venvPython);
     fs.writeFileSync(path.join(proj, '.vscode', 'settings.json'), settingsContent, 'utf8');
-  }
-
-  // Create per-project DB user (isolates databases between projects)
-  const dbPort = cfg.db_port || '5434';
-  try {
-    const { detectNativePostgresDetails } = require('./detection');
-    const pgDetails = detectNativePostgresDetails();
-    if (pgDetails?.is_ready) {
-      const psql = path.join(pgDetails.bin_path, 'psql.exe');
-      const env = { ...process.env, PGPASSWORD: 'postgres' };
-      const { output } = await runCmd(
-        `"${psql}" -U postgres -p ${dbPort} -tAc "SELECT 1 FROM pg_roles WHERE rolname='${projectDbUser}'"`,
-        undefined, env
-      );
-      if (!output.includes('1')) {
-        logger.log(`  > Creating DB user '${projectDbUser}' for project '${projectName}'...`);
-        await runCmd(
-          `"${psql}" -U postgres -p ${dbPort} -c "CREATE ROLE ${projectDbUser} WITH LOGIN PASSWORD '${projectDbPassword}' CREATEDB;"`,
-          undefined, env
-        );
-        logger.log(`  > DB user '${projectDbUser}' created.`);
-      } else {
-        logger.log(`  > DB user '${projectDbUser}' already exists.`);
-      }
-    }
-  } catch {
-    // Non-fatal: DB user creation is best-effort
   }
 
   // Add domain to hosts file
@@ -634,7 +612,7 @@ export async function stepFullInstall(
   const vscodePromise = runNamedStep('Installing VS Code...', 'install_vscode', () => stepInstallVSCode(baseDir, logger), logger, lock);
   const pythonPromise = runNamedStep('Installing Python 3.11...', 'install_python', () => stepInstallPython(baseDir, logger), logger, lock);
   const pgPromise = runNamedStep('Installing PostgreSQL...', 'install_postgres', () => stepInstallPostgres(baseDir, logger, pgSuperPassword, dbPort, dbUser, dbPassword, pgMode), logger, lock);
-  const caddyPromise = runNamedStep('Installing Caddy (HTTPS)...', 'install_caddy', () => stepInstallCaddy(baseDir, logger), logger, lock);
+  const nginxPromise = runNamedStep('Installing Nginx (HTTPS)...', 'install_nginx', () => stepInstallNginx(baseDir, logger), logger, lock);
 
   // ── Chain: Git done → Clone Odoo ──
   const clonePromise = gitPromise.then(gitResult => {
@@ -664,11 +642,11 @@ export async function stepFullInstall(
     return runNamedStep('Creating DB user...', 'create_db_user', () => stepCreatePgUser(logger, dbUser, dbPassword, dbPort, pgSuperPassword, pgMode), logger, lock);
   });
 
-  // ── Wait for VS Code + Caddy (independent, just collect results) ──
+  // ── Wait for VS Code + Nginx (independent, just collect results) ──
   const vscodeResult = await vscodePromise;
   results.push(vscodeResult);
-  const caddyResult = await caddyPromise;
-  results.push(caddyResult);
+  const nginxResult = await nginxPromise;
+  results.push(nginxResult);
 
   // ── Wait for pip + DB user (parallel) ──
   const [pipResult, dbUserResult] = await Promise.all([pipPromise, dbUserPromise]);

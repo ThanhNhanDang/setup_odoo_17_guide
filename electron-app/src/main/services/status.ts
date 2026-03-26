@@ -20,7 +20,7 @@ import {
 } from './detection';
 import { parseIniFile, iniGet } from './ini-parser';
 import { DEFAULT_BASE_DIR } from './config';
-import { isCaddyInstalled } from '../utils/caddy';
+import { isNginxInstalled } from '../utils/nginx';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -70,7 +70,7 @@ export interface StatusResult {
   readonly requirements_installed: boolean;
   readonly git: boolean;
   readonly git_version: string;
-  readonly caddy: boolean;
+  readonly nginx: boolean;
   readonly vscode: boolean;
   readonly vscode_version: string;
   readonly base_dir: string;
@@ -240,7 +240,7 @@ export async function detectStatus(baseDir: string, projectsDir: string): Promis
   const odooCloned = fs.existsSync(path.join(baseDir, 'odoo', 'odoo-bin'));
   const venvCreated = fs.existsSync(path.join(baseDir, 'venv', 'Scripts', 'python.exe'));
   const reqInstalled = fs.existsSync(path.join(baseDir, 'venv', 'Lib', 'site-packages', 'lxml'));
-  const caddy = isCaddyInstalled(baseDir);
+  const nginx = isNginxInstalled(baseDir);
 
   // Slow: run ALL external process checks in parallel
   const [vsResult, gitVersion, dockerAvailable, nativePg] = await Promise.all([
@@ -294,7 +294,7 @@ export async function detectStatus(baseDir: string, projectsDir: string): Promis
     requirements_installed: reqInstalled,
     git: gitVersion !== null,
     git_version: gitVersion || '',
-    caddy,
+    nginx,
     vscode: vsResult.path !== null,
     vscode_version: vsResult.version,
     base_dir: baseDir,
