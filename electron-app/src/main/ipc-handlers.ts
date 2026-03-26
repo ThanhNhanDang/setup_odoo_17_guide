@@ -5,6 +5,7 @@ import { LoggerService } from './services/logger';
 import { DEFAULT_BASE_DIR, DEFAULT_PROJECTS_DIR } from './services/config';
 import { detectStatus } from './services/status';
 import {
+  stepInstallVSCode,
   stepInstallPython,
   stepInstallPostgres,
   stepCloneOdoo,
@@ -97,6 +98,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const baseDir = data?.base_dir || DEFAULT_BASE_DIR;
 
     const stepFns: Record<string, () => Promise<{ ok: boolean; msg: string }>> = {
+      install_vscode: () => stepInstallVSCode(baseDir, logger),
       install_python: () => stepInstallPython(baseDir, logger),
       install_postgres: () => stepInstallPostgres(
         baseDir, logger,

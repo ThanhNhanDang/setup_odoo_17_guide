@@ -98,6 +98,7 @@ async function refreshStatus() {
     ['Odoo Source', s.odoo_cloned, ''],
     ['Virtual Env', s.venv_created, ''],
     ['Requirements', s.requirements_installed, ''],
+    ['VS Code', s.vscode, s.vscode_version || ''],
   ];
   $('statusGrid').innerHTML = items.map(([label, ok, detail]) => `
     <div class="status-card">
@@ -412,6 +413,10 @@ function renderDashboard(s) {
     <div class="dash-stat">
       <div class="dash-stat-value">${s.postgres ? '<span style="color:#3fb950">OK</span>' : '<span style="color:#f85149">Missing</span>'}</div>
       <div class="dash-stat-label">PostgreSQL</div>
+    </div>
+    <div class="dash-stat">
+      <div class="dash-stat-value">${s.vscode ? '<span style="color:#3fb950">' + escHtml(s.vscode_version || 'OK') + '</span>' : '<span style="color:#f85149">Missing</span>'}</div>
+      <div class="dash-stat-label">VS Code</div>
     </div>
   `;
 

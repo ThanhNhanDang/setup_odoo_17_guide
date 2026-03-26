@@ -56,6 +56,57 @@ export function findPostgresBin(): string | null {
 }
 
 /**
+ * Find VS Code installation. Returns path to code.exe or null.
+ * Checks: PATH (code --version), standard install locations.
+ */
+export function findVSCode(): string | null {
+  // Check if 'code' is in PATH
+  try {
+    const output = execFileSync('cmd.exe', ['/c', 'code --version'], {
+      timeout: 5000,
+      windowsHide: true,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    if (output.trim()) return 'code'; // Available in PATH
+  } catch {
+    // not in PATH
+  }
+
+  // Check standard install locations
+  const localAppData = process.env.LOCALAPPDATA || '';
+  const programFiles = process.env['ProgramFiles'] || 'C:\\Program Files';
+  const candidates = [
+    path.join(localAppData, 'Programs', 'Microsoft VS Code', 'Code.exe'),
+    path.join(programFiles, 'Microsoft VS Code', 'Code.exe'),
+    'C:\\Program Files\\Microsoft VS Code\\Code.exe',
+    'C:\\Program Files (x86)\\Microsoft VS Code\\Code.exe',
+  ];
+  for (const p of candidates) {
+    if (p && fs.existsSync(p)) return p;
+  }
+  return null;
+}
+
+/**
+ * Get VS Code version string (if installed).
+ */
+export function getVSCodeVersion(): string {
+  try {
+    const output = execFileSync('cmd.exe', ['/c', 'code --version'], {
+      timeout: 5000,
+      windowsHide: true,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    // First line is version number (e.g., "1.96.0")
+    return output.trim().split('\n')[0].trim();
+  } catch {
+    return '';
+  }
+}
+
+/**
  * Check if Docker is available.
  */
 export function findDocker(): boolean {

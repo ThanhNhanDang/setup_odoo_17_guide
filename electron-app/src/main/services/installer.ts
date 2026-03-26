@@ -4,12 +4,13 @@ import { LoggerService } from './logger';
 import {
   PYTHON_311_URL,
   POSTGRES_URL,
+  VSCODE_URL,
   ODOO_GIT_URL,
   ODOO_BRANCH,
   PROJECT_DEFAULTS,
   getTemplatesDir,
 } from './config';
-import { findPython311, findPostgresBin, findDocker, findDockerPostgres } from './detection';
+import { findPython311, findPostgresBin, findDocker, findDockerPostgres, findVSCode } from './detection';
 import { runCmd } from '../utils/shell';
 import { downloadFile } from '../utils/download';
 
@@ -28,6 +29,39 @@ interface StepResult {
 //        step_clone_odoo, step_create_venv, step_install_requirements,
 //        step_create_project, step_full_install
 // ---------------------------------------------------------------------------
+
+export async function stepInstallVSCode(baseDir: string, logger: LoggerService): Promise<StepResult> {
+  if (findVSCode()) {
+    logger.log('VS Code already installed.');
+    return { ok: true, msg: 'Already installed' };
+  }
+  logger.log('Downloading VS Code (latest stable)...');
+  fs.mkdirSync(baseDir, { recursive: true });
+  const installer = path.join(baseDir, 'vscode-installer.exe');
+  try {
+    await downloadFile(VSCODE_URL, installer, logger);
+  } catch (e) {
+    return { ok: false, msg: `Download failed: ${e}` };
+  }
+  logger.log('Installing VS Code (silent)...');
+  // /VERYSILENT = no UI, /MERGETASKS = add to PATH + context menu + file associations
+  await runCmd(
+    `"${installer}" /VERYSILENT /NORESTART /MERGETASKS="!runcode,addcontextmenufiles,addcontextmenufolders,associatewithfiles,addtopath"`
+  );
+  // Wait for installer to finish
+  await new Promise(resolve => setTimeout(resolve, 5000));
+  if (findVSCode()) {
+    logger.log('VS Code installed!');
+    return { ok: true, msg: 'Installed' };
+  }
+  // Even if detection fails, installer may have succeeded (PATH not updated in current process)
+  if (fs.existsSync('C:\\Program Files\\Microsoft VS Code\\Code.exe') ||
+      fs.existsSync(path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Microsoft VS Code', 'Code.exe'))) {
+    logger.log('VS Code installed! (restart app to detect in PATH)');
+    return { ok: true, msg: 'Installed (restart to detect in PATH)' };
+  }
+  return { ok: false, msg: 'Install may need admin rights.' };
+}
 
 export async function stepInstallPython(baseDir: string, logger: LoggerService): Promise<StepResult> {
   if (findPython311()) {
@@ -313,6 +347,7 @@ export async function stepFullInstall(
   const pgSuperPassword = opts.pg_super_password || 'postgres';
 
   const steps: Array<[string, () => Promise<StepResult>]> = [
+    ['Installing VS Code...', () => stepInstallVSCode(baseDir, logger)],
     ['Installing Python 3.11...', () => stepInstallPython(baseDir, logger)],
     ['Installing PostgreSQL...', () => stepInstallPostgres(baseDir, logger, pgSuperPassword, dbPort, dbUser, dbPassword)],
     ['Creating DB user...', () => stepCreatePgUser(logger, dbUser, dbPassword, dbPort, pgSuperPassword)],

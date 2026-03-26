@@ -11,6 +11,7 @@ export const PYTHON_311_URL = 'https://www.python.org/ftp/python/3.11.4/python-3
 export const POSTGRES_URL = 'https://get.enterprisedb.com/postgresql/postgresql-16.6-1-windows-x64.exe';
 export const ODOO_GIT_URL = 'https://github.com/odoo/odoo.git';
 export const ODOO_BRANCH = '17.0';
+export const VSCODE_URL = 'https://update.code.visualstudio.com/latest/win32-x64/stable';
 
 export const PROJECT_DEFAULTS: Readonly<Record<string, string>> = {
   addons_path: './addons,./odoo/addons',
