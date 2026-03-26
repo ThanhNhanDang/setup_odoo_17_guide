@@ -97,6 +97,7 @@ async function refreshStatus() {
     ['Python 3.11', s.python311, s.python311_path],
     ['PostgreSQL', s.postgres, s.postgres_path],
     ['VS Code', s.vscode, s.vscode_version || ''],
+    ['Caddy', s.caddy, s.caddy ? 'HTTPS proxy' : ''],
     ['Odoo Source', s.odoo_cloned, ''],
     ['Virtual Env', s.venv_created, ''],
     ['Requirements', s.requirements_installed, ''],
@@ -172,7 +173,7 @@ function renderProjects(s) {
           ${p.is_running
             ? '<span class="tag tag-running">running</span>'
             : '<span class="tag tag-stopped">stopped</span>'}
-          <span class="project-url" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port)}')" title="Click to open">${p.domain ? 'http://' + escHtml(p.domain) + ':' + escHtml(p.http_port) : 'http://localhost:' + escHtml(p.http_port)}</span></div>
+          <span class="project-url" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port)}')" title="Click to open">${escHtml(getProjectUrl(p.domain, p.http_port))}</span></div>
         <div style="font-size:0.75rem;color:var(--text-tertiary)">${escHtml(p.path)}</div>
       </div>
       <div class="project-detail-grid">
@@ -251,6 +252,7 @@ if (window.electronAPI) {
   window.electronAPI.onTaskProgress((task) => {
     // Map step labels to step IDs for card updates
     const stepLabelMap = {
+      'Installing Caddy (HTTPS)...': 'install_caddy',
       'Installing Git...': 'install_git',
       'Installing VS Code...': 'install_vscode',
       'Installing Python 3.11...': 'install_python',
@@ -297,6 +299,7 @@ if (window.electronAPI) {
 // ---------------------------------------------------------------------------
 
 const STEP_MAP = {
+  install_caddy: { label: 'Installing Caddy (HTTPS)...', check: s => s.caddy },
   install_git: { label: 'Installing Git...', check: s => s.git },
   install_vscode: { label: 'Installing VS Code...', check: s => s.vscode },
   install_python: { label: 'Installing Python 3.11...', check: s => s.python311 },
@@ -540,8 +543,19 @@ async function openVSCode(path) { await api('open_vscode', { path }); }
 async function openExplorer(path) { await api('open_explorer', { path }); }
 async function openBrowser(port) { await api('open_browser', { url: `http://localhost:${port}` }); }
 async function openProjectUrl(domain, port) {
-  const host = domain || 'localhost';
-  await api('open_browser', { url: `http://${host}:${port}` });
+  if (domain && _status?.caddy) {
+    // Caddy HTTPS proxy - no port needed
+    await api('open_browser', { url: `https://${domain}` });
+  } else if (domain) {
+    await api('open_browser', { url: `http://${domain}:${port}` });
+  } else {
+    await api('open_browser', { url: `http://localhost:${port}` });
+  }
+}
+function getProjectUrl(domain, port) {
+  if (domain && _status?.caddy) return `https://${domain}`;
+  if (domain) return `http://${domain}:${port}`;
+  return `http://localhost:${port}`;
 }
 
 // Simple toast notification (bottom-right)
@@ -700,7 +714,7 @@ function renderKanban(projects) {
         <span class="kanban-card-name">${escHtml(p.name)}</span>
         <span class="kanban-card-port" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port || '8069')}')" title="Open in browser" style="cursor:pointer">:${escHtml(p.http_port || '8069')}</span>
       </div>
-      <div class="kanban-card-url" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port || '8069')}')" title="Click to open">${p.domain ? 'http://' + escHtml(p.domain) + ':' + escHtml(p.http_port || '8069') : 'http://localhost:' + escHtml(p.http_port || '8069')}</div>
+      <div class="kanban-card-url" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port || '8069')}')" title="Click to open">${escHtml(getProjectUrl(p.domain, p.http_port || '8069'))}</div>
       <div class="kanban-card-body">
         <div class="kanban-card-meta">
           <div class="kanban-meta-item">

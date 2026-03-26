@@ -14,6 +14,7 @@ import {
 import { findPython311, findPostgresBin, findDocker, findDockerPostgres, findVSCode, findGit } from './detection';
 import { runCmd } from '../utils/shell';
 import { downloadFile } from '../utils/download';
+import { installCaddy, isCaddyInstalled } from '../utils/caddy';
 
 // ---------------------------------------------------------------------------
 // Result type
@@ -30,6 +31,17 @@ interface StepResult {
 //        step_clone_odoo, step_create_venv, step_install_requirements,
 //        step_create_project, step_full_install
 // ---------------------------------------------------------------------------
+
+export async function stepInstallCaddy(baseDir: string, logger: LoggerService): Promise<StepResult> {
+  if (isCaddyInstalled(baseDir)) {
+    logger.log('Caddy already installed.');
+    return { ok: true, msg: 'Already installed' };
+  }
+  const success = await installCaddy(baseDir, logger);
+  return success
+    ? { ok: true, msg: 'Installed' }
+    : { ok: false, msg: 'Download failed' };
+}
 
 export async function stepInstallGit(baseDir: string, logger: LoggerService): Promise<StepResult> {
   // Check PATH first
@@ -541,6 +553,7 @@ export async function stepFullInstall(
   const vscodePromise = runNamedStep('Installing VS Code...', () => stepInstallVSCode(baseDir, logger), logger);
   const pythonPromise = runNamedStep('Installing Python 3.11...', () => stepInstallPython(baseDir, logger), logger);
   const pgPromise = runNamedStep('Installing PostgreSQL...', () => stepInstallPostgres(baseDir, logger, pgSuperPassword, dbPort, dbUser, dbPassword, pgMode), logger);
+  const caddyPromise = runNamedStep('Installing Caddy (HTTPS)...', () => stepInstallCaddy(baseDir, logger), logger);
 
   // ── Chain: Git done → Clone Odoo ──
   const clonePromise = gitPromise.then(gitResult => {
@@ -570,9 +583,11 @@ export async function stepFullInstall(
     return runNamedStep('Creating DB user...', () => stepCreatePgUser(logger, dbUser, dbPassword, dbPort, pgSuperPassword, pgMode), logger);
   });
 
-  // ── Wait for VS Code (independent, just collect result) ──
+  // ── Wait for VS Code + Caddy (independent, just collect results) ──
   const vscodeResult = await vscodePromise;
   results.push(vscodeResult);
+  const caddyResult = await caddyPromise;
+  results.push(caddyResult);
 
   // ── Wait for pip + DB user (parallel) ──
   const [pipResult, dbUserResult] = await Promise.all([pipPromise, dbUserPromise]);

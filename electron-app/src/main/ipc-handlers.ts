@@ -6,6 +6,7 @@ import { LoggerService } from './services/logger';
 import { DEFAULT_BASE_DIR, DEFAULT_PROJECTS_DIR } from './services/config';
 import { detectStatus } from './services/status';
 import {
+  stepInstallCaddy,
   stepInstallGit,
   stepInstallVSCode,
   stepInstallPython,
@@ -104,6 +105,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const baseDir = data?.base_dir || DEFAULT_BASE_DIR;
 
     const stepFns: Record<string, () => Promise<{ ok: boolean; msg: string }>> = {
+      install_caddy: () => stepInstallCaddy(baseDir, logger),
       install_git: () => stepInstallGit(baseDir, logger),
       install_vscode: () => stepInstallVSCode(baseDir, logger),
       install_python: () => stepInstallPython(baseDir, logger),
@@ -299,6 +301,38 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
           logger.log(`[odoo] Process exited with code ${code}`);
         }
       });
+
+      // Start/reload Caddy for HTTPS proxy
+      try {
+        const { generateCaddyfile, startCaddy, isCaddyInstalled } = require('./utils/caddy');
+        if (isCaddyInstalled(baseDir)) {
+          // Collect all running projects for Caddyfile
+          const { detectStatus } = require('./services/status');
+          const status = await detectStatus(baseDir, projectsDir);
+          const caddyProjects = (status.projects || [])
+            .filter((p: any) => p.domain)
+            .map((p: any) => ({ domain: p.domain, port: p.http_port }));
+          // Ensure current project is included
+          let projectDomain = '';
+          try {
+            const { parseIniFile } = require('./services/ini-parser');
+            const raw = require('fs').readFileSync(conf, 'utf8');
+            const dm = raw.match(/^;\s*project_domain\s*=\s*(.+)$/m);
+            if (dm) projectDomain = dm[1].trim();
+          } catch {}
+          if (projectDomain && !caddyProjects.some((p: any) => p.domain === projectDomain)) {
+            const httpPort = conf.includes('http_port') ? '8069' : '8069';
+            caddyProjects.push({ domain: projectDomain, port: data?.http_port || '8069' });
+          }
+          if (caddyProjects.length > 0) {
+            generateCaddyfile(baseDir, caddyProjects);
+            await startCaddy(baseDir, logger);
+            logger.log(`  > HTTPS: https://${projectDomain}`);
+          }
+        }
+      } catch (e) {
+        logger.log(`  > Caddy HTTPS proxy: ${e}`);
+      }
 
       return { ok: true, command: cmd };
     } catch (e) {

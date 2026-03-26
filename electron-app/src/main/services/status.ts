@@ -15,6 +15,7 @@ import {
 } from './detection';
 import { parseIniFile, iniGet } from './ini-parser';
 import { DEFAULT_BASE_DIR } from './config';
+import { isCaddyInstalled } from '../utils/caddy';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -64,6 +65,7 @@ export interface StatusResult {
   readonly requirements_installed: boolean;
   readonly git: boolean;
   readonly git_version: string;
+  readonly caddy: boolean;
   readonly vscode: boolean;
   readonly vscode_version: string;
   readonly base_dir: string;
@@ -263,6 +265,7 @@ export async function detectStatus(baseDir: string, projectsDir: string): Promis
     requirements_installed: fs.existsSync(path.join(baseDir, 'venv', 'Lib', 'site-packages', 'lxml')),
     git: findGit() !== null,
     git_version: findGit() || '',
+    caddy: isCaddyInstalled(baseDir),
     vscode: findVSCode() !== null,
     vscode_version: getVSCodeVersion(),
     base_dir: baseDir,
