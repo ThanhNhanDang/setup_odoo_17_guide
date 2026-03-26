@@ -9,14 +9,14 @@
       "program": "{odoo_bin_path}",
       "args": [
         "-c",
-        "${{workspaceFolder}}/odoo.conf",
+        "${workspaceFolder}/odoo.conf",
         "--dev",
         "xml"
       ],
       "env": {},
       "console": "integratedTerminal",
       "justMyCode": false,
-      "cwd": "${{workspaceFolder}}"
+      "cwd": "${workspaceFolder}"
     }
   ]
 }

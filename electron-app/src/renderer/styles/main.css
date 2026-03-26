@@ -195,6 +195,11 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .project-card:hover{border-color:var(--accent)}
 .project-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .project-header .name{font-weight:700;color:var(--text-primary);font-size:1.05rem}
+.project-url{
+  font-size:0.75rem;color:var(--info);cursor:pointer;margin-left:8px;
+  font-family:'Cascadia Code',Consolas,monospace;
+}
+.project-url:hover{text-decoration:underline;color:var(--accent)}
 .project-detail-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-bottom:12px}
 .detail-item{padding:8px 10px;background:var(--bg-canvas);border-radius:6px}
 .detail-label{font-size:0.7rem;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px}
@@ -290,6 +295,11 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   background:var(--info-bg);color:var(--info);padding:3px 10px;border-radius:20px;
   font-size:0.7rem;font-weight:600;
 }
+.kanban-card-url{
+  padding:0 18px 8px;font-size:0.75rem;color:var(--info);cursor:pointer;
+  font-family:'Cascadia Code',Consolas,monospace;
+}
+.kanban-card-url:hover{text-decoration:underline;color:var(--accent)}
 .kanban-card-body{padding:14px 18px}
 .kanban-card-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
 .kanban-meta-item{display:flex;flex-direction:column;gap:2px}

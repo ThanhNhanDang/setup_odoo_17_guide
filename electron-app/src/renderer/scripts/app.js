@@ -158,9 +158,10 @@ function renderProjects(s) {
     return `<div class="project-card">
       <div class="project-header">
         <div><span class="name">${escHtml(p.name)}</span>
-          <span class="tag tag-port">:${escHtml(p.http_port)}</span>
-          <span class="tag tag-ready">ready</span></div>
-        <div style="font-size:0.75rem;color:#666">${escHtml(p.path)}</div>
+          <span class="tag tag-port" onclick="openBrowser('${escAttr(p.http_port)}')" style="cursor:pointer" title="Open in browser">:${escHtml(p.http_port)}</span>
+          <span class="tag tag-ready">ready</span>
+          <span class="project-url" onclick="openBrowser('${escAttr(p.http_port)}')" title="Click to open">http://localhost:${escHtml(p.http_port)}</span></div>
+        <div style="font-size:0.75rem;color:var(--text-tertiary)">${escHtml(p.path)}</div>
       </div>
       <div class="project-detail-grid">
         ${details.map(([l, v]) => `<div class="detail-item"><div class="detail-label">${l}</div><div class="detail-value">${escHtml(v)}</div></div>`).join('')}
@@ -456,8 +457,9 @@ function renderKanban(projects) {
     <div class="kanban-card">
       <div class="kanban-card-header">
         <span class="kanban-card-name">${escHtml(p.name)}</span>
-        <span class="kanban-card-port">:${escHtml(p.http_port || '8069')}</span>
+        <span class="kanban-card-port" onclick="openBrowser('${escAttr(p.http_port || '8069')}')" title="Open in browser" style="cursor:pointer">:${escHtml(p.http_port || '8069')}</span>
       </div>
+      <div class="kanban-card-url" onclick="openBrowser('${escAttr(p.http_port || '8069')}')" title="Click to open">http://localhost:${escHtml(p.http_port || '8069')}</div>
       <div class="kanban-card-body">
         <div class="kanban-card-meta">
           <div class="kanban-meta-item">
