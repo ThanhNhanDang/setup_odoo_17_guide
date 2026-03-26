@@ -14,7 +14,7 @@ function showPanel(name, el) {
   document.querySelectorAll('.nav-tab').forEach(m => m.classList.remove('active'));
   $('panel-' + name).classList.add('active');
   if (el) el.classList.add('active');
-  if (name === 'dashboard' || name === 'status' || name === 'projects') refreshStatus();
+  if (name === 'dashboard' || name === 'settings' || name === 'projects') refreshStatus();
   if (name === 'log') pollLog();
 }
 

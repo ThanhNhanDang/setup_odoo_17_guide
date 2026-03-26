@@ -28,17 +28,13 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
     Dashboard
   </button>
-  <button class="nav-tab" onclick="showPanel('status',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-    Status
+  <button class="nav-tab" onclick="showPanel('settings',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+    Settings
   </button>
   <button class="nav-tab" onclick="showPanel('install',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
     Full Install
-  </button>
-  <button class="nav-tab" onclick="showPanel('newproject',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-    New Project
   </button>
   <button class="nav-tab" onclick="showPanel('projects',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
@@ -89,31 +85,21 @@
     </div>
   </div>
 
-  <!-- STATUS -->
-  <div class="panel" id="panel-status">
-    <h2>System Status</h2>
-    <p class="desc">Current state of your development environment</p>
+  <!-- SETTINGS (was Status) -->
+  <div class="panel" id="panel-settings">
+    <h2>Settings</h2>
+    <p class="desc">System status and default configuration</p>
+    <h3 style="color:var(--text-primary);margin-bottom:12px">System Status</h3>
     <div class="status-grid" id="statusGrid"></div>
     <div id="nativePgDetail"></div>
-    <button class="btn btn-outline btn-sm" onclick="refreshStatus()">Refresh</button>
-  </div>
+    <button class="btn btn-outline btn-sm" onclick="refreshStatus()" style="margin-bottom:24px">Refresh</button>
 
-  <!-- INSTALL -->
-  <div class="panel" id="panel-install">
-    <h2>Full Install</h2>
-    <p class="desc">Install everything in one click</p>
+    <h3 style="color:var(--text-primary);margin-bottom:12px">Default Configuration</h3>
     <div class="form-section">
       <h3>Directories</h3>
       <div class="form-grid">
         <div class="form-group"><label>Base Directory</label><input id="baseDir" value=""></div>
         <div class="form-group"><label>Projects Directory</label><input id="projectsDir" value=""></div>
-      </div>
-    </div>
-    <div class="form-section">
-      <h3>Project</h3>
-      <div class="form-grid">
-        <div class="form-group"><label>Project Name</label><input id="projectName" value="my_project"></div>
-        <div class="form-group"><label>HTTP Port</label><input id="httpPort" value="8069" type="number"></div>
       </div>
     </div>
     <div class="form-section">
@@ -135,6 +121,13 @@
       </div>
     </div>
     <div class="form-section">
+      <h3>Default Project Config</h3>
+      <div class="form-grid">
+        <div class="form-group"><label>HTTP Port</label><input id="httpPort" value="8069" type="number"></div>
+        <div class="form-group"><label>Project Name</label><input id="projectName" value="my_project"></div>
+      </div>
+    </div>
+    <div class="form-section">
       <h3 onclick="toggleAdvanced('advInstall')"><span class="arrow" id="arrowAdvInstall">&#9654;</span> Advanced Odoo Config</h3>
       <div class="collapsible" id="advInstall">
         <div class="form-grid">
@@ -153,6 +146,12 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- INSTALL -->
+  <div class="panel" id="panel-install">
+    <h2>Full Install</h2>
+    <p class="desc">Install all components. Configure defaults in Settings tab first.</p>
     <!-- Step Cards -->
     <div class="install-steps" id="installSteps">
       <div class="step-card" id="step-install_git" onclick="runStep('install_git')">
@@ -230,36 +229,18 @@
     </div>
   </div>
 
-  <!-- NEW PROJECT -->
-  <div class="panel" id="panel-newproject">
-    <h2>Create New Project</h2>
-    <p class="desc">Add a new Odoo project with its own config and port</p>
-    <div class="form-section">
-      <div class="form-grid">
-        <div class="form-group"><label>Project Name</label><input id="newProjName" placeholder="e.g. ecommerce"></div>
-        <div class="form-group"><label>HTTP Port</label><input id="newProjPort" value="8070" type="number"></div>
-        <div class="form-group"><label>DB Host</label><input id="newProjDbHost" value="localhost"></div>
-        <div class="form-group"><label>DB Port</label><input id="newProjDbPort" value="5432" type="number"></div>
-        <div class="form-group"><label>DB User</label><input id="newProjDbUser" value="odoo"></div>
-        <div class="form-group"><label>DB Password</label><input id="newProjDbPass" value="odoo"></div>
-      </div>
-      <h3 onclick="toggleAdvanced('advNew')" style="margin-top:14px"><span class="arrow" id="arrowAdvNew">&#9654;</span> Advanced Config</h3>
-      <div class="collapsible" id="advNew">
-        <div class="form-grid" style="margin-top:10px">
-          <div class="form-group"><label>Log Level</label><select id="newLogLevel"><option value="error" selected>error</option><option value="warn">warn</option><option value="info">info</option><option value="debug">debug</option></select></div>
-          <div class="form-group"><label>Workers</label><input id="newWorkers" value="0" type="number"></div>
-          <div class="form-group"><label>DB Filter</label><input id="newDbfilter" placeholder="e.g. ^mydb.*$"></div>
-          <div class="form-group"><label>Proxy Mode</label><select id="newProxyMode"><option value="True" selected>True</option><option value="False">False</option></select></div>
-        </div>
-      </div>
-      <button class="btn btn-primary btn-block" onclick="createProject()">Create Project</button>
-    </div>
-  </div>
-
   <!-- PROJECTS -->
   <div class="panel" id="panel-projects">
-    <h2>My Projects</h2>
-    <p class="desc">Manage your Odoo development projects</p>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div>
+        <h2>My Projects</h2>
+        <p class="desc">Manage your Odoo development projects</p>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="showModal('modalNewProject')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        New Project
+      </button>
+    </div>
     <div id="projectsList"></div>
   </div>
 
@@ -273,6 +254,39 @@
 </div>
 
 <!-- Modals -->
+<!-- New Project Modal -->
+<div class="modal-overlay" id="modalNewProject">
+  <div class="modal" style="max-width:600px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="margin:0">Create New Project</h3>
+      <button class="btn-close-modal" onclick="hideModal('modalNewProject')">&#10005;</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label>Project Name</label><input id="newProjName" placeholder="e.g. ecommerce"></div>
+      <div class="form-group"><label>HTTP Port</label><input id="newProjPort" value="8070" type="number"></div>
+      <div class="form-group"><label>DB Host</label><input id="newProjDbHost" value="localhost"></div>
+      <div class="form-group"><label>DB Port</label><input id="newProjDbPort" value="5434" type="number"></div>
+      <div class="form-group"><label>DB User</label><input id="newProjDbUser" value="odoo"></div>
+      <div class="form-group"><label>DB Password</label><input id="newProjDbPass" value="odoo"></div>
+    </div>
+    <div class="form-section" style="margin-top:12px;margin-bottom:0">
+      <h3 onclick="toggleAdvanced('advNew')" style="margin-bottom:0"><span class="arrow" id="arrowAdvNew">&#9654;</span> Advanced Config</h3>
+      <div class="collapsible" id="advNew">
+        <div class="form-grid" style="margin-top:10px">
+          <div class="form-group"><label>Log Level</label><select id="newLogLevel"><option value="error" selected>error</option><option value="warn">warn</option><option value="info">info</option><option value="debug">debug</option></select></div>
+          <div class="form-group"><label>Workers</label><input id="newWorkers" value="0" type="number"></div>
+          <div class="form-group"><label>DB Filter</label><input id="newDbfilter" placeholder="e.g. ^mydb.*$"></div>
+          <div class="form-group"><label>Proxy Mode</label><select id="newProxyMode"><option value="True" selected>True</option><option value="False">False</option></select></div>
+        </div>
+      </div>
+    </div>
+    <div class="btn-row" style="justify-content:flex-end">
+      <button class="btn btn-outline btn-sm" onclick="hideModal('modalNewProject')">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="createProject();hideModal('modalNewProject')">Create Project</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modalConfig">
   <div class="modal">
     <h3>Edit odoo.conf - <span id="modalConfigName"></span></h3>
