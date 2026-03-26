@@ -534,6 +534,168 @@ if (window.electronAPI) {
 }
 ```
 
+### Escape Backslash in onclick Attributes (CRITICAL on Windows)
+
+Windows paths like `D:\workspaces\project` lose backslashes inside `onclick="fn('...')"` because JS interprets `\w` as escape sequences.
+
+```javascript
+// escHtml - for display text (prevents XSS)
+function escHtml(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// escAttr - for onclick attribute values (escapes backslashes + quotes)
+function escAttr(s) {
+  return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+// Usage in template literals:
+`<span>${escHtml(p.path)}</span>`                          // display: OK
+`<button onclick="openFolder('${escAttr(p.path)}')">Open</button>` // onclick: OK
+// WRONG: onclick="openFolder('${escHtml(p.path)}')"  ← backslashes stripped!
+```
+
+### Open Folder in Explorer
+
+```typescript
+// WRONG: shell.showItemInFolder(path) - only works for FILE paths
+// RIGHT: shell.openPath(path) - works for both files and folders
+ipcMain.handle('open_explorer', async (_event, data) => {
+  await shell.openPath(data.path);
+  return { ok: true };
+});
+```
+
+### Auto-Update (electron-updater)
+
+```bash
+npm install electron-updater
+```
+
+```typescript
+// src/main/services/updater.ts
+import { autoUpdater, UpdateInfo } from 'electron-updater';
+
+export class UpdaterService {
+  constructor(private readonly window: BrowserWindow) {
+    autoUpdater.autoDownload = false;  // Let user decide
+    autoUpdater.autoInstallOnAppQuit = true;
+
+    autoUpdater.on('update-available', (info: UpdateInfo) => {
+      window.webContents.send('update-status', {
+        status: 'available', version: info.version,
+      });
+    });
+
+    autoUpdater.on('download-progress', (progress) => {
+      window.webContents.send('update-status', {
+        status: 'downloading', percent: Math.round(progress.percent),
+      });
+    });
+
+    autoUpdater.on('update-downloaded', (info) => {
+      window.webContents.send('update-status', {
+        status: 'ready', version: info.version,
+      });
+    });
+  }
+
+  checkForUpdates(): void { autoUpdater.checkForUpdates(); }
+  downloadUpdate(): void { autoUpdater.downloadUpdate(); }
+  installUpdate(): void { autoUpdater.quitAndInstall(false, true); }
+}
+
+// In main index.ts - check after window loads:
+mainWindow.webContents.on('did-finish-load', () => {
+  const updater = new UpdaterService(mainWindow);
+  setTimeout(() => updater.checkForUpdates(), 3000);
+});
+```
+
+```javascript
+// Renderer: listen for update events, show toast notification
+window.electronAPI.onEvent('update-status', (data) => {
+  if (data.status === 'available') showToast(`v${data.version} available`, 'Update Now');
+  if (data.status === 'downloading') showToast(`Downloading ${data.percent}%`);
+  if (data.status === 'ready') showToast('Ready to install', 'Restart Now');
+});
+```
+
+electron-builder.yml:
+```yaml
+publish:
+  provider: github
+  owner: your-username
+  repo: your-repo
+```
+
+### Dashboard with Kanban Cards
+
+```html
+<div class="dash-kanban" id="kanban"></div>
+```
+
+```javascript
+function renderKanban(items) {
+  const search = $('search').value.toLowerCase();
+  const filtered = items.filter(item =>
+    item.name.toLowerCase().includes(search)
+  );
+  $('kanban').innerHTML = filtered.map(item => `
+    <div class="kanban-card">
+      <div class="kanban-card-header">
+        <span class="kanban-card-name">${escHtml(item.name)}</span>
+        <span class="kanban-card-port">:${escHtml(item.port)}</span>
+      </div>
+      <div class="kanban-card-body">
+        <!-- metadata grid -->
+      </div>
+      <div class="kanban-card-actions">
+        <button onclick="action('${escAttr(item.id)}')">Action</button>
+        <button onclick="showDetail('${escAttr(item.id)}')">Detail</button>
+      </div>
+    </div>
+  `).join('');
+}
+```
+
+```css
+.dash-kanban {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+.kanban-card {
+  background: #161b22; border: 1px solid #21262d; border-radius: 10px;
+  overflow: hidden; transition: all 0.2s;
+}
+.kanban-card:hover {
+  border-color: #30363d; transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+```
+
+---
+
+## Publish Workflow
+
+### publish.bat (one-command release)
+
+```cmd
+set GH_TOKEN=ghp_xxxxxxxxxxxx
+publish.bat patch    # 1.0.0 -> 1.0.1
+publish.bat minor    # 1.0.0 -> 1.1.0
+publish.bat major    # 1.0.0 -> 2.0.0
+```
+
+Script does: bump version -> tsc -> electron-builder --publish always -> gh release edit --draft=false -> git tag + push.
+
+Key points:
+- Use `node -p "require('./package.json').version"` to read version (not `findstr`)
+- electron-builder creates **draft** releases by default - must publish with `gh release edit`
+- `GH_TOKEN` env var required (GitHub Personal Access Token with `repo` scope)
+- `git tag -f` to force-update tag if already exists
+
 ---
 
 ## Dark Theme Color System (GitHub Dark)
@@ -608,6 +770,19 @@ npm run dist         # Creates release/My App Setup X.X.X.exe (~78MB)
 - Enable Windows Developer Mode if symlink errors occur during build
 
 ---
+
+## Common Gotchas
+
+| Problem | Cause | Fix |
+|---|---|---|
+| Path backslashes stripped in onclick | JS escape sequences | Use `escAttr()` not `escHtml()` for onclick values |
+| Explorer button does nothing | `shell.showItemInFolder` needs file path | Use `shell.openPath()` for folders |
+| VS Code doesn't open folder | Path not quoted | `code "${targetPath}"` with quotes |
+| Icon error during build | Icon < 256x256 | Generate 256x256 minimum `.ico` |
+| winCodeSign symlink error | Not admin / no dev mode | Run from Admin terminal or enable Developer Mode |
+| Release is draft on GitHub | electron-builder default | `gh release edit vX.X.X --draft=false` |
+| `tsc` not found in .bat | Not in PATH | Use `npx tsc` |
+| Tag already exists | Re-releasing same version | `git tag -f vX.X.X` + `git push --force` |
 
 ## Checklist: New Electron App
 
