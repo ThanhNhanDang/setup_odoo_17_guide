@@ -94,46 +94,70 @@ export async function stepInstallPostgres(
   dbPort: string = '5432',
   dbUser: string = 'odoo',
   dbPassword: string = 'odoo',
+  pgMode: string = 'auto',
 ): Promise<StepResult> {
-  if (findPostgresBin()) {
+  // Check existing installations
+  const hasNative = findPostgresBin() !== null;
+  const dockerPg = findDockerPostgres();
+  const hasDocker = dockerPg.length > 0;
+
+  if (hasNative && pgMode !== 'docker') {
     logger.log('PostgreSQL already installed locally.');
     return { ok: true, msg: 'Already installed (local)' };
   }
-  const dockerPg = findDockerPostgres();
-  if (dockerPg.length > 0) {
+  if (hasDocker && pgMode !== 'native') {
     logger.log(`PostgreSQL running in Docker: ${dockerPg.map(c => c.name).join(', ')}`);
     return { ok: true, msg: 'Already running (Docker)' };
   }
-  if (findDocker()) {
+
+  // Install based on mode
+  if (pgMode === 'docker' || (pgMode === 'auto' && findDocker())) {
+    if (!findDocker()) {
+      return { ok: false, msg: 'Docker not available. Install Docker Desktop or choose Native mode.' };
+    }
     const cname = `odoo-postgres-${dbPort}`;
-    logger.log(`Creating PostgreSQL container '${cname}'...`);
-    const { code } = await runCmd(
+    logger.log(`Creating PostgreSQL 16 Docker container '${cname}'...`);
+    const { code, output } = await runCmd(
       `docker run -d --name ${cname} -e POSTGRES_USER=${dbUser} -e POSTGRES_PASSWORD=${dbPassword} ` +
       `-e POSTGRES_DB=postgres -p ${dbPort}:5432 --restart unless-stopped postgres:16`
     );
     if (code === 0) {
+      // Wait for PostgreSQL to be ready
+      logger.log(`  > Waiting for PostgreSQL container to start...`);
+      await new Promise(resolve => setTimeout(resolve, 5000));
       logger.log(`Docker container '${cname}' started on port ${dbPort}!`);
       return { ok: true, msg: `Docker container '${cname}' on port ${dbPort}` };
     }
+    if (pgMode === 'docker') {
+      return { ok: false, msg: `Docker failed: ${output.trim().split('\n').pop()}` };
+    }
+    logger.log('  > Docker container creation failed, falling back to native install...');
   }
-  logger.log('Downloading PostgreSQL 16...');
-  fs.mkdirSync(baseDir, { recursive: true });
-  const installer = path.join(baseDir, 'postgresql-16-installer.exe');
-  try {
-    await downloadFile(POSTGRES_URL, installer, logger);
-  } catch (e) {
-    return { ok: false, msg: `Download failed: ${e}` };
+
+  // Native install
+  if (pgMode === 'native' || pgMode === 'auto') {
+    logger.log('Downloading PostgreSQL 16 (native installer)...');
+    fs.mkdirSync(baseDir, { recursive: true });
+    const installer = path.join(baseDir, 'postgresql-16-installer.exe');
+    try {
+      await downloadFile(POSTGRES_URL, installer, logger);
+    } catch (e) {
+      return { ok: false, msg: `Download failed: ${e}` };
+    }
+    logger.log('Installing PostgreSQL 16 (this may take a few minutes)...');
+    const { code, output } = await runCmd(
+      `"${installer}" --mode unattended --superpassword "${pgSuperPassword}" --servicename postgresql-16 ` +
+      `--servicepassword "${pgSuperPassword}" --serverport ${dbPort} --prefix "C:\\Program Files\\PostgreSQL\\16"`
+    );
+    logger.log(`  > Installer exit code: ${code}`);
+    await new Promise(resolve => setTimeout(resolve, 10000));
+    if (findPostgresBin()) {
+      return { ok: true, msg: 'Installed (native)' };
+    }
+    return { ok: false, msg: 'Install failed. Run as Administrator.' };
   }
-  logger.log('Installing PostgreSQL 16...');
-  await runCmd(
-    `"${installer}" --mode unattended --superpassword "${pgSuperPassword}" --servicename postgresql-16 ` +
-    `--servicepassword "${pgSuperPassword}" --serverport ${dbPort} --prefix "C:\\Program Files\\PostgreSQL\\16"`
-  );
-  await new Promise(resolve => setTimeout(resolve, 10000));
-  if (findPostgresBin()) {
-    return { ok: true, msg: 'Installed (native)' };
-  }
-  return { ok: false, msg: 'Install failed. Run as Administrator or install Docker.' };
+
+  return { ok: false, msg: 'No PostgreSQL installation method available.' };
 }
 
 export async function stepCreatePgUser(
@@ -147,19 +171,24 @@ export async function stepCreatePgUser(
   const dockerPg = findDockerPostgres();
   for (const c of dockerPg) {
     if (c.port === dbPort) {
+      // Strip quotes from container name (docker ps may include them)
+      const cname = c.name.replace(/"/g, '');
+      logger.log(`  > Checking Docker container '${cname}' on port ${dbPort}...`);
       const { output: checkOut } = await runCmd(
-        `docker exec ${c.name} psql -U postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='${dbUser}'"`
+        `docker exec ${cname} psql -U postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='${dbUser}'"`
       );
       if (checkOut.includes('1')) {
-        return { ok: true, msg: `User exists (Docker: ${c.name})` };
+        return { ok: true, msg: `User exists (Docker: ${cname})` };
       }
-      const { code } = await runCmd(
-        `docker exec ${c.name} psql -U postgres -c "CREATE ROLE ${dbUser} WITH LOGIN PASSWORD '${dbPassword}' CREATEDB;"`
+      logger.log(`  > Creating user '${dbUser}' in Docker container '${cname}'...`);
+      const { code, output } = await runCmd(
+        `docker exec ${cname} psql -U postgres -c "CREATE ROLE ${dbUser} WITH LOGIN PASSWORD '${dbPassword}' CREATEDB;"`
       );
       if (code === 0) {
-        return { ok: true, msg: `User created (Docker: ${c.name})` };
+        return { ok: true, msg: `User created (Docker: ${cname})` };
       }
-      return { ok: false, msg: `Failed to create user in Docker: ${c.name}` };
+      logger.log(`  > Docker exec failed: ${output.trim().split('\\n').pop()}`);
+      // Don't return error - fall through to try native PostgreSQL
     }
   }
 
@@ -357,7 +386,7 @@ export async function stepFullInstall(
   const steps: Array<[string, () => Promise<StepResult>]> = [
     ['Installing VS Code...', () => stepInstallVSCode(baseDir, logger)],
     ['Installing Python 3.11...', () => stepInstallPython(baseDir, logger)],
-    ['Installing PostgreSQL...', () => stepInstallPostgres(baseDir, logger, pgSuperPassword, dbPort, dbUser, dbPassword)],
+    ['Installing PostgreSQL...', () => stepInstallPostgres(baseDir, logger, pgSuperPassword, dbPort, dbUser, dbPassword, opts.pg_mode || 'auto')],
     ['Creating DB user...', () => stepCreatePgUser(logger, dbUser, dbPassword, dbPort, pgSuperPassword)],
     ['Cloning Odoo 17...', () => stepCloneOdoo(baseDir, logger)],
     ['Creating virtual environment...', () => stepCreateVenv(baseDir, logger)],

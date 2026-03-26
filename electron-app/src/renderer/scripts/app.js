@@ -67,6 +67,7 @@ function getFormData() {
     db_user: $('dbUser').value,
     db_password: $('dbPassword').value,
     pg_super_password: $('pgSuperPassword').value,
+    pg_mode: $('pgMode').value,
     addons_path: $('addonsPath').value,
     admin_passwd: $('adminPasswd').value,
     longpolling_port: $('longpollingPort').value,

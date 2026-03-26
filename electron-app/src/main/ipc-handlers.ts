@@ -106,6 +106,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         data?.db_port || '5432',
         data?.db_user || 'odoo',
         data?.db_password || 'odoo',
+        data?.pg_mode || 'auto',
       ),
       clone_odoo: () => stepCloneOdoo(baseDir, logger),
       create_venv: () => stepCreateVenv(baseDir, logger),
