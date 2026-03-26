@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { execFileSync } from 'child_process';
+import { execFileSync, execSync } from 'child_process';
 
 // ---------------------------------------------------------------------------
 // Detection Functions
@@ -234,7 +234,7 @@ export function detectNativePostgresDetails(): NativePostgresDetails | null {
   const pgIsready = path.join(pgBin, 'pg_isready.exe');
   if (fs.existsSync(pgIsready)) {
     try {
-      execFileSync('cmd.exe', ['/c', `"${pgIsready}" -p ${port}`], {
+      execSync(`"${pgIsready}" -p ${port}`, {
         timeout: 5000,
         windowsHide: true,
         stdio: 'pipe',
@@ -250,16 +250,16 @@ export function detectNativePostgresDetails(): NativePostgresDetails | null {
     const psql = path.join(pgBin, 'psql.exe');
     try {
       const env = { ...process.env, PGPASSWORD: 'postgres' };
-      const output = execFileSync('cmd.exe', [
-        '/c',
+      const output = execSync(
         `"${psql}" -U postgres -p ${port} --no-password -tAc "SELECT datname FROM pg_database WHERE datistemplate=false"`,
-      ], {
-        timeout: 10000,
-        windowsHide: true,
-        encoding: 'utf8',
-        env,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
+        {
+          timeout: 10000,
+          windowsHide: true,
+          encoding: 'utf8',
+          env,
+          stdio: ['pipe', 'pipe', 'pipe'],
+        }
+      ) as string;
       if (output.trim()) {
         result.databases = output.trim().split('\n')
           .map(db => db.trim())
