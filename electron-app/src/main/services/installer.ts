@@ -556,17 +556,6 @@ export async function stepFullInstall(
   const [pipResult, dbUserResult] = await Promise.all([pipPromise, dbUserPromise]);
   results.push(pipResult);
   results.push(dbUserResult);
-  logger.updateTask({ status: 'running', step: 'Creating project...', progress: 85 });
-
-  // ── Create Project (needs Odoo clone + Venv for templates) ──
-  logger.log('');
-  logger.log('==================================================');
-  logger.log('Creating project...');
-  logger.log('==================================================');
-
-  const projResult = await runNamedStep('Creating project...', () => stepCreateProject(baseDir, projectsDir, projectName, logger, opts), logger);
-  results.push(projResult);
-
   // ── Done ──
   const allOk = results.every(r => r.ok);
   const failCount = results.filter(r => !r.ok).length;

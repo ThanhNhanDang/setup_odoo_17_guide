@@ -259,7 +259,6 @@ if (window.electronAPI) {
       'Cloning Odoo 17...': 'clone_odoo',
       'Creating virtual environment...': 'create_venv',
       'Installing requirements...': 'install_requirements',
-      'Creating project...': 'create_project',
     };
 
     if (task.status === 'running') {
@@ -305,7 +304,6 @@ const STEP_MAP = {
   clone_odoo: { label: 'Cloning Odoo 17...', check: s => s.odoo_cloned },
   create_venv: { label: 'Creating virtual environment...', check: s => s.venv_created },
   install_requirements: { label: 'Installing requirements...', check: s => s.requirements_installed },
-  create_project: { label: 'Creating project...', check: null },
 };
 
 function updateStepCard(stepId, state, statusText) {
