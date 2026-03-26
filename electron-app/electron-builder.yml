@@ -17,6 +17,7 @@ extraResources:
 
 win:
   target:
+    - target: portable
     - target: nsis
     - target: dir
   icon: resources/icon.ico
@@ -25,13 +26,30 @@ win:
 
 forceCodeSigning: false
 
+portable:
+  artifactName: "Odoo17Installer.exe"
+
 nsis:
-  oneClick: false
+  oneClick: true
   perMachine: false
-  allowToChangeInstallationDirectory: true
   runAfterFinish: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: "Odoo 17 Installer"
 
 asar: true
+
+# Auto-update: configure your publish target
+# Option 1: GitHub Releases (recommended)
+# publish:
+#   provider: github
+#   owner: your-github-username
+#   repo: your-repo-name
+#
+# Option 2: Generic server (any HTTP file host)
+# publish:
+#   provider: generic
+#   url: https://your-server.com/updates/
+#
+# After configuring, run: npm run dist -- --publish always
+# This uploads release artifacts + generates latest.yml for auto-updater

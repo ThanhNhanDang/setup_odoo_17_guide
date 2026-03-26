@@ -371,6 +371,83 @@ async function confirmDuplicate() {
 }
 
 // ---------------------------------------------------------------------------
+// Auto-Update
+// ---------------------------------------------------------------------------
+let _updateState = 'idle'; // idle, available, downloading, ready
+
+function showUpdateToast(title, desc, btnText, state) {
+  const toast = $('updateToast');
+  $('updateTitle').textContent = title;
+  $('updateDesc').textContent = desc;
+  $('updateBtn').textContent = btnText;
+  _updateState = state;
+
+  toast.className = 'update-toast visible';
+  if (state === 'downloading') toast.classList.add('downloading');
+  if (state === 'ready') toast.classList.add('ready');
+
+  $('updateBtn').className = 'update-toast-btn';
+  if (state === 'downloading') $('updateBtn').classList.add('downloading');
+}
+
+function dismissUpdate() {
+  $('updateToast').classList.remove('visible');
+}
+
+function handleUpdateAction() {
+  if (_updateState === 'available') {
+    // Start download
+    api('update-download');
+    showUpdateToast('Downloading...', 'Please wait', 'Downloading...', 'downloading');
+    $('updateBtn').disabled = true;
+  } else if (_updateState === 'ready') {
+    // Install and restart
+    api('update-install');
+  }
+}
+
+// Listen for update events from main process
+if (window.electronAPI) {
+  window.electronAPI.onEvent('update-status', (data) => {
+    switch (data.status) {
+      case 'available':
+        showUpdateToast(
+          'Update Available',
+          `Version ${data.version} is ready to download`,
+          'Update Now',
+          'available'
+        );
+        break;
+
+      case 'downloading':
+        showUpdateToast(
+          'Downloading Update...',
+          `${data.percent || 0}% complete`,
+          `${data.percent || 0}%`,
+          'downloading'
+        );
+        $('updateBtn').disabled = true;
+        break;
+
+      case 'ready':
+        showUpdateToast(
+          'Update Ready',
+          `Version ${data.version} downloaded. Restart to apply.`,
+          'Restart Now',
+          'ready'
+        );
+        $('updateBtn').disabled = false;
+        break;
+
+      case 'error':
+        // Silently ignore update errors (network issues, etc.)
+        console.log('Update check:', data.message);
+        break;
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
 refreshStatus();

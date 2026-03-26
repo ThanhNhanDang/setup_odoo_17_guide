@@ -201,6 +201,21 @@
   </div>
 </div>
 
+<!-- Update Notification Toast -->
+<div class="update-toast" id="updateToast">
+  <div class="update-toast-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+  </div>
+  <div class="update-toast-content">
+    <div class="update-toast-title" id="updateTitle">Update Available</div>
+    <div class="update-toast-desc" id="updateDesc">Version 1.0.1 is ready</div>
+  </div>
+  <button class="update-toast-btn" id="updateBtn" onclick="handleUpdateAction()">Update</button>
+  <button class="update-toast-close" onclick="dismissUpdate()">&#10005;</button>
+</div>
+
 <script src="scripts/app.js"></script>
 </body>
 </html>

@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'delete_project', 'duplicate_project',
       'start_odoo', 'open_vscode', 'open_explorer',
       'window-minimize', 'window-maximize', 'window-close', 'window-is-maximized',
+      'update-check', 'update-download', 'update-install', 'update-info',
     ];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, data);
@@ -23,6 +24,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   onTaskProgress: (callback: (task: { status: string; step: string; progress: number }) => void): void => {
     ipcRenderer.on('task-progress', (_event, task) => callback(task));
+  },
+
+  // Generic event listener (for update-status and other push events)
+  onEvent: (eventName: string, callback: (...args: unknown[]) => void): void => {
+    ipcRenderer.on(eventName, (_event, ...args) => callback(...args));
   },
 
   removeAllListeners: (channel: string): void => {

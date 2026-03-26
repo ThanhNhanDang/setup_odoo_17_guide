@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, Menu } from 'electron';
 import * as path from 'path';
 import { registerIpcHandlers } from './ipc-handlers';
+import { UpdaterService } from './services/updater';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -48,9 +49,25 @@ function createWindow(): void {
   // Register IPC handlers
   registerIpcHandlers(mainWindow);
 
+  // Auto-update: check after window is ready
+  mainWindow.webContents.on('did-finish-load', () => {
+    const updater = new UpdaterService(mainWindow!);
+    registerUpdateHandlers(mainWindow!, updater);
+    // Check for updates after 3 seconds (let UI load first)
+    setTimeout(() => updater.checkForUpdates(), 3000);
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+}
+
+function registerUpdateHandlers(win: BrowserWindow, updater: UpdaterService): void {
+  const { ipcMain } = require('electron');
+  ipcMain.handle('update-check', () => updater.checkForUpdates());
+  ipcMain.handle('update-download', () => updater.downloadUpdate());
+  ipcMain.handle('update-install', () => updater.installUpdate());
+  ipcMain.handle('update-info', () => updater.getUpdateInfo());
 }
 
 // Set app name (shows in taskbar, Alt+Tab, etc.)
