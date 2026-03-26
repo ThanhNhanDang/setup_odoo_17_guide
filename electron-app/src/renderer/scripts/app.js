@@ -134,10 +134,11 @@ async function refreshStatus() {
     $('nativePgDetail').innerHTML = '';
   }
 
-  // Show PostgreSQL Mode dropdown only when Docker is available
+  // Show PostgreSQL Mode dropdown only when Docker has running PostgreSQL containers
   const pgModeGroup = $('pgModeGroup');
   if (pgModeGroup) {
-    pgModeGroup.style.display = s.docker ? '' : 'none';
+    const hasDockerPg = s.docker_postgres && s.docker_postgres.length > 0;
+    pgModeGroup.style.display = hasDockerPg ? '' : 'none';
   }
 
   // Projects list + Dashboard
