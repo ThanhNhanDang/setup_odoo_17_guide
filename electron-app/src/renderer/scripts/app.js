@@ -400,24 +400,39 @@ async function runStep(step) {
 // Create Project
 // ---------------------------------------------------------------------------
 async function createProject() {
-  const name = $('newProjName').value.trim();
+  const name = ($('newProjName')?.value || '').trim();
   if (!name) { alert('Enter a project name'); return; }
-  startLogPoll();
+
+  // Ensure default paths are loaded
+  if (!$('baseDir').value || !$('projectsDir').value) {
+    try {
+      const paths = await api('default-paths');
+      if (!$('baseDir').value) $('baseDir').value = paths.base_dir || '';
+      if (!$('projectsDir').value) $('projectsDir').value = paths.projects_dir || '';
+    } catch (e) { /* ignore */ }
+  }
+
   const data = getFormData();
   data.project_name = name;
-  data.http_port = $('newProjPort').value;
-  data.db_host = $('newProjDbHost').value;
-  data.db_port = $('newProjDbPort').value;
-  data.db_user = $('newProjDbUser').value;
-  data.db_password = $('newProjDbPass').value;
-  data.log_level = $('newLogLevel').value;
-  data.workers = $('newWorkers').value;
-  data.dbfilter = $('newDbfilter').value;
-  data.proxy_mode = $('newProxyMode').value;
+  data.http_port = $('newProjPort')?.value || '8070';
+  data.db_host = $('newProjDbHost')?.value || 'localhost';
+  data.db_port = $('newProjDbPort')?.value || '5434';
+  data.db_user = $('newProjDbUser')?.value || 'odoo';
+  data.db_password = $('newProjDbPass')?.value || 'odoo';
+  data.log_level = $('newLogLevel')?.value || 'error';
+  data.workers = $('newWorkers')?.value || '0';
+  data.dbfilter = $('newDbfilter')?.value || '';
+  data.proxy_mode = $('newProxyMode')?.value || 'True';
+
+  showToastMessage('Creating project...', 'info');
   const res = await api('create_project', data);
-  stopLogPoll();
   refreshStatus();
-  alert(res.ok ? '\u2705 Project created!\n' + res.msg : '\u274C ' + res.msg);
+  hideModal('modalNewProject');
+  if (res.ok) {
+    showToastMessage('Project created: ' + name, 'success');
+  } else {
+    showToastMessage('Failed: ' + res.msg, 'error');
+  }
 }
 
 // ---------------------------------------------------------------------------
