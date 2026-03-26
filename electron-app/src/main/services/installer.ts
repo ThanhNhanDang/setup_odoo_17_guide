@@ -166,14 +166,24 @@ export async function stepCreatePgUser(
   dbPassword: string = 'odoo',
   dbPort: string = '5432',
   pgSuperPassword: string = 'postgres',
+  pgMode: string = 'auto',
 ): Promise<StepResult> {
-  // Check Docker containers first
-  const dockerPg = findDockerPostgres();
-  for (const c of dockerPg) {
-    if (c.port === dbPort) {
-      // Strip quotes from container name (docker ps may include them)
+  // Docker: only check if mode is docker or auto
+  if (pgMode === 'docker' || pgMode === 'auto') {
+    const dockerPg = findDockerPostgres();
+    // Only use Docker containers that were created by this installer (odoo-postgres-*)
+    // or if mode is explicitly 'docker'
+    for (const c of dockerPg) {
+      if (c.port !== dbPort) continue;
       const cname = c.name.replace(/"/g, '');
-      logger.log(`  > Checking Docker container '${cname}' on port ${dbPort}...`);
+
+      // Skip non-odoo containers in auto mode (e.g. reelmind-db belongs to other project)
+      if (pgMode === 'auto' && !cname.startsWith('odoo-postgres')) {
+        logger.log(`  > Skipping Docker container '${cname}' (not created by this installer)`);
+        continue;
+      }
+
+      logger.log(`  > Using Docker container '${cname}' on port ${dbPort}...`);
       const { output: checkOut } = await runCmd(
         `docker exec ${cname} psql -U postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='${dbUser}'"`
       );
@@ -181,15 +191,16 @@ export async function stepCreatePgUser(
         return { ok: true, msg: `User exists (Docker: ${cname})` };
       }
       logger.log(`  > Creating user '${dbUser}' in Docker container '${cname}'...`);
-      // Use sh -c to wrap the entire SQL command as a single argument
       const { code, output } = await runCmd(
         `docker exec ${cname} sh -c "psql -U postgres -c \\"CREATE ROLE ${dbUser} WITH LOGIN PASSWORD '${dbPassword}' CREATEDB;\\""`
       );
       if (code === 0) {
         return { ok: true, msg: `User created (Docker: ${cname})` };
       }
-      logger.log(`  > Docker exec failed: ${output.trim().split('\\n').pop()}`);
-      // Don't return error - fall through to try native PostgreSQL
+      logger.log(`  > Docker exec failed: ${output.trim()}`);
+    }
+    if (pgMode === 'docker') {
+      return { ok: false, msg: 'No matching Docker PostgreSQL container found on port ' + dbPort };
     }
   }
 
@@ -396,7 +407,7 @@ export async function stepFullInstall(
     ['Installing VS Code...', () => stepInstallVSCode(baseDir, logger)],
     ['Installing Python 3.11...', () => stepInstallPython(baseDir, logger)],
     ['Installing PostgreSQL...', () => stepInstallPostgres(baseDir, logger, pgSuperPassword, dbPort, dbUser, dbPassword, opts.pg_mode || 'auto')],
-    ['Creating DB user...', () => stepCreatePgUser(logger, dbUser, dbPassword, dbPort, pgSuperPassword)],
+    ['Creating DB user...', () => stepCreatePgUser(logger, dbUser, dbPassword, dbPort, pgSuperPassword, opts.pg_mode || 'auto')],
     ['Cloning Odoo 17...', () => stepCloneOdoo(baseDir, logger)],
     ['Creating virtual environment...', () => stepCreateVenv(baseDir, logger)],
     ['Installing requirements...', () => stepInstallRequirements(baseDir, logger)],
