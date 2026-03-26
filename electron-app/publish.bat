@@ -43,6 +43,9 @@ for /f %%v in ('node -p "require('./package.json').version"') do set NEW_VER=%%v
 echo   New version:     %NEW_VER%
 echo.
 
+echo   Cleaning old builds...
+if exist release rmdir /s /q release
+
 echo   Building TypeScript...
 call npx tsc
 if errorlevel 1 (
