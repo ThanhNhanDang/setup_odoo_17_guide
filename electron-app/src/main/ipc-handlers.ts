@@ -185,16 +185,34 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       if (pgBin) {
         const pgDetails = detectNativePostgresDetails();
         if (pgDetails && !pgDetails.is_ready) {
-          logger.log('PostgreSQL is stopped. Starting service...');
-          // Try common service names
+          logger.log('PostgreSQL is stopped. Starting...');
+          let started = false;
+
+          // Method 1: net start (requires Admin)
           for (const svc of ['postgresql-x64-17', 'postgresql-x64-16', 'postgresql-x64-15', 'postgresql-x64-14']) {
             const { code } = await runCmd(`net start "${svc}"`);
             if (code === 0) {
-              logger.log(`PostgreSQL service '${svc}' started!`);
-              // Wait for it to be ready
-              await new Promise(resolve => setTimeout(resolve, 3000));
+              logger.log(`Service '${svc}' started!`);
+              started = true;
               break;
             }
+          }
+
+          // Method 2: pg_ctl (no Admin needed)
+          if (!started && pgDetails.data_dir) {
+            const pgCtl = path.join(pgBin, 'pg_ctl.exe');
+            logger.log('  > Trying pg_ctl start...');
+            const { code } = await runCmd(`"${pgCtl}" start -D "${pgDetails.data_dir}" -w`);
+            if (code === 0) {
+              logger.log('PostgreSQL started via pg_ctl!');
+              started = true;
+            }
+          }
+
+          if (started) {
+            await new Promise(resolve => setTimeout(resolve, 3000));
+          } else {
+            logger.log('  > Could not start PostgreSQL. Start it manually.');
           }
         }
       }
@@ -217,11 +235,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const targetPath = data?.path;
     if (!targetPath) return { ok: false, msg: 'No path provided' };
     try {
-      spawn('cmd.exe', ['/c', 'start', '""', 'code', targetPath], {
-        detached: true,
-        stdio: 'ignore',
-        windowsHide: true,
-      }).unref();
+      // Use exec with windowsHide to avoid black terminal flash
+      const { exec } = require('child_process');
+      exec(`code "${targetPath}"`, { windowsHide: true });
       return { ok: true };
     } catch (e) {
       return { ok: false, msg: String(e) };
