@@ -67,7 +67,8 @@ async function generateSslCert(baseDir: string, domain: string, logger: LoggerSe
 
   // If cert exists, ensure it's trusted and return
   if (fs.existsSync(keyFile) && fs.existsSync(crtFile)) {
-    // Always try to trust (idempotent, no harm if already trusted)
+    // Remove old entries then re-add (handles cert regeneration)
+    await runCmd(`certutil -delstore "Root" "${domain}"`);
     await runCmd(`certutil -addstore -f "Root" "${crtFile}"`);
     return true;
   }
@@ -108,7 +109,8 @@ extendedKeyUsage = serverAuth
   if (code !== 0 || !fs.existsSync(crtFile)) return false;
 
   // Import cert to Windows Trusted Root CA store (requires Admin)
-  // This makes browsers trust the self-signed cert without warnings
+  // Delete old entries first, then add new
+  await runCmd(`certutil -delstore "Root" "${domain}"`);
   const { code: trustCode } = await runCmd(
     `certutil -addstore -f "Root" "${crtFile}"`
   );
