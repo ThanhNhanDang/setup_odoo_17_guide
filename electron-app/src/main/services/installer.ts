@@ -221,23 +221,31 @@ export async function stepCreateVenv(baseDir: string, logger: LoggerService): Pr
   const venvDir = path.join(baseDir, 'venv');
   const venvPython = path.join(venvDir, 'Scripts', 'python.exe');
   const pythonPath = findPython311();
+  logger.log(`  > Python 3.11 path: ${pythonPath || 'NOT FOUND'}`);
   if (!pythonPath) {
-    return { ok: false, msg: 'Python 3.11 not found.' };
+    return { ok: false, msg: 'Python 3.11 not found. Install Python first.' };
   }
   if (fs.existsSync(venvPython)) {
     const { output } = await runCmd(`"${venvPython}" --version`);
+    logger.log(`  > Existing venv python: ${output.trim()}`);
     if (output.includes('3.11')) {
       return { ok: true, msg: 'Already exists' };
     }
-    // Wrong version, recreate
+    logger.log('  > Wrong Python version in venv, recreating...');
     fs.rmSync(venvDir, { recursive: true, force: true });
   }
-  logger.log('Creating virtual environment...');
-  await runCmd(`"${pythonPath}" -m venv "${venvDir}"`);
+  logger.log(`Creating virtual environment at ${venvDir}...`);
+  const { code, output } = await runCmd(`"${pythonPath}" -m venv "${venvDir}"`);
+  logger.log(`  > venv command exit code: ${code}`);
+  if (output.trim()) {
+    for (const line of output.trim().split('\n').slice(-5)) {
+      logger.log(`    ${line.trim()}`);
+    }
+  }
   if (fs.existsSync(venvPython)) {
     return { ok: true, msg: 'Created' };
   }
-  return { ok: false, msg: 'Failed to create venv' };
+  return { ok: false, msg: `Failed to create venv (exit code: ${code}). Check Python 3.11 installation.` };
 }
 
 export async function stepInstallRequirements(baseDir: string, logger: LoggerService): Promise<StepResult> {
