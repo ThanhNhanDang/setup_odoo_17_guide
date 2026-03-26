@@ -1218,20 +1218,22 @@ function toggleMode() {
   document.documentElement.style.setProperty('--vt-r', maxR + 'px');
 
   // Mark direction for CSS z-index control
-  const goingDark = next === 'dark';
-  document.documentElement.classList.toggle('vt-going-dark', goingDark);
+  const dirClass = next === 'dark' ? 'vt-going-dark' : 'vt-going-light';
+  document.documentElement.classList.add(dirClass);
 
   const transition = document.startViewTransition(() => {
     applyMode(next);
     localStorage.setItem('mode', next);
   });
 
-  transition.finished.then(() => {
-    document.documentElement.classList.remove('vt-going-dark');
+  // Cleanup classes + CSS vars when done (or on error)
+  const cleanup = () => {
+    document.documentElement.classList.remove('vt-going-dark', 'vt-going-light');
     document.documentElement.style.removeProperty('--vt-cx');
     document.documentElement.style.removeProperty('--vt-cy');
     document.documentElement.style.removeProperty('--vt-r');
-  });
+  };
+  transition.finished.then(cleanup).catch(cleanup);
 }
 
 /** Apply dark/light mode (no animation) */

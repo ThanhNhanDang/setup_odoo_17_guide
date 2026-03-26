@@ -703,24 +703,17 @@
 [data-preset="luxury"] .update-toast{border-radius:var(--card-radius);box-shadow:0 6px 30px rgba(199,125,186,0.1)}
 
 /* ===== View Transition: Circle Reveal for Dark/Light toggle ===== */
+/* View Transition: circle reveal for dark/light toggle */
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
   mix-blend-mode: normal;
+  pointer-events: none;
 }
 
-/* Light → Dark: new (dark) view expands as circle from button */
-::view-transition-new(root) {
-  z-index: 9999;
-  animation: vt-circle-expand 0.5s ease-in-out;
-}
-::view-transition-old(root) {
-  z-index: 1;
-}
-
-/* Dark → Light: old (dark) view shrinks as circle toward button */
+/* Going to dark: new view (dark) expands circle */
 .vt-going-dark::view-transition-new(root) {
-  z-index: 9999;
+  z-index: 2;
   animation: vt-circle-expand 0.5s ease-in-out;
 }
 .vt-going-dark::view-transition-old(root) {
@@ -728,12 +721,12 @@
   animation: none;
 }
 
-/* Reverse when going to light: old dark shrinks */
-:root:not(.vt-going-dark)::view-transition-old(root) {
-  z-index: 9999;
+/* Going to light: old view (dark) shrinks circle */
+.vt-going-light::view-transition-old(root) {
+  z-index: 2;
   animation: vt-circle-shrink 0.5s ease-in-out;
 }
-:root:not(.vt-going-dark)::view-transition-new(root) {
+.vt-going-light::view-transition-new(root) {
   z-index: 1;
   animation: none;
 }
