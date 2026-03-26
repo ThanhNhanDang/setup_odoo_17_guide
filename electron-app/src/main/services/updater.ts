@@ -1,14 +1,18 @@
-import { BrowserWindow } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import { autoUpdater, UpdateInfo } from 'electron-updater';
+import * as path from 'path';
 
 // ---------------------------------------------------------------------------
 // Auto-Update Service
-// Uses electron-updater to check for updates from GitHub Releases
-// or a generic update server.
+//
+// IMPORTANT: Auto-update only works when:
+//   1. App is installed via NSIS installer (not portable, not dev mode)
+//   2. GitHub Release has latest.yml + .exe + .blockmap
+//   3. App version < release version
 //
 // Flow:
 //   App start → checkForUpdates()
-//   → 'update-available' event → push to renderer (show popup)
+//   → 'update-available' → push to renderer (show popup)
 //   → User clicks "Update" → downloadUpdate()
 //   → 'update-downloaded' → quitAndInstall()
 // ---------------------------------------------------------------------------
@@ -21,19 +25,39 @@ export class UpdaterService {
     // Don't auto-download - let user decide
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = true;
-
-    // Suppress default error dialog
     autoUpdater.autoRunAppAfterInstall = true;
+
+    // Enable logging
+    autoUpdater.logger = {
+      info: (msg: string) => console.log('[updater]', msg),
+      warn: (msg: string) => console.warn('[updater]', msg),
+      error: (msg: string) => console.error('[updater]', msg),
+      debug: (msg: string) => console.log('[updater:debug]', msg),
+    } as any;
+
+    // In dev mode, force check against GitHub by providing update config
+    if (!app.isPackaged) {
+      autoUpdater.forceDevUpdateConfig = true;
+      // Point to the real app-update.yml
+      const devUpdateConfig = path.join(__dirname, '..', '..', 'dev-app-update.yml');
+      try {
+        autoUpdater.updateConfigPath = devUpdateConfig;
+      } catch {
+        // ignore if file doesn't exist
+      }
+    }
 
     this.setupEvents();
   }
 
   private setupEvents(): void {
     autoUpdater.on('checking-for-update', () => {
+      console.log('[updater] Checking for update... (current: v' + app.getVersion() + ')');
       this.sendToRenderer('update-status', { status: 'checking' });
     });
 
     autoUpdater.on('update-available', (info: UpdateInfo) => {
+      console.log('[updater] Update available: v' + info.version);
       this.updateAvailable = true;
       this.updateInfo = info;
       this.sendToRenderer('update-status', {
@@ -46,7 +70,8 @@ export class UpdaterService {
       });
     });
 
-    autoUpdater.on('update-not-available', () => {
+    autoUpdater.on('update-not-available', (info: UpdateInfo) => {
+      console.log('[updater] Up to date: v' + info.version);
       this.sendToRenderer('update-status', { status: 'up-to-date' });
     });
 
@@ -60,6 +85,7 @@ export class UpdaterService {
     });
 
     autoUpdater.on('update-downloaded', (info: UpdateInfo) => {
+      console.log('[updater] Downloaded: v' + info.version);
       this.sendToRenderer('update-status', {
         status: 'ready',
         version: info.version,
@@ -67,7 +93,7 @@ export class UpdaterService {
     });
 
     autoUpdater.on('error', (err) => {
-      console.error('Update error:', err.message);
+      console.error('[updater] Error:', err.message);
       this.sendToRenderer('update-status', {
         status: 'error',
         message: err.message,
@@ -81,10 +107,11 @@ export class UpdaterService {
     }
   }
 
-  /** Check for updates (call on app start) */
+  /** Check for updates */
   checkForUpdates(): void {
+    console.log('[updater] Starting update check (packaged: ' + app.isPackaged + ')');
     autoUpdater.checkForUpdates().catch((err) => {
-      console.error('Check update failed:', err.message);
+      console.error('[updater] Check failed:', err.message);
     });
   }
 
@@ -92,7 +119,7 @@ export class UpdaterService {
   downloadUpdate(): void {
     if (this.updateAvailable) {
       autoUpdater.downloadUpdate().catch((err) => {
-        console.error('Download update failed:', err.message);
+        console.error('[updater] Download failed:', err.message);
       });
     }
   }
@@ -103,10 +130,11 @@ export class UpdaterService {
   }
 
   /** Get current update info */
-  getUpdateInfo(): { available: boolean; version: string } {
+  getUpdateInfo(): { available: boolean; version: string; currentVersion: string } {
     return {
       available: this.updateAvailable,
       version: this.updateInfo?.version || '',
+      currentVersion: app.getVersion(),
     };
   }
 }
