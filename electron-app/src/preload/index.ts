@@ -10,7 +10,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'start_odoo', 'stop_odoo', 'open_vscode', 'open_explorer', 'open_browser', 'pick-folder',
       'window-minimize', 'window-maximize', 'window-close', 'window-is-maximized',
       'update-check', 'update-download', 'update-install', 'update-info',
-      'app-version', 'default-paths', 'pick-icon', 'get-icon', 'reset-icon',
+      'app-version', 'default-paths', 'odoo-versions', 'pick-icon', 'get-icon', 'reset-icon',
       'watch-log', 'unwatch-log',
     ];
     if (validChannels.includes(channel)) {

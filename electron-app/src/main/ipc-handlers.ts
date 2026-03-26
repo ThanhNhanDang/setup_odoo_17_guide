@@ -5,7 +5,8 @@ import * as fs from 'fs';
 import { runCmd } from './utils/shell';
 import { LoggerService } from './services/logger';
 import { StepLockManager } from './services/step-lock';
-import { DEFAULT_BASE_DIR, DEFAULT_PROJECTS_DIR } from './services/config';
+import { DEFAULT_BASE_DIR, DEFAULT_PROJECTS_DIR, getDefaultBaseDir, getDefaultProjectsDir } from './services/config';
+import { DEFAULT_ODOO_VERSION, ALL_VERSIONS, ODOO_VERSIONS } from './services/odoo-versions';
 import { detectStatus, invalidateStatusCache } from './services/status';
 import {
   stepInstallNginx,
@@ -46,8 +47,29 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     return app.getVersion();
   });
 
-  ipcMain.handle('default-paths', () => {
-    return { base_dir: DEFAULT_BASE_DIR, projects_dir: DEFAULT_PROJECTS_DIR };
+  ipcMain.handle('default-paths', (_event, data?: Record<string, string>) => {
+    const version = data?.odoo_version || DEFAULT_ODOO_VERSION;
+    return {
+      base_dir: getDefaultBaseDir(version),
+      projects_dir: getDefaultProjectsDir(version),
+      odoo_version: version,
+    };
+  });
+
+  // --- Odoo Versions Registry (for UI) ---
+  ipcMain.handle('odoo-versions', () => {
+    return {
+      versions: ALL_VERSIONS.map(v => ({
+        key: ODOO_VERSIONS[v].key,
+        label: ODOO_VERSIONS[v].label,
+        pythonVersion: ODOO_VERSIONS[v].pythonVersion,
+        postgresVersion: ODOO_VERSIONS[v].postgresVersion,
+        pgvector: ODOO_VERSIONS[v].pgvector,
+        branch: ODOO_VERSIONS[v].branch,
+        color: ODOO_VERSIONS[v].color,
+      })),
+      default: DEFAULT_ODOO_VERSION,
+    };
   });
 
   // --- Window Controls (frameless) ---
@@ -79,18 +101,19 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     if (logger.getTask().status === 'running') {
       return { ok: false, msg: 'Install already in progress' };
     }
-    const baseDir = data?.base_dir || DEFAULT_BASE_DIR;
-    const projectsDir = data?.projects_dir || DEFAULT_PROJECTS_DIR;
+    const odooVersion = data?.odoo_version || DEFAULT_ODOO_VERSION;
+    const baseDir = data?.base_dir || getDefaultBaseDir(odooVersion);
+    const projectsDir = data?.projects_dir || getDefaultProjectsDir(odooVersion);
     const projectName = data?.project_name || 'my_project';
     const opts: Record<string, string> = {};
     for (const [k, v] of Object.entries(data || {})) {
-      if (!['base_dir', 'projects_dir', 'project_name'].includes(k)) {
+      if (!['base_dir', 'projects_dir', 'project_name', 'odoo_version'].includes(k)) {
         opts[k] = v;
       }
     }
 
     // Run in background (non-blocking)
-    stepFullInstall(baseDir, projectsDir, projectName, logger, opts, stepLock)
+    stepFullInstall(baseDir, projectsDir, projectName, logger, opts, stepLock, odooVersion)
       .then(results => {
         invalidateStatusCache();
         logger.updateTask({ status: 'done', step: 'Complete!', progress: 100, results });
@@ -106,13 +129,14 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   // --- Run Step ---
   ipcMain.handle('run_step', async (_event, data: Record<string, string>) => {
     const step = data?.step || '';
-    const baseDir = data?.base_dir || DEFAULT_BASE_DIR;
+    const odooVersion = data?.odoo_version || DEFAULT_ODOO_VERSION;
+    const baseDir = data?.base_dir || getDefaultBaseDir(odooVersion);
 
     const stepFns: Record<string, () => Promise<{ ok: boolean; msg: string }>> = {
       install_nginx: () => stepInstallNginx(baseDir, logger),
       install_git: () => stepInstallGit(baseDir, logger),
       install_vscode: () => stepInstallVSCode(baseDir, logger),
-      install_python: () => stepInstallPython(baseDir, logger),
+      install_python: () => stepInstallPython(baseDir, logger, odooVersion),
       install_postgres: () => stepInstallPostgres(
         baseDir, logger,
         data?.pg_super_password || 'postgres',
@@ -120,9 +144,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         data?.db_user || 'odoo',
         data?.db_password || 'odoo',
         data?.pg_mode || 'auto',
+        odooVersion,
       ),
-      clone_odoo: () => stepCloneOdoo(baseDir, logger),
-      create_venv: () => stepCreateVenv(baseDir, logger),
+      clone_odoo: () => stepCloneOdoo(baseDir, logger, odooVersion),
+      create_venv: () => stepCreateVenv(baseDir, logger, odooVersion),
       install_requirements: () => stepInstallRequirements(baseDir, logger),
     };
 
@@ -146,16 +171,17 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   // --- Create Project ---
   ipcMain.handle('create_project', async (_event, data: Record<string, string>) => {
-    const baseDir = data?.base_dir || DEFAULT_BASE_DIR;
-    const projectsDir = data?.projects_dir || DEFAULT_PROJECTS_DIR;
+    const odooVersion = data?.odoo_version || DEFAULT_ODOO_VERSION;
+    const baseDir = data?.base_dir || getDefaultBaseDir(odooVersion);
+    const projectsDir = data?.projects_dir || getDefaultProjectsDir(odooVersion);
     const projectName = data?.project_name || '';
     const opts: Record<string, string> = {};
     for (const [k, v] of Object.entries(data || {})) {
-      if (!['base_dir', 'projects_dir', 'project_name'].includes(k)) {
+      if (!['base_dir', 'projects_dir', 'project_name', 'odoo_version'].includes(k)) {
         opts[k] = v;
       }
     }
-    return stepCreateProject(baseDir, projectsDir, projectName, logger, opts);
+    return stepCreateProject(baseDir, projectsDir, projectName, logger, opts, odooVersion);
   });
 
   // --- Read Config ---
@@ -192,8 +218,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   // --- Start Odoo ---
   ipcMain.handle('start_odoo', async (_event, data: Record<string, string>) => {
-    const baseDir = data?.base_dir || DEFAULT_BASE_DIR;
-    const projectsDir = data?.projects_dir || DEFAULT_PROJECTS_DIR;
+    // Read odoo_version from project config to use correct base dir
+    const odooVersion = data?.odoo_version || DEFAULT_ODOO_VERSION;
+    const baseDir = data?.base_dir || getDefaultBaseDir(odooVersion);
+    const projectsDir = data?.projects_dir || getDefaultProjectsDir(odooVersion);
     const projectName = data?.project_name || '';
     const projPath = path.join(projectsDir, projectName);
     const conf = path.join(projPath, 'odoo.conf');
