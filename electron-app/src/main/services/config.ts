@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { app } from 'electron';
+import { getVersionConfig, DEFAULT_ODOO_VERSION, type OdooVersionKey } from './odoo-versions';
 
 // ---------------------------------------------------------------------------
 // Config Constants
@@ -17,21 +18,42 @@ function resolveDefaultDir(preferred: string, fallback: string): string {
   return fallback;
 }
 
-export const DEFAULT_BASE_DIR = resolveDefaultDir(
-  'D:\\workspaces\\odoo_17_base',
-  'C:\\odoo17\\odoo_17_base'
-);
-export const DEFAULT_PROJECTS_DIR = resolveDefaultDir(
-  'D:\\workspaces\\projects\\odoo17',
-  'C:\\odoo17\\projects'
-);
+/**
+ * Get default base directory for a specific Odoo version.
+ */
+export function getDefaultBaseDir(version: string = DEFAULT_ODOO_VERSION): string {
+  const config = getVersionConfig(version);
+  return resolveDefaultDir(
+    `D:\\workspaces\\${config.baseDirSuffix}`,
+    `C:\\odoo\\${config.baseDirSuffix}`
+  );
+}
 
-export const PYTHON_311_URL = 'https://www.python.org/ftp/python/3.11.4/python-3.11.4-amd64.exe';
-export const POSTGRES_URL = 'https://get.enterprisedb.com/postgresql/postgresql-16.6-1-windows-x64.exe';
+/**
+ * Get default projects directory for a specific Odoo version.
+ */
+export function getDefaultProjectsDir(version: string = DEFAULT_ODOO_VERSION): string {
+  const config = getVersionConfig(version);
+  return resolveDefaultDir(
+    `D:\\workspaces\\projects\\${config.defaultProjectsSubdir}`,
+    `C:\\odoo\\projects\\${config.defaultProjectsSubdir}`
+  );
+}
+
+// Backward compat — existing code that imports these constants still works
+export const DEFAULT_BASE_DIR = getDefaultBaseDir('17');
+export const DEFAULT_PROJECTS_DIR = getDefaultProjectsDir('17');
+
+// Version-independent URLs
 export const ODOO_GIT_URL = 'https://github.com/odoo/odoo.git';
-export const ODOO_BRANCH = '17.0';
 export const VSCODE_URL = 'https://update.code.visualstudio.com/latest/win32-x64-user/stable';
 export const GIT_URL = 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe';
+
+// Version-specific URLs — use getVersionConfig(version).pythonUrl / .postgresUrl instead
+// Kept for backward compat with any direct imports
+export const PYTHON_311_URL = getVersionConfig('17').pythonUrl;
+export const POSTGRES_URL = getVersionConfig('17').postgresUrl;
+export const ODOO_BRANCH = getVersionConfig('17').branch;
 
 export const PROJECT_DEFAULTS: Readonly<Record<string, string>> = {
   addons_path: './addons,./odoo/addons',

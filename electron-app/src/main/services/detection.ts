@@ -97,7 +97,20 @@ export interface NativePostgresDetails {
 }
 
 /**
- * Find Python 3.11 installation path.
+ * Find Python installation for a specific Odoo version.
+ * Uses version-specific candidate paths from the version registry.
+ */
+export function findPython(candidates: readonly string[]): string | null {
+  for (const p of candidates) {
+    if (p && fs.existsSync(p)) {
+      return p;
+    }
+  }
+  return null;
+}
+
+/**
+ * Find Python 3.11 installation path (backward compat wrapper).
  * Checks: LOCALAPPDATA, C:\Python311, C:\Program Files\Python311
  */
 export function findPython311(): string | null {
@@ -107,12 +120,7 @@ export function findPython311(): string | null {
     'C:\\Python311\\python.exe',
     'C:\\Program Files\\Python311\\python.exe',
   ];
-  for (const p of candidates) {
-    if (p && fs.existsSync(p)) {
-      return p;
-    }
-  }
-  return null;
+  return findPython(candidates);
 }
 
 /**
