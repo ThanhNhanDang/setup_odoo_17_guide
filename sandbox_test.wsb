@@ -1,14 +1,14 @@
 <Configuration>
   <MappedFolders>
     <MappedFolder>
-      <HostFolder>D:\workspaces\t4tek\odoo\setup_odoo_17_guide</HostFolder>
+      <HostFolder>D:\workspaces\setup_odoo_17_guide</HostFolder>
       <SandboxFolder>C:\setup_odoo_17_guide</SandboxFolder>
       <ReadOnly>true</ReadOnly>
     </MappedFolder>
   </MappedFolders>
   <Networking>Enable</Networking>
-  <MemoryInMB>4096</MemoryInMB>
+  <MemoryInMB>8192</MemoryInMB>
   <LogonCommand>
-    <Command>powershell -ExecutionPolicy Bypass -File C:\setup_odoo_17_guide\sandbox_test.ps1</Command>
+    <Command>powershell -ExecutionPolicy Bypass -File C:\setup_odoo_17_guide\sandbox_test_electron.ps1</Command>
   </LogonCommand>
 </Configuration>
