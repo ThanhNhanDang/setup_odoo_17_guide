@@ -185,7 +185,9 @@ function renderProjects(s) {
         <span class="copy-hint">click to copy</span>
       </div>
       <div class="project-actions">
-        <button class="btn btn-success btn-xs" onclick="startOdoo('${escAttr(p.name)}')">Start Odoo</button>
+        ${p.is_running
+          ? `<button class="btn btn-danger btn-xs" onclick="stopOdoo('${escAttr(p.name)}')">Stop</button>`
+          : `<button class="btn btn-success btn-xs" onclick="startOdoo('${escAttr(p.name)}')">Start</button>`}
         <button class="btn btn-outline btn-xs" onclick="openBrowser('${escAttr(p.http_port)}')">Open Browser</button>
         <button class="btn btn-outline btn-xs" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
         <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
@@ -456,19 +458,45 @@ async function createProject() {
 async function startOdoo(name) {
   const data = getFormData();
   data.project_name = name;
-  // Show starting state
   showToastMessage('Starting Odoo...', 'info');
   const res = await api('start_odoo', data);
   if (res.ok) {
-    showToastMessage('Odoo started! Opening browser in 5s...', 'success');
-    // Auto-open browser after delay (give Odoo time to boot)
+    showToastMessage('Odoo starting... Waiting for server...', 'info');
     const port = _status?.projects?.find(p => p.name === name)?.http_port || '8069';
-    setTimeout(() => openBrowser(port), 5000);
+    // Poll until running or timeout (30s)
+    let running = false;
+    for (let i = 0; i < 15; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+      await refreshStatus();
+      const proj = _status?.projects?.find(p => p.name === name);
+      if (proj?.is_running) { running = true; break; }
+    }
+    if (running) {
+      showToastMessage('Odoo is running!', 'success');
+      openBrowser(port);
+    } else {
+      showToastMessage('Odoo process started but not responding yet. Check Log tab.', 'error');
+    }
   } else {
     showToastMessage('Failed: ' + res.msg, 'error');
   }
-  // Refresh to update status
-  setTimeout(() => refreshStatus(), 2000);
+}
+
+async function stopOdoo(name) {
+  const port = _status?.projects?.find(p => p.name === name)?.http_port || '8069';
+  showToastMessage('Stopping Odoo...', 'info');
+  const res = await api('stop_odoo', { http_port: port });
+  if (res.ok) {
+    showToastMessage('Odoo stopped', 'success');
+  } else {
+    showToastMessage('Failed: ' + res.msg, 'error');
+  }
+  await refreshStatus();
+}
+
+function toggleOdoo(name, isRunning) {
+  if (isRunning) stopOdoo(name);
+  else startOdoo(name);
 }
 
 async function openVSCode(path) { await api('open_vscode', { path }); }
@@ -659,7 +687,9 @@ function renderKanban(projects) {
         </div>
       </div>
       <div class="kanban-card-actions">
-        <button class="btn btn-success btn-xs" onclick="startOdoo('${escAttr(p.name)}')">Start</button>
+        ${p.is_running
+          ? `<button class="btn btn-danger btn-xs" onclick="stopOdoo('${escAttr(p.name)}')">Stop</button>`
+          : `<button class="btn btn-success btn-xs" onclick="startOdoo('${escAttr(p.name)}')">Start</button>`}
         <button class="btn btn-outline btn-xs" onclick="openBrowser('${escAttr(p.http_port)}')">Browser</button>
         <button class="btn btn-outline btn-xs" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
         <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
@@ -726,7 +756,9 @@ function showProjectDetail(name) {
       <span class="copy-hint">click to copy</span>
     </div>
     <div class="btn-row">
-      <button class="btn btn-success btn-sm" onclick="startOdoo('${escAttr(p.name)}');hideModal('modalDetail')">Start Odoo</button>
+      ${p.is_running
+        ? `<button class="btn btn-danger btn-sm" onclick="stopOdoo('${escAttr(p.name)}');hideModal('modalDetail')">Stop Odoo</button>`
+        : `<button class="btn btn-success btn-sm" onclick="startOdoo('${escAttr(p.name)}');hideModal('modalDetail')">Start Odoo</button>`}
       <button class="btn btn-outline btn-sm" onclick="openBrowser('${escAttr(p.http_port)}')">Open Browser</button>
       <button class="btn btn-outline btn-sm" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
       <button class="btn btn-outline btn-sm" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
@@ -851,6 +883,9 @@ function applyTheme(theme) {
 // Init
 // ---------------------------------------------------------------------------
 refreshStatus();
+
+// Auto-refresh status every 10 seconds (real-time running/stopped sync)
+setInterval(() => refreshStatus(), 10000);
 
 // Load app version + default paths
 if (window.electronAPI) {

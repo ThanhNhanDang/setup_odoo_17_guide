@@ -286,6 +286,32 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
+  // --- Stop Odoo ---
+  ipcMain.handle('stop_odoo', async (_event, data: Record<string, string>) => {
+    const port = data?.http_port || '8069';
+    try {
+      // Find and kill process on port
+      const { output } = await runCmd(`netstat -ano | findstr ":${port}.*LISTENING"`);
+      const lines = output.trim().split('\n').filter(Boolean);
+      const pids = new Set<string>();
+      for (const line of lines) {
+        const parts = line.trim().split(/\s+/);
+        const pid = parts[parts.length - 1];
+        if (pid && pid !== '0') pids.add(pid);
+      }
+      if (pids.size === 0) {
+        return { ok: true, msg: 'Not running' };
+      }
+      for (const pid of pids) {
+        await runCmd(`taskkill /F /PID ${pid}`);
+      }
+      logger.log(`Odoo stopped (killed PID: ${[...pids].join(', ')})`);
+      return { ok: true, msg: 'Stopped' };
+    } catch (e) {
+      return { ok: false, msg: String(e) };
+    }
+  });
+
   // --- Open VS Code ---
   ipcMain.handle('open_vscode', async (_event, data: Record<string, string>) => {
     const targetPath = data?.path;
