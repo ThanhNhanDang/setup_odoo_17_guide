@@ -1,6 +1,7 @@
 import { ipcMain, BrowserWindow, shell } from 'electron';
 import { spawn } from 'child_process';
 import * as path from 'path';
+import { runCmd } from './utils/shell';
 import { LoggerService } from './services/logger';
 import { DEFAULT_BASE_DIR, DEFAULT_PROJECTS_DIR } from './services/config';
 import { detectStatus } from './services/status';
@@ -178,6 +179,26 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const cmd = `"${venvPy}" "${odooBin}" -c "${conf}"`;
 
     try {
+      // Auto-start native PostgreSQL if stopped
+      const { detectNativePostgresDetails, findPostgresBin } = require('./services/detection');
+      const pgBin = findPostgresBin();
+      if (pgBin) {
+        const pgDetails = detectNativePostgresDetails();
+        if (pgDetails && !pgDetails.is_ready) {
+          logger.log('PostgreSQL is stopped. Starting service...');
+          // Try common service names
+          for (const svc of ['postgresql-x64-17', 'postgresql-x64-16', 'postgresql-x64-15', 'postgresql-x64-14']) {
+            const { code } = await runCmd(`net start "${svc}"`);
+            if (code === 0) {
+              logger.log(`PostgreSQL service '${svc}' started!`);
+              // Wait for it to be ready
+              await new Promise(resolve => setTimeout(resolve, 3000));
+              break;
+            }
+          }
+        }
+      }
+
       const proc = spawn('cmd.exe', ['/c', cmd], {
         cwd: projPath,
         detached: true,
