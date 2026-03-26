@@ -19,7 +19,7 @@ export const PROJECT_DEFAULTS: Readonly<Record<string, string>> = {
   http_port: '8069',
   longpolling_port: '',
   db_host: 'localhost',
-  db_port: '5432',
+  db_port: '5434',
   db_user: 'odoo',
   db_password: 'odoo',
   log_level: 'error',
