@@ -329,7 +329,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     if (!targetPath) return { ok: false, msg: 'No path provided' };
     try {
       const { exec } = require('child_process');
-      exec(`code "${targetPath}"`, { windowsHide: true });
+      // Open folder then focus Explorer sidebar
+      exec(`code "${targetPath}" && code -r --command workbench.view.explorer`, { windowsHide: true });
       return { ok: true };
     } catch (e) {
       return { ok: false, msg: String(e) };
