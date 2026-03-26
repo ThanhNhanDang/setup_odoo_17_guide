@@ -107,6 +107,25 @@ export function getVSCodeVersion(): string {
 }
 
 /**
+ * Check if Git is installed. Returns version string or null.
+ */
+export function findGit(): string | null {
+  try {
+    const output = execFileSync('cmd.exe', ['/c', 'git --version'], {
+      timeout: 5000,
+      windowsHide: true,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    // "git version 2.47.1.windows.2"
+    const match = output.trim().match(/(\d+\.\d+\.\d+)/);
+    return match ? match[1] : output.trim();
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Check if Docker is available.
  */
 export function findDocker(): boolean {

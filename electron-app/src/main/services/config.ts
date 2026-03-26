@@ -31,6 +31,7 @@ export const POSTGRES_URL = 'https://get.enterprisedb.com/postgresql/postgresql-
 export const ODOO_GIT_URL = 'https://github.com/odoo/odoo.git';
 export const ODOO_BRANCH = '17.0';
 export const VSCODE_URL = 'https://update.code.visualstudio.com/latest/win32-x64/stable';
+export const GIT_URL = 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe';
 
 export const PROJECT_DEFAULTS: Readonly<Record<string, string>> = {
   addons_path: './addons,./odoo/addons',

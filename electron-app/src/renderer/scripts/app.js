@@ -99,6 +99,7 @@ async function refreshStatus() {
     ['Odoo Source', s.odoo_cloned, ''],
     ['Virtual Env', s.venv_created, ''],
     ['Requirements', s.requirements_installed, ''],
+    ['Git', s.git, s.git_version || ''],
     ['VS Code', s.vscode, s.vscode_version || ''],
   ];
   $('statusGrid').innerHTML = items.map(([label, ok, detail]) => `
@@ -245,6 +246,7 @@ if (window.electronAPI) {
   window.electronAPI.onTaskProgress((task) => {
     // Map step labels to step IDs for card updates
     const stepLabelMap = {
+      'Installing Git...': 'install_git',
       'Installing VS Code...': 'install_vscode',
       'Installing Python 3.11...': 'install_python',
       'Installing PostgreSQL...': 'install_postgres',
@@ -291,6 +293,7 @@ if (window.electronAPI) {
 // ---------------------------------------------------------------------------
 
 const STEP_MAP = {
+  install_git: { label: 'Installing Git...', check: s => s.git },
   install_vscode: { label: 'Installing VS Code...', check: s => s.vscode },
   install_python: { label: 'Installing Python 3.11...', check: s => s.python311 },
   install_postgres: { label: 'Installing PostgreSQL...', check: s => s.postgres },

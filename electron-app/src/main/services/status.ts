@@ -6,6 +6,7 @@ import {
   findDocker,
   findDockerPostgres,
   detectNativePostgresDetails,
+  findGit,
   findVSCode,
   getVSCodeVersion,
   DockerContainer,
@@ -58,6 +59,8 @@ export interface StatusResult {
   readonly odoo_cloned: boolean;
   readonly venv_created: boolean;
   readonly requirements_installed: boolean;
+  readonly git: boolean;
+  readonly git_version: string;
   readonly vscode: boolean;
   readonly vscode_version: string;
   readonly base_dir: string;
@@ -225,6 +228,8 @@ export function detectStatus(baseDir: string, projectsDir: string): StatusResult
     odoo_cloned: fs.existsSync(path.join(baseDir, 'odoo', 'odoo-bin')),
     venv_created: fs.existsSync(path.join(baseDir, 'venv', 'Scripts', 'python.exe')),
     requirements_installed: fs.existsSync(path.join(baseDir, 'venv', 'Lib', 'site-packages', 'lxml')),
+    git: findGit() !== null,
+    git_version: findGit() || '',
     vscode: findVSCode() !== null,
     vscode_version: getVSCodeVersion(),
     base_dir: baseDir,

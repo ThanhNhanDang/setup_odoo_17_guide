@@ -5,12 +5,13 @@ import {
   PYTHON_311_URL,
   POSTGRES_URL,
   VSCODE_URL,
+  GIT_URL,
   ODOO_GIT_URL,
   ODOO_BRANCH,
   PROJECT_DEFAULTS,
   getTemplatesDir,
 } from './config';
-import { findPython311, findPostgresBin, findDocker, findDockerPostgres, findVSCode } from './detection';
+import { findPython311, findPostgresBin, findDocker, findDockerPostgres, findVSCode, findGit } from './detection';
 import { runCmd } from '../utils/shell';
 import { downloadFile } from '../utils/download';
 
@@ -29,6 +30,32 @@ interface StepResult {
 //        step_clone_odoo, step_create_venv, step_install_requirements,
 //        step_create_project, step_full_install
 // ---------------------------------------------------------------------------
+
+export async function stepInstallGit(baseDir: string, logger: LoggerService): Promise<StepResult> {
+  if (findGit()) {
+    logger.log(`Git already installed (${findGit()}).`);
+    return { ok: true, msg: `Already installed (${findGit()})` };
+  }
+  logger.log('Downloading Git for Windows...');
+  fs.mkdirSync(baseDir, { recursive: true });
+  const installer = path.join(baseDir, 'git-installer.exe');
+  try {
+    await downloadFile(GIT_URL, installer, logger);
+  } catch (e) {
+    return { ok: false, msg: `Download failed: ${e}` };
+  }
+  logger.log('Installing Git (silent)...');
+  await runCmd(`"${installer}" /VERYSILENT /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS /COMPONENTS="icons,ext\\reg\\shellhere,assoc,assoc_sh"`);
+  await new Promise(resolve => setTimeout(resolve, 5000));
+  // Refresh PATH for current process
+  const gitPath = 'C:\\Program Files\\Git\\cmd';
+  if (fs.existsSync(path.join(gitPath, 'git.exe'))) {
+    process.env.PATH = `${gitPath};${process.env.PATH}`;
+    logger.log('Git installed!');
+    return { ok: true, msg: 'Installed' };
+  }
+  return { ok: false, msg: 'Install may need admin rights.' };
+}
 
 export async function stepInstallVSCode(baseDir: string, logger: LoggerService): Promise<StepResult> {
   if (findVSCode()) {
@@ -412,9 +439,9 @@ async function runNamedStep(
  * Full Install Orchestrator - runs independent steps in parallel.
  *
  * Dependency graph:
- *   Group 1 (parallel): VS Code, Python 3.11, PostgreSQL, Clone Odoo
- *   Group 2 (needs Python): Create Venv
- *   Group 3 (needs Venv + Odoo + PG): Install Requirements, Create DB User
+ *   Group 1 (parallel): Git, VS Code, Python 3.11, PostgreSQL
+ *   Group 2 (parallel, needs Git+Python): Clone Odoo, Create Venv
+ *   Group 3 (parallel, needs Venv+Odoo+PG): Install Requirements, Create DB User
  *   Group 4 (needs all): Create Project
  */
 export async function stepFullInstall(
@@ -440,22 +467,25 @@ export async function stepFullInstall(
   logger.log('==================================================');
 
   const group1 = await Promise.all([
+    runNamedStep('Installing Git...', () => stepInstallGit(baseDir, logger), logger),
     runNamedStep('Installing VS Code...', () => stepInstallVSCode(baseDir, logger), logger),
     runNamedStep('Installing Python 3.11...', () => stepInstallPython(baseDir, logger), logger),
     runNamedStep('Installing PostgreSQL...', () => stepInstallPostgres(baseDir, logger, pgSuperPassword, dbPort, dbUser, dbPassword, pgMode), logger),
-    runNamedStep('Cloning Odoo 17...', () => stepCloneOdoo(baseDir, logger), logger),
   ]);
   results.push(...group1);
   logger.updateTask({ status: 'running', step: 'Group 1 done', progress: 40 });
 
-  // ── Group 2: Needs Python (sequential) ──
+  // ── Group 2: Needs Git + Python (parallel) ──
   logger.log('');
   logger.log('==================================================');
-  logger.log('Group 2: Setting up Python environment...');
+  logger.log('Group 2: Clone Odoo + Create Venv (parallel)...');
   logger.log('==================================================');
 
-  const venvResult = await runNamedStep('Creating virtual environment...', () => stepCreateVenv(baseDir, logger), logger);
-  results.push(venvResult);
+  const group2 = await Promise.all([
+    runNamedStep('Cloning Odoo 17...', () => stepCloneOdoo(baseDir, logger), logger),
+    runNamedStep('Creating virtual environment...', () => stepCreateVenv(baseDir, logger), logger),
+  ]);
+  results.push(...group2);
   logger.updateTask({ status: 'running', step: 'Group 2 done', progress: 60 });
 
   // ── Group 3: Needs Venv + Odoo + PG (parallel) ──
