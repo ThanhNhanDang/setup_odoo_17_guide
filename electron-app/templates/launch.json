@@ -13,7 +13,9 @@
         "--dev",
         "xml"
       ],
-      "env": {},
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
       "console": "integratedTerminal",
       "justMyCode": false,
       "cwd": "${workspaceFolder}"

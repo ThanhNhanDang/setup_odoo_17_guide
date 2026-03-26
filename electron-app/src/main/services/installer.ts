@@ -355,6 +355,14 @@ export async function stepCreateProject(
   launchContent = launchContent.replace(/\{odoo_bin_path\}/g, odooBin);
   fs.writeFileSync(path.join(proj, '.vscode', 'launch.json'), launchContent, 'utf8');
 
+  // settings.json - force VS Code to use venv Python interpreter
+  const settingsTemplate = path.join(templatesDir, 'settings.json');
+  if (fs.existsSync(settingsTemplate)) {
+    let settingsContent = fs.readFileSync(settingsTemplate, 'utf8');
+    settingsContent = settingsContent.replace(/\{python_path\}/g, venvPython);
+    fs.writeFileSync(path.join(proj, '.vscode', 'settings.json'), settingsContent, 'utf8');
+  }
+
   logger.log(`Project '${projectName}' ready at ${proj}`);
   return { ok: true, msg: proj };
 }
