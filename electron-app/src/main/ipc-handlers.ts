@@ -33,6 +33,12 @@ function safe<T>(fn: () => Promise<T>): Promise<T | { ok: false; msg: string }> 
 export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   const logger = new LoggerService(mainWindow);
 
+  // --- App Info ---
+  ipcMain.handle('app-version', () => {
+    const { app } = require('electron');
+    return app.getVersion();
+  });
+
   // --- Window Controls (frameless) ---
   ipcMain.handle('window-minimize', () => { mainWindow.minimize(); });
   ipcMain.handle('window-maximize', () => {

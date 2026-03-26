@@ -451,3 +451,11 @@ if (window.electronAPI) {
 // Init
 // ---------------------------------------------------------------------------
 refreshStatus();
+
+// Load app version into nav
+if (window.electronAPI) {
+  api('app-version').then(v => {
+    const el = document.querySelector('.nav-version');
+    if (el) el.textContent = 'v' + v;
+  });
+}

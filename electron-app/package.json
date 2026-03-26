@@ -10,6 +10,10 @@
     "dev": "tsc && electron . --dev",
     "pack": "tsc && electron-builder --dir",
     "dist": "tsc && electron-builder",
+    "publish": "tsc && electron-builder --publish always",
+    "release:patch": "npm version patch --no-git-tag-version && tsc && electron-builder --publish always",
+    "release:minor": "npm version minor --no-git-tag-version && tsc && electron-builder --publish always",
+    "release:major": "npm version major --no-git-tag-version && tsc && electron-builder --publish always",
     "clean": "rimraf dist"
   },
   "author": "",
