@@ -3,7 +3,7 @@
   /* Dark theme (default) */
   --bg-canvas: #0d1117;
   --bg-surface: #161b22;
-  --bg-inset: #010409;
+  --bg-inset: #161b22;
   --bg-titlebar: #010409;
   --border-default: #21262d;
   --border-muted: #30363d;
@@ -33,9 +33,9 @@
   --bg-canvas: #ffffff;
   --bg-surface: #f6f8fa;
   --bg-inset: #ffffff;
-  --bg-titlebar: #f6f8fa;
+  --bg-titlebar: #f0f0f0;
   --border-default: #d0d7de;
-  --border-muted: #d8dee4;
+  --border-muted: #b8bfc7;
   --text-primary: #1f2328;
   --text-secondary: #656d76;
   --text-tertiary: #8c959f;
@@ -153,7 +153,8 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .form-group label{font-size:0.75rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px}
 .form-group input,.form-group select{
   padding:9px 12px;border-radius:6px;border:1px solid var(--border-muted);
-  background:var(--bg-inset);color:var(--text-primary);font-size:0.9rem;outline:none;transition:border 0.2s;
+  background:var(--bg-inset);color:var(--text-primary);font-size:0.9rem;outline:none;
+  transition:border 0.2s;caret-color:var(--accent);
 }
 .form-group input:focus,.form-group select:focus{border-color:var(--accent)}
 
@@ -228,17 +229,19 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 }
 .modal h3{color:var(--text-primary);margin-bottom:16px;font-size:1.1rem}
 .modal textarea{
-  width:100%;min-height:400px;background:var(--bg-inset);border:1px solid var(--border-default);
+  width:100%;min-height:400px;background:var(--bg-canvas);border:1px solid var(--border-default);
   border-radius:6px;padding:12px;font-family:'Cascadia Code',Consolas,monospace;
   font-size:0.82rem;color:var(--text-primary);resize:vertical;outline:none;
+  caret-color:var(--accent);
 }
 .modal textarea:focus{border-color:var(--accent)}
 .modal .btn-row{justify-content:flex-end}
 .modal input{
   padding:9px 12px;border-radius:6px;border:1px solid var(--border-muted);
-  background:var(--bg-inset);color:var(--text-primary);font-size:0.9rem;outline:none;
-  width:100%;margin-bottom:8px;
+  background:var(--bg-canvas);color:var(--text-primary);font-size:0.9rem;outline:none;
+  width:100%;margin-bottom:8px;caret-color:var(--accent);
 }
+.modal input:focus{border-color:var(--accent)}
 .empty{text-align:center;padding:40px 20px;color:var(--text-tertiary)}
 
 /* ===== Native PG ===== */
@@ -259,7 +262,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .dash-search svg{color:var(--text-tertiary);flex-shrink:0}
 .dash-search input{
   border:none;background:transparent;color:var(--text-primary);font-size:0.85rem;
-  outline:none;width:100%;
+  outline:none;width:100%;caret-color:var(--accent);
 }
 .dash-search input::placeholder{color:var(--text-tertiary)}
 .dash-actions select{
