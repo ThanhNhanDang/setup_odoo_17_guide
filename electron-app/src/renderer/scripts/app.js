@@ -1,10 +1,17 @@
 // ---------------------------------------------------------------------------
-// Odoo 17 Installer - Renderer Script
+// Odoo Installer - Renderer Script (Multi-version: 15, 17, 19)
 // Communicates with main process via IPC (window.electronAPI)
 // ---------------------------------------------------------------------------
 
 const $ = id => document.getElementById(id);
 let _status = null;
+
+// Version-specific labels for install step cards
+const VERSION_LABELS = {
+  '15': { python: 'Python 3.10', postgres: 'PostgreSQL 14', clone: 'Clone Odoo 15' },
+  '17': { python: 'Python 3.11', postgres: 'PostgreSQL 16', clone: 'Clone Odoo 17' },
+  '19': { python: 'Python 3.12', postgres: 'PostgreSQL 16 + pgvector', clone: 'Clone Odoo 19' },
+};
 
 // ---------------------------------------------------------------------------
 // Navigation
@@ -62,6 +69,7 @@ async function api(endpoint, data = {}) {
 // ---------------------------------------------------------------------------
 function getFormData() {
   return {
+    odoo_version: $('odooVersion')?.value || '17',
     base_dir: $('baseDir').value,
     projects_dir: $('projectsDir').value,
     project_name: $('projectName').value,
@@ -85,6 +93,34 @@ function getFormData() {
     limit_memory_hard: $('memHard').value,
     limit_memory_soft: $('memSoft').value,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Version change handlers
+// ---------------------------------------------------------------------------
+async function onVersionChange(version) {
+  // Update directories to match selected version
+  try {
+    const paths = await api('default-paths', { odoo_version: version });
+    if ($('baseDir')) $('baseDir').value = paths.base_dir || '';
+    if ($('projectsDir')) $('projectsDir').value = paths.projects_dir || '';
+  } catch { /* ignore */ }
+  // Sync install panel version selector
+  if ($('installVersion')) $('installVersion').value = version;
+}
+
+function getVersionColor(version) {
+  const colors = { '15': '#3b82f6', '17': '#f0883e', '19': '#22c55e' };
+  return colors[version] || '#888';
+}
+
+function onInstallVersionChange(version) {
+  const labels = VERSION_LABELS[version] || VERSION_LABELS['17'];
+  if ($('stepName-install_python')) $('stepName-install_python').textContent = labels.python;
+  if ($('stepName-install_postgres')) $('stepName-install_postgres').textContent = labels.postgres;
+  if ($('stepName-clone_odoo')) $('stepName-clone_odoo').textContent = labels.clone;
+  // Sync settings version selector
+  if ($('odooVersion')) $('odooVersion').value = version;
 }
 
 // ---------------------------------------------------------------------------
@@ -547,6 +583,7 @@ async function createProject() {
     }
 
     const data = getFormData();
+    data.odoo_version = $('newProjVersion')?.value || '17';
     data.project_name = name;
     data.http_port = $('newProjPort')?.value || '8070';
     data.db_host = $('newProjDbHost')?.value || data.db_host || 'localhost';
@@ -603,8 +640,11 @@ async function startOdoo(name) {
   if (_pendingProjects.has(name)) return;
   setProjectPending(name, 'Starting...');
 
+  const proj = _status?.projects?.find(p => p.name === name);
   const data = getFormData();
   data.project_name = name;
+  // Use project's own version, not the settings version
+  if (proj?.odoo_version) data.odoo_version = proj.odoo_version;
   showToastMessage('Starting Odoo...', 'info');
   const res = await api('start_odoo', data);
   if (res.ok) {
@@ -833,6 +873,7 @@ function renderKanban(projects) {
       <div class="kanban-card-url" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port || '8069')}')" title="Click to open">${escHtml(getProjectUrl(p.domain, p.http_port || '8069'))}</div>
       <div class="kanban-card-body">
         <div class="kanban-card-tags">
+          <span class="kanban-tag kanban-tag-version" style="background:${getVersionColor(p.odoo_version)};color:#fff">v${escHtml(p.odoo_version || '17')}</span>
           ${p.is_running
             ? '<span class="kanban-tag kanban-tag-running">running</span>'
             : '<span class="kanban-tag kanban-tag-stopped">stopped</span>'}
@@ -863,8 +904,8 @@ function showProjectDetail(name) {
   const p = _status.projects.find(proj => proj.name === name);
   if (!p) return;
 
-  $('detailTitle').innerHTML = `${escHtml(p.name)} ${p.is_running
-    ? '<span class="tag tag-running" style="font-size:0.7rem;margin-left:8px">running</span>'
+  $('detailTitle').innerHTML = `${escHtml(p.name)} <span class="tag" style="font-size:0.7rem;margin-left:8px;background:${getVersionColor(p.odoo_version)};color:#fff;border:none">v${escHtml(p.odoo_version || '17')}</span> ${p.is_running
+    ? '<span class="tag tag-running" style="font-size:0.7rem;margin-left:4px">running</span>'
     : '<span class="tag tag-stopped" style="font-size:0.7rem;margin-left:8px">stopped</span>'}`;
 
   const editableFields = [

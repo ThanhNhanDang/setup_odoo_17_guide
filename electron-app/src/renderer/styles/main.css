@@ -1073,6 +1073,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .kanban-tag-ready{background:var(--success-bg);color:var(--success)}
 .kanban-tag-running{background:var(--success-bg);color:var(--success)}
 .kanban-tag-stopped{background:var(--danger-bg);color:var(--danger)}
+.kanban-tag-version{border-radius:4px;font-size:0.6rem;letter-spacing:0.5px}
 .kanban-card-actions{
   display:flex;gap:6px;padding:12px 18px;border-top:1px solid var(--border-default);
   background:var(--bg-canvas);
