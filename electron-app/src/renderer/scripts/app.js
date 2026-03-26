@@ -22,6 +22,11 @@ function escHtml(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+/** Escape string for use inside onclick="func('...')" - escape backslashes and quotes */
+function escAttr(s) {
+  return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
 function toggleAdvanced(id) {
   const el = $(id);
   el.classList.toggle('show');
@@ -165,12 +170,12 @@ function renderProjects(s) {
         <span class="copy-hint">click to copy</span>
       </div>
       <div class="project-actions">
-        <button class="btn btn-success btn-xs" onclick="startOdoo('${escHtml(p.name)}')">Start Odoo</button>
-        <button class="btn btn-outline btn-xs" onclick="openVSCode('${escHtml(p.path)}')">VS Code</button>
-        <button class="btn btn-outline btn-xs" onclick="openExplorer('${escHtml(p.path)}')">Explorer</button>
-        <button class="btn btn-outline btn-xs" onclick="editConfig('${escHtml(p.name)}')">Edit Config</button>
-        <button class="btn btn-outline btn-xs" onclick="duplicateProject('${escHtml(p.name)}','${escHtml(p.http_port)}')">Duplicate</button>
-        <button class="btn btn-danger btn-xs" onclick="deleteProject('${escHtml(p.name)}')">Delete</button>
+        <button class="btn btn-success btn-xs" onclick="startOdoo('${escAttr(p.name)}')">Start Odoo</button>
+        <button class="btn btn-outline btn-xs" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
+        <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
+        <button class="btn btn-outline btn-xs" onclick="editConfig('${escAttr(p.name)}')">Edit Config</button>
+        <button class="btn btn-outline btn-xs" onclick="duplicateProject('${escAttr(p.name)}','${escAttr(p.http_port)}')">Duplicate</button>
+        <button class="btn btn-danger btn-xs" onclick="deleteProject('${escAttr(p.name)}')">Delete</button>
       </div>
     </div>`;
   }).join('');
@@ -470,10 +475,10 @@ function renderKanban(projects) {
         </div>
       </div>
       <div class="kanban-card-actions">
-        <button class="btn btn-success btn-xs" onclick="startOdoo('${escHtml(p.name)}')">Start</button>
-        <button class="btn btn-outline btn-xs" onclick="openVSCode('${escHtml(p.path)}')">VS Code</button>
-        <button class="btn btn-outline btn-xs" onclick="openExplorer('${escHtml(p.path)}')">Explorer</button>
-        <button class="btn btn-outline btn-xs" onclick="showProjectDetail('${escHtml(p.name)}')">Detail</button>
+        <button class="btn btn-success btn-xs" onclick="startOdoo('${escAttr(p.name)}')">Start</button>
+        <button class="btn btn-outline btn-xs" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
+        <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
+        <button class="btn btn-outline btn-xs" onclick="showProjectDetail('${escAttr(p.name)}')">Detail</button>
       </div>
     </div>
   `).join('');
@@ -536,12 +541,12 @@ function showProjectDetail(name) {
       <span class="copy-hint">click to copy</span>
     </div>
     <div class="btn-row">
-      <button class="btn btn-success btn-sm" onclick="startOdoo('${escHtml(p.name)}');hideModal('modalDetail')">Start Odoo</button>
-      <button class="btn btn-outline btn-sm" onclick="openVSCode('${escHtml(p.path)}')">VS Code</button>
-      <button class="btn btn-outline btn-sm" onclick="openExplorer('${escHtml(p.path)}')">Explorer</button>
-      <button class="btn btn-outline btn-sm" onclick="hideModal('modalDetail');editConfig('${escHtml(p.name)}')">Edit Config</button>
-      <button class="btn btn-outline btn-sm" onclick="hideModal('modalDetail');duplicateProject('${escHtml(p.name)}','${escHtml(p.http_port)}')">Duplicate</button>
-      <button class="btn btn-danger btn-sm" onclick="hideModal('modalDetail');deleteProject('${escHtml(p.name)}')">Delete</button>
+      <button class="btn btn-success btn-sm" onclick="startOdoo('${escAttr(p.name)}');hideModal('modalDetail')">Start Odoo</button>
+      <button class="btn btn-outline btn-sm" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
+      <button class="btn btn-outline btn-sm" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
+      <button class="btn btn-outline btn-sm" onclick="hideModal('modalDetail');editConfig('${escAttr(p.name)}')">Edit Config</button>
+      <button class="btn btn-outline btn-sm" onclick="hideModal('modalDetail');duplicateProject('${escAttr(p.name)}','${escAttr(p.http_port)}')">Duplicate</button>
+      <button class="btn btn-danger btn-sm" onclick="hideModal('modalDetail');deleteProject('${escAttr(p.name)}')">Delete</button>
     </div>
   `;
 
