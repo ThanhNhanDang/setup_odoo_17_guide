@@ -710,28 +710,44 @@ function showProjectDetail(name) {
   const p = _status.projects.find(proj => proj.name === name);
   if (!p) return;
 
-  $('detailTitle').textContent = p.name;
+  $('detailTitle').innerHTML = `${escHtml(p.name)} ${p.is_running
+    ? '<span class="tag tag-running" style="font-size:0.7rem;margin-left:8px">running</span>'
+    : '<span class="tag tag-stopped" style="font-size:0.7rem;margin-left:8px">stopped</span>'}`;
 
-  const details = [
-    ['HTTP Port', p.http_port],
-    ['Longpolling', p.longpolling_port],
+  const editableFields = [
+    ['http_port', 'HTTP Port', p.http_port, 'number'],
+    ['db_port', 'DB Port', p.db_port || '5434', 'number'],
+    ['db_user', 'DB User', p.db_user || 'odoo', 'text'],
+    ['dbfilter', 'DB Filter', p.dbfilter || '', 'text'],
+    ['log_level', 'Log Level', p.log_level || 'error', 'select:error,warn,info,debug'],
+    ['workers', 'Workers', p.workers || '0', 'number'],
+    ['list_db', 'List DB', p.list_db || 'True', 'select:True,False'],
+  ];
+
+  const readonlyFields = [
     ['DB Host', p.db_host || 'localhost'],
-    ['DB Port', p.db_port || '5432'],
-    ['DB User', p.db_user],
-    ['Workers', p.workers],
-    ['Log Level', p.log_level],
     ['Custom Modules', p.custom_modules],
-    ['List DB', p.list_db],
-    ['DB Filter', p.dbfilter],
-    ['Proxy Mode', p.proxy_mode],
-    ['Server Modules', p.server_wide_modules],
-    ['Data Dir', p.data_dir],
     ['Path', p.path],
   ].filter(([, v]) => v !== '' && v !== undefined && v !== null);
 
   $('detailContent').innerHTML = `
     <div class="detail-grid">
-      ${details.map(([l, v]) => `
+      ${editableFields.map(([key, label, value, type]) => {
+        if (type.startsWith('select:')) {
+          const opts = type.split(':')[1].split(',');
+          return `<div class="detail-item detail-editable">
+            <div class="detail-label">${label}</div>
+            <select class="detail-input" data-key="${key}">
+              ${opts.map(o => `<option value="${o}" ${o === value ? 'selected' : ''}>${o}</option>`).join('')}
+            </select>
+          </div>`;
+        }
+        return `<div class="detail-item detail-editable">
+          <div class="detail-label">${label}</div>
+          <input class="detail-input" data-key="${key}" type="${type}" value="${escHtml(value)}">
+        </div>`;
+      }).join('')}
+      ${readonlyFields.map(([l, v]) => `
         <div class="detail-item">
           <div class="detail-label">${l}</div>
           <div class="detail-value">${escHtml(v)}</div>
@@ -755,20 +771,71 @@ function showProjectDetail(name) {
       <span>${escHtml(p.start_command)}</span>
       <span class="copy-hint">click to copy</span>
     </div>
-    <div class="btn-row">
-      ${p.is_running
-        ? `<button class="btn btn-danger btn-sm" onclick="stopOdoo('${escAttr(p.name)}');hideModal('modalDetail')">Stop Odoo</button>`
-        : `<button class="btn btn-success btn-sm" onclick="startOdoo('${escAttr(p.name)}');hideModal('modalDetail')">Start Odoo</button>`}
-      <button class="btn btn-outline btn-sm" onclick="openBrowser('${escAttr(p.http_port)}')">Open Browser</button>
-      <button class="btn btn-vscode btn-sm" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
-      <button class="btn btn-outline btn-sm" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
-      <button class="btn btn-outline btn-sm" onclick="hideModal('modalDetail');editConfig('${escAttr(p.name)}')">Edit Config</button>
-      <button class="btn btn-outline btn-sm" onclick="hideModal('modalDetail');duplicateProject('${escAttr(p.name)}','${escAttr(p.http_port)}')">Duplicate</button>
-      <button class="btn btn-danger btn-sm" onclick="hideModal('modalDetail');deleteProject('${escAttr(p.name)}')">Delete</button>
+    <div class="btn-row" style="justify-content:space-between">
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${p.is_running
+          ? `<button class="btn btn-danger btn-sm" onclick="stopOdoo('${escAttr(p.name)}');hideModal('modalDetail')">Stop</button>`
+          : `<button class="btn btn-success btn-sm" onclick="startOdoo('${escAttr(p.name)}');hideModal('modalDetail')">Start</button>`}
+        <button class="btn btn-outline btn-sm" onclick="openBrowser('${escAttr(p.http_port)}')">Browser</button>
+        <button class="btn btn-vscode btn-sm" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
+        <button class="btn btn-outline btn-sm" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
+        <button class="btn btn-outline btn-sm" onclick="hideModal('modalDetail');duplicateProject('${escAttr(p.name)}','${escAttr(p.http_port)}')">Duplicate</button>
+        <button class="btn btn-danger btn-sm" onclick="hideModal('modalDetail');deleteProject('${escAttr(p.name)}')">Delete</button>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="saveDetailAndRestart('${escAttr(p.name)}')">Save & Restart</button>
     </div>
   `;
 
   showModal('modalDetail');
+}
+
+async function saveDetailAndRestart(name) {
+  try {
+    // Read current config
+    const data = getFormData();
+    const readRes = await api('read_config', { projects_dir: data.projects_dir, project_name: name });
+    if (!readRes.ok) { showToastMessage('Failed to read config: ' + readRes.msg, 'error'); return; }
+
+    // Parse current config and update fields
+    let content = readRes.content;
+    const inputs = document.querySelectorAll('#detailContent .detail-input');
+    for (const input of inputs) {
+      const key = input.getAttribute('data-key');
+      const value = input.value;
+      if (!key) continue;
+      // Replace or add key in [options] section
+      const regex = new RegExp(`^${key}\\s*=.*$`, 'm');
+      if (regex.test(content)) {
+        content = content.replace(regex, `${key} = ${value}`);
+      } else {
+        // Add after [options] line
+        content = content.replace('[options]', `[options]\n${key} = ${value}`);
+      }
+    }
+
+    // Save config
+    showToastMessage('Saving config...', 'info');
+    const saveRes = await api('save_config', { projects_dir: data.projects_dir, project_name: name, content });
+    if (!saveRes.ok) { showToastMessage('Save failed: ' + saveRes.msg, 'error'); return; }
+
+    // Restart Odoo if running
+    const port = _status?.projects?.find(p => p.name === name)?.http_port || '8069';
+    const proj = _status?.projects?.find(p => p.name === name);
+    if (proj?.is_running) {
+      showToastMessage('Restarting Odoo...', 'info');
+      await api('stop_odoo', { http_port: port });
+      await new Promise(r => setTimeout(r, 2000));
+      hideModal('modalDetail');
+      await startOdoo(name);
+      showToastMessage('Config saved & Odoo restarted!', 'success');
+    } else {
+      hideModal('modalDetail');
+      showToastMessage('Config saved!', 'success');
+      refreshStatus();
+    }
+  } catch (e) {
+    showToastMessage('Error: ' + e.message, 'error');
+  }
 }
 
 // ---------------------------------------------------------------------------

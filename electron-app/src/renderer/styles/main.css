@@ -366,6 +366,16 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 }
 .btn-close-modal:hover{color:var(--text-primary);background:var(--border-default)}
 .detail-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:16px}
+.detail-editable{transition:border-color 0.2s}
+.detail-editable:focus-within{border-color:var(--accent)}
+.detail-input{
+  width:100%;padding:6px 8px;margin-top:4px;border:1px solid var(--border-muted);
+  border-radius:4px;background:var(--bg-canvas);color:var(--text-primary);
+  font-size:0.85rem;font-family:'Cascadia Code',Consolas,monospace;
+  outline:none;caret-color:var(--accent);
+}
+.detail-input:focus{border-color:var(--accent)}
+select.detail-input{cursor:pointer}
 
 /* ===== Update Toast ===== */
 .update-toast{
