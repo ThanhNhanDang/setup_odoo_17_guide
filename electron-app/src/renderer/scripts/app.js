@@ -775,10 +775,8 @@ function showProjectDetail(name) {
     ['log_level', 'Log Level', p.log_level || 'error', 'select:error,warn,info,debug'],
   ];
 
-  const readonlyFields = [
-    ['Custom Modules', p.custom_modules],
-    ['Path', p.path],
-  ].filter(([, v]) => v !== '' && v !== undefined && v !== null);
+  const readonlyFields = [];
+  if (p.custom_modules > 0) readonlyFields.push(['Custom Modules', p.custom_modules]);
 
   // Parse addons_path into array
   const addonsPaths = (p.addons_path || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -815,6 +813,10 @@ function showProjectDetail(name) {
           <div class="detail-value">${escHtml(v)}</div>
         </div>
       `).join('')}
+      <div class="detail-item" style="grid-column:1/-1">
+        <div class="detail-label">Path</div>
+        <div class="detail-value detail-path" title="${escHtml(p.path)}" onclick="openExplorer('${escAttr(p.path)}')">${escHtml(p.path)}</div>
+      </div>
     </div>
     <div class="detail-item" style="margin-bottom:16px;padding:12px;background:var(--bg-surface);border:1px solid var(--border-default);border-radius:8px">
       <div class="detail-label" style="margin-bottom:8px">Addons Path</div>
@@ -1042,25 +1044,36 @@ if (window.electronAPI) {
 // Theme Toggle
 // ---------------------------------------------------------------------------
 function toggleTheme() {
-  const current = document.documentElement.getAttribute('data-theme');
-  const next = current === 'light' ? 'dark' : 'light';
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  const order = ['dark', 'light', 'autonsi'];
+  const next = order[(order.indexOf(current) + 1) % order.length];
   applyTheme(next);
   localStorage.setItem('theme', next);
 }
 
 function applyTheme(theme) {
+  const iconDark = $('themeIconDark');
+  const iconLight = $('themeIconLight');
+  const iconAutonsi = $('themeIconAutonsi');
+  iconDark.style.display = 'none';
+  iconLight.style.display = 'none';
+  iconAutonsi.style.display = 'none';
   if (theme === 'light') {
     document.documentElement.setAttribute('data-theme', 'light');
-    $('themeIconDark').style.display = 'none';
-    $('themeIconLight').style.display = 'block';
+    iconLight.style.display = 'block';
+  } else if (theme === 'autonsi') {
+    document.documentElement.setAttribute('data-theme', 'autonsi');
+    iconAutonsi.style.display = 'block';
   } else {
     document.documentElement.removeAttribute('data-theme');
-    $('themeIconDark').style.display = 'block';
-    $('themeIconLight').style.display = 'none';
+    iconDark.style.display = 'block';
   }
   // Update titlebar brand SVG stroke color
   const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
   document.querySelectorAll('.titlebar-brand svg').forEach(svg => svg.setAttribute('stroke', accent));
+  // Sync theme selector in Settings
+  const sel = $('themeSelect');
+  if (sel) sel.value = theme;
 }
 
 // Load saved theme
@@ -1068,6 +1081,34 @@ function applyTheme(theme) {
   const saved = localStorage.getItem('theme') || 'dark';
   applyTheme(saved);
 })();
+
+// --- Appearance Modal ---
+function openAppearanceModal() {
+  $('themeSelect').value = localStorage.getItem('theme') || 'dark';
+  loadIconPreview();
+  $('appearanceModal').classList.add('visible');
+}
+
+// --- Icon preview ---
+async function loadIconPreview() {
+  try {
+    const res = await window.electronAPI.invoke('get-icon');
+    if (res.ok) $('iconPreview').src = res.dataUrl;
+  } catch { /* ignore */ }
+}
+loadIconPreview();
+
+async function pickIcon() {
+  try {
+    const res = await window.electronAPI.invoke('pick-icon');
+    if (res.ok) {
+      $('iconPreview').src = res.dataUrl;
+      showToast('Icon updated: ' + res.fileName + '. Rebuild to apply.', 'success');
+    }
+  } catch (e) {
+    showToast('Failed to upload icon: ' + e, 'error');
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Init
