@@ -977,6 +977,7 @@ function showProjectDetail(name) {
 }
 
 let _currentLogPath = null;
+let _logRetryTimer = null;
 
 async function startLogWatch() {
   const logBox = $('detailLogBox');
@@ -984,7 +985,7 @@ async function startLogWatch() {
   const logPath = logBox.getAttribute('data-logpath');
   if (!logPath) return;
 
-  // Stop previous watcher
+  // Stop previous watcher + retry timer
   await stopLogWatch();
   _currentLogPath = logPath;
 
@@ -998,11 +999,37 @@ async function startLogWatch() {
       logBox.scrollTop = logBox.scrollHeight;
     } else {
       logBox.innerHTML = '<div style="color:var(--text-tertiary);padding:8px">No log file yet. Start Odoo to generate logs.</div>';
+      // Retry every 3s until log file appears
+      _logRetryTimer = setInterval(async () => {
+        if (_currentLogPath !== logPath) { clearInterval(_logRetryTimer); return; }
+        try {
+          const retry = await api('watch-log', { logPath });
+          if (retry.ok && retry.lines) {
+            clearInterval(_logRetryTimer);
+            _logRetryTimer = null;
+            const box = $('detailLogBox');
+            if (box) {
+              box.innerHTML = retry.lines
+                .filter(l => l.trim())
+                .map(l => `<div class="line">${escHtml(l)}</div>`)
+                .join('');
+              box.scrollTop = box.scrollHeight;
+            }
+            _setupLogListener();
+          }
+        } catch { /* keep retrying */ }
+      }, 3000);
+      return;
     }
   } catch {
     logBox.innerHTML = '<div style="color:var(--text-tertiary);padding:8px">No log file found.</div>';
+    return;
   }
 
+  _setupLogListener();
+}
+
+function _setupLogListener() {
   // Listen for new lines
   if (window.electronAPI) {
     window.electronAPI.removeAllListeners('project-log');
@@ -1021,6 +1048,7 @@ async function startLogWatch() {
 }
 
 async function stopLogWatch() {
+  if (_logRetryTimer) { clearInterval(_logRetryTimer); _logRetryTimer = null; }
   if (_currentLogPath) {
     try { await api('unwatch-log', { logPath: _currentLogPath }); } catch {}
     _currentLogPath = null;
@@ -1138,7 +1166,12 @@ function showUpdateCard(version) {
   $('updateFill').style.width = '0%';
   $('updatePct').textContent = '0%';
   $('updateSpinner').classList.remove('hidden');
+  // Remove old animation, show element, then re-trigger animation next frame
+  toast.style.animation = 'none';
   toast.classList.add('visible');
+  requestAnimationFrame(() => {
+    toast.style.animation = '';
+  });
 }
 
 function updateProgress(pct) {

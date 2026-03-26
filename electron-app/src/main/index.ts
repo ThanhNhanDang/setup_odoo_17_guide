@@ -57,6 +57,7 @@ function createWindow(): void {
     height: 800,
     minWidth: 900,
     minHeight: 600,
+    show: false,              // Don't show until content is ready
     title: 'Odoo 17 Installer',
     backgroundColor: '#0d1117',
     icon: getIconPath(),
@@ -70,6 +71,11 @@ function createWindow(): void {
       // __dirname = dist/main/, preload is at dist/preload/
       preload: path.join(__dirname, '..', 'preload', 'index.js'),
     },
+  });
+
+  // Show window only after content is painted — prevents white flash
+  mainWindow.once('ready-to-show', () => {
+    mainWindow!.show();
   });
 
   // Load the renderer HTML
@@ -89,8 +95,8 @@ function createWindow(): void {
   mainWindow.webContents.on('did-finish-load', () => {
     const updater = new UpdaterService(mainWindow!);
     registerUpdateHandlers(mainWindow!, updater);
-    // Check for updates after 3 seconds (let UI load first)
-    setTimeout(() => updater.checkForUpdates(), 1000);
+    // Check for updates after UI is settled
+    setTimeout(() => updater.checkForUpdates(), 3000);
   });
 
   mainWindow.on('closed', () => {
