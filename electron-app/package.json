@@ -1,0 +1,27 @@
+{
+  "name": "odoo17-installer",
+  "version": "1.0.0",
+  "description": "One-click installer for Odoo 17 development environments on Windows",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "start": "tsc && electron .",
+    "build": "tsc",
+    "watch": "tsc -w",
+    "dev": "tsc && electron . --dev",
+    "pack": "tsc && electron-builder --dir",
+    "dist": "tsc && electron-builder",
+    "clean": "rimraf dist"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0",
+    "rimraf": "^6.0.0",
+    "typescript": "^5.5.0"
+  },
+  "dependencies": {
+    "ini": "^5.0.0"
+  }
+}

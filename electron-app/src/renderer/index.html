@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'">
+<title>Odoo 17 Installer</title>
+<link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+<div class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#f50" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+    Odoo 17 Installer
+  </div>
+</div>
+<div class="main">
+  <div class="sidebar">
+    <div class="menu-label">Setup</div>
+    <div class="menu-item active" onclick="showPanel('status',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+      Status
+    </div>
+    <div class="menu-item" onclick="showPanel('install',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Full Install
+    </div>
+    <div class="menu-label">Projects</div>
+    <div class="menu-item" onclick="showPanel('newproject',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      New Project
+    </div>
+    <div class="menu-item" onclick="showPanel('projects',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+      My Projects
+    </div>
+    <div class="menu-label">Advanced</div>
+    <div class="menu-item" onclick="showPanel('log',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4,17 10,11 4,5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      Log
+    </div>
+  </div>
+  <div class="content">
+
+    <!-- STATUS -->
+    <div class="panel active" id="panel-status">
+      <h2>System Status</h2>
+      <p class="desc">Current state of your development environment</p>
+      <div class="status-grid" id="statusGrid"></div>
+      <div id="nativePgDetail"></div>
+      <button class="btn btn-outline btn-sm" onclick="refreshStatus()">Refresh</button>
+    </div>
+
+    <!-- INSTALL -->
+    <div class="panel" id="panel-install">
+      <h2>Full Install</h2>
+      <p class="desc">Install everything in one click</p>
+      <div class="form-section">
+        <h3>Directories</h3>
+        <div class="form-grid">
+          <div class="form-group"><label>Base Directory</label><input id="baseDir" value="D:\workspaces\odoo_17_base"></div>
+          <div class="form-group"><label>Projects Directory</label><input id="projectsDir" value="D:\workspaces\projects\odoo17"></div>
+        </div>
+      </div>
+      <div class="form-section">
+        <h3>Project</h3>
+        <div class="form-grid">
+          <div class="form-group"><label>Project Name</label><input id="projectName" value="my_project"></div>
+          <div class="form-group"><label>HTTP Port</label><input id="httpPort" value="8069" type="number"></div>
+        </div>
+      </div>
+      <div class="form-section">
+        <h3>Database</h3>
+        <div class="form-grid">
+          <div class="form-group"><label>DB Host</label><input id="dbHost" value="localhost"></div>
+          <div class="form-group"><label>DB Port</label><input id="dbPort" value="5432" type="number"></div>
+          <div class="form-group"><label>DB User</label><input id="dbUser" value="odoo"></div>
+          <div class="form-group"><label>DB Password</label><input id="dbPassword" value="odoo"></div>
+          <div class="form-group"><label>PG Super Password</label><input id="pgSuperPassword" value="postgres"></div>
+        </div>
+      </div>
+      <div class="form-section">
+        <h3 onclick="toggleAdvanced('advInstall')"><span class="arrow" id="arrowAdvInstall">&#9654;</span> Advanced Odoo Config</h3>
+        <div class="collapsible" id="advInstall">
+          <div class="form-grid">
+            <div class="form-group full"><label>Addons Path</label><input id="addonsPath" value="./addons,./odoo/addons"></div>
+            <div class="form-group"><label>Admin Password</label><input id="adminPasswd" value="odoo"></div>
+            <div class="form-group"><label>Longpolling Port</label><input id="longpollingPort" placeholder="auto = http_port + 3"></div>
+            <div class="form-group"><label>Log Level</label><select id="logLevel"><option value="error" selected>error</option><option value="warn">warn</option><option value="info">info</option><option value="debug">debug</option></select></div>
+            <div class="form-group"><label>Workers</label><input id="workers" value="0" type="number"></div>
+            <div class="form-group"><label>List DB</label><select id="listDb"><option value="True" selected>True</option><option value="False">False</option></select></div>
+            <div class="form-group"><label>DB Filter</label><input id="dbfilter" placeholder="e.g. ^mydb.*$"></div>
+            <div class="form-group"><label>Proxy Mode</label><select id="proxyMode"><option value="True" selected>True</option><option value="False">False</option></select></div>
+            <div class="form-group full"><label>Server Wide Modules</label><input id="serverWideModules" value="base,web"></div>
+            <div class="form-group full"><label>Data Dir (filestore)</label><input id="dataDir" placeholder="Leave empty for Odoo default"></div>
+            <div class="form-group"><label>Memory Hard Limit</label><input id="memHard" value="10737418240"></div>
+            <div class="form-group"><label>Memory Soft Limit</label><input id="memSoft" value="10737418240"></div>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" id="btnFullInstall" onclick="fullInstall()">Install Everything</button>
+      <div class="btn-row">
+        <button class="btn btn-outline btn-sm" onclick="runStep('install_python')">Python</button>
+        <button class="btn btn-outline btn-sm" onclick="runStep('install_postgres')">PostgreSQL</button>
+        <button class="btn btn-outline btn-sm" onclick="runStep('clone_odoo')">Clone Odoo</button>
+        <button class="btn btn-outline btn-sm" onclick="runStep('create_venv')">Venv</button>
+        <button class="btn btn-outline btn-sm" onclick="runStep('install_requirements')">Pip Install</button>
+      </div>
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="progress-info"><span id="progressStep">Preparing...</span><span id="progressPct">0%</span></div>
+      </div>
+      <div id="results"></div>
+    </div>
+
+    <!-- NEW PROJECT -->
+    <div class="panel" id="panel-newproject">
+      <h2>Create New Project</h2>
+      <p class="desc">Add a new Odoo project with its own config and port</p>
+      <div class="form-section">
+        <div class="form-grid">
+          <div class="form-group"><label>Project Name</label><input id="newProjName" placeholder="e.g. ecommerce"></div>
+          <div class="form-group"><label>HTTP Port</label><input id="newProjPort" value="8070" type="number"></div>
+          <div class="form-group"><label>DB Host</label><input id="newProjDbHost" value="localhost"></div>
+          <div class="form-group"><label>DB Port</label><input id="newProjDbPort" value="5432" type="number"></div>
+          <div class="form-group"><label>DB User</label><input id="newProjDbUser" value="odoo"></div>
+          <div class="form-group"><label>DB Password</label><input id="newProjDbPass" value="odoo"></div>
+        </div>
+        <h3 onclick="toggleAdvanced('advNew')" style="margin-top:14px"><span class="arrow" id="arrowAdvNew">&#9654;</span> Advanced Config</h3>
+        <div class="collapsible" id="advNew">
+          <div class="form-grid" style="margin-top:10px">
+            <div class="form-group"><label>Log Level</label><select id="newLogLevel"><option value="error" selected>error</option><option value="warn">warn</option><option value="info">info</option><option value="debug">debug</option></select></div>
+            <div class="form-group"><label>Workers</label><input id="newWorkers" value="0" type="number"></div>
+            <div class="form-group"><label>DB Filter</label><input id="newDbfilter" placeholder="e.g. ^mydb.*$"></div>
+            <div class="form-group"><label>Proxy Mode</label><select id="newProxyMode"><option value="True" selected>True</option><option value="False">False</option></select></div>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-block" onclick="createProject()">Create Project</button>
+      </div>
+    </div>
+
+    <!-- PROJECTS -->
+    <div class="panel" id="panel-projects">
+      <h2>My Projects</h2>
+      <p class="desc">Manage your Odoo development projects</p>
+      <div id="projectsList"></div>
+    </div>
+
+    <!-- LOG -->
+    <div class="panel" id="panel-log">
+      <h2>Installation Log</h2>
+      <p class="desc">Real-time output from installation commands</p>
+      <div class="log-box" id="log" style="max-height:500px"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modals -->
+<div class="modal-overlay" id="modalConfig">
+  <div class="modal">
+    <h3>Edit odoo.conf - <span id="modalConfigName"></span></h3>
+    <textarea id="modalConfigContent"></textarea>
+    <div class="btn-row">
+      <button class="btn btn-outline btn-sm" onclick="hideModal('modalConfig')">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="saveConfig()">Save</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="modalDelete">
+  <div class="modal">
+    <h3>Delete Project</h3>
+    <p style="color:#ef4444;margin-bottom:12px">This will permanently delete the project folder.</p>
+    <p style="margin-bottom:8px">Type <strong id="deleteTargetName" style="color:#fff"></strong> to confirm:</p>
+    <input id="deleteConfirmInput" placeholder="Type project name">
+    <div class="btn-row">
+      <button class="btn btn-outline btn-sm" onclick="hideModal('modalDelete')">Cancel</button>
+      <button class="btn btn-danger btn-sm" onclick="confirmDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="modalDuplicate">
+  <div class="modal">
+    <h3>Duplicate Project - <span id="dupSourceName"></span></h3>
+    <div class="form-grid" style="margin-bottom:12px">
+      <div class="form-group"><label>New Project Name</label><input id="dupNewName" placeholder="e.g. my_project_copy"></div>
+      <div class="form-group"><label>New HTTP Port</label><input id="dupNewPort" value="8071" type="number"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-outline btn-sm" onclick="hideModal('modalDuplicate')">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmDuplicate()">Duplicate</button>
+    </div>
+  </div>
+</div>
+
+<script src="scripts/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,228 @@
+import * as fs from 'fs';
+import * as path from 'path';
+import {
+  findPython311,
+  findPostgresBin,
+  findDocker,
+  findDockerPostgres,
+  detectNativePostgresDetails,
+  DockerContainer,
+  NativePostgresDetails,
+} from './detection';
+import { parseIniFile, iniGet } from './ini-parser';
+import { DEFAULT_BASE_DIR } from './config';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface AddonDir {
+  readonly path: string;
+  readonly count: number;
+  readonly is_base: boolean;
+}
+
+export interface ProjectInfo {
+  readonly name: string;
+  readonly path: string;
+  readonly http_port: string;
+  readonly longpolling_port: string;
+  readonly db_port: string;
+  readonly db_host: string;
+  readonly db_user: string;
+  readonly addons_path: string;
+  readonly data_dir: string;
+  readonly admin_passwd: string;
+  readonly log_level: string;
+  readonly workers: string;
+  readonly list_db: string;
+  readonly dbfilter: string;
+  readonly proxy_mode: string;
+  readonly server_wide_modules: string;
+  readonly custom_modules: number;
+  readonly addon_dirs: readonly AddonDir[];
+  readonly start_command: string;
+}
+
+export interface StatusResult {
+  readonly python311: boolean;
+  readonly python311_path: string;
+  readonly postgres: boolean;
+  readonly postgres_path: string;
+  readonly postgres_local: boolean;
+  readonly docker: boolean;
+  readonly docker_postgres: readonly DockerContainer[];
+  readonly native_postgres: NativePostgresDetails | null;
+  readonly odoo_cloned: boolean;
+  readonly venv_created: boolean;
+  readonly requirements_installed: boolean;
+  readonly base_dir: string;
+  readonly projects_dir: string;
+  readonly projects: readonly ProjectInfo[];
+}
+
+// ---------------------------------------------------------------------------
+// Parse project config (odoo.conf)
+// ---------------------------------------------------------------------------
+
+export function parseProjectConfig(projectPath: string, baseDir: string = DEFAULT_BASE_DIR): ProjectInfo {
+  const confFile = path.join(projectPath, 'odoo.conf');
+  const info: {
+    name: string;
+    path: string;
+    http_port: string;
+    longpolling_port: string;
+    db_port: string;
+    db_host: string;
+    db_user: string;
+    addons_path: string;
+    data_dir: string;
+    admin_passwd: string;
+    log_level: string;
+    workers: string;
+    list_db: string;
+    dbfilter: string;
+    proxy_mode: string;
+    server_wide_modules: string;
+    custom_modules: number;
+    addon_dirs: AddonDir[];
+    start_command: string;
+  } = {
+    name: path.basename(projectPath),
+    path: projectPath,
+    http_port: '',
+    longpolling_port: '',
+    db_port: '',
+    db_host: '',
+    db_user: '',
+    addons_path: '',
+    data_dir: '',
+    admin_passwd: '',
+    log_level: '',
+    workers: '',
+    list_db: '',
+    dbfilter: '',
+    proxy_mode: '',
+    server_wide_modules: '',
+    custom_modules: 0,
+    addon_dirs: [],
+    start_command: '',
+  };
+
+  if (!fs.existsSync(confFile)) return info;
+
+  try {
+    const ini = parseIniFile(confFile);
+    const section = 'options';
+    const get = (key: string, def: string = ''): string => iniGet(ini, section, key, def);
+
+    info.http_port = get('http_port');
+    info.longpolling_port = get('longpolling_port', get('gevent_port'));
+    info.db_port = get('db_port');
+    info.db_host = get('db_host', 'localhost');
+    info.db_user = get('db_user');
+    info.addons_path = get('addons_path');
+    info.data_dir = get('data_dir');
+    info.admin_passwd = get('admin_passwd');
+    info.log_level = get('log_level');
+    info.workers = get('workers');
+    info.list_db = get('list_db');
+    info.dbfilter = get('dbfilter');
+    info.proxy_mode = get('proxy_mode');
+    info.server_wide_modules = get('server_wide_modules');
+  } catch {
+    // ignore parse errors
+  }
+
+  // Count custom modules in each addon directory
+  let totalCustom = 0;
+  const addonDirs: AddonDir[] = [];
+
+  if (info.addons_path) {
+    for (const rawPath of info.addons_path.split(',')) {
+      const p = rawPath.trim();
+      const absP = path.isAbsolute(p) ? p : path.join(projectPath, p);
+      const isBase = p.replace(/\\/g, '/').includes('odoo/addons');
+      let count = 0;
+
+      if (!isBase && fs.existsSync(absP) && fs.statSync(absP).isDirectory()) {
+        try {
+          for (const entry of fs.readdirSync(absP)) {
+            const manifest = path.join(absP, entry, '__manifest__.py');
+            if (fs.existsSync(manifest)) {
+              count++;
+            }
+          }
+        } catch {
+          // ignore read errors
+        }
+      }
+
+      addonDirs.push({ path: p, count, is_base: isBase });
+      if (!isBase) totalCustom += count;
+    }
+  }
+
+  info.custom_modules = totalCustom;
+  info.addon_dirs = addonDirs;
+
+  // Build start command
+  const venvPy = path.join(baseDir, 'venv', 'Scripts', 'python.exe');
+  const odooBin = path.join(baseDir, 'odoo', 'odoo-bin');
+  info.start_command = `"${venvPy}" "${odooBin}" -c "${confFile}"`;
+
+  return info;
+}
+
+// ---------------------------------------------------------------------------
+// Detect full system status
+// ---------------------------------------------------------------------------
+
+export function detectStatus(baseDir: string, projectsDir: string): StatusResult {
+  const py311 = findPython311();
+  const pgBin = findPostgresBin();
+  const dockerAvailable = findDocker();
+  const dockerPg = dockerAvailable ? findDockerPostgres() : [];
+  const nativePg = detectNativePostgresDetails();
+  const pgOk = pgBin !== null || dockerPg.length > 0;
+
+  let pgDetail = '';
+  if (dockerPg.length > 0) {
+    pgDetail = 'Docker: ' + dockerPg.map(c => `${c.name}(${c.image} port:${c.port})`).join(', ');
+  } else if (pgBin) {
+    pgDetail = pgBin;
+  }
+
+  // Scan projects
+  const projects: ProjectInfo[] = [];
+  if (fs.existsSync(projectsDir) && fs.statSync(projectsDir).isDirectory()) {
+    const entries = fs.readdirSync(projectsDir).sort();
+    for (const entry of entries) {
+      const dirPath = path.join(projectsDir, entry);
+      try {
+        if (fs.statSync(dirPath).isDirectory() && fs.existsSync(path.join(dirPath, 'odoo.conf'))) {
+          projects.push(parseProjectConfig(dirPath, baseDir));
+        }
+      } catch {
+        // skip entries we can't stat
+      }
+    }
+  }
+
+  return {
+    python311: py311 !== null,
+    python311_path: py311 || '',
+    postgres: pgOk,
+    postgres_path: pgDetail,
+    postgres_local: pgBin !== null,
+    docker: dockerAvailable,
+    docker_postgres: dockerPg,
+    native_postgres: nativePg,
+    odoo_cloned: fs.existsSync(path.join(baseDir, 'odoo', 'odoo-bin')),
+    venv_created: fs.existsSync(path.join(baseDir, 'venv', 'Scripts', 'python.exe')),
+    requirements_installed: fs.existsSync(path.join(baseDir, 'venv', 'Lib', 'site-packages', 'lxml')),
+    base_dir: baseDir,
+    projects_dir: projectsDir,
+    projects,
+  };
+}

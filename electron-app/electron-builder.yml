@@ -1,0 +1,31 @@
+appId: com.odoo17.installer
+productName: "Odoo 17 Installer"
+directories:
+  output: release
+  buildResources: resources
+
+files:
+  - dist/**/*
+  - src/renderer/**/*
+  - templates/**/*
+
+extraResources:
+  - from: templates
+    to: templates
+
+win:
+  target:
+    - target: dir
+  icon: resources/icon.ico
+  # requestedExecutionLevel: requireAdministrator  # Enable when building from Admin terminal
+  signDlls: false
+
+forceCodeSigning: false
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  runAfterFinish: true
+
+asar: true

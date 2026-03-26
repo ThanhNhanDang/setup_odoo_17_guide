@@ -1,0 +1,22 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Odoo 17 Debug",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "{python_path}",
+      "program": "{odoo_bin_path}",
+      "args": [
+        "-c",
+        "${{workspaceFolder}}/odoo.conf",
+        "--dev",
+        "xml"
+      ],
+      "env": {},
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "cwd": "${{workspaceFolder}}"
+    }
+  ]
+}
