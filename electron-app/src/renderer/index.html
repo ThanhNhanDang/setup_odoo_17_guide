@@ -24,7 +24,11 @@
 
 <!-- Top Navigation -->
 <div class="topnav">
-  <button class="nav-tab active" onclick="showPanel('status',this)">
+  <button class="nav-tab active" onclick="showPanel('dashboard',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    Dashboard
+  </button>
+  <button class="nav-tab" onclick="showPanel('status',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
     Status
   </button>
@@ -51,8 +55,38 @@
 <!-- Main Content -->
 <div class="main-content content">
 
+  <!-- DASHBOARD -->
+  <div class="panel active" id="panel-dashboard">
+    <div class="dash-header">
+      <div>
+        <h2>Dashboard</h2>
+        <p class="desc">Overview of your Odoo projects</p>
+      </div>
+      <div class="dash-actions">
+        <div class="dash-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="dashSearch" placeholder="Search projects..." oninput="filterDashboard()">
+        </div>
+        <select id="dashFilter" onchange="filterDashboard()">
+          <option value="all">All Projects</option>
+          <option value="running">Running</option>
+          <option value="custom">Has Custom Modules</option>
+        </select>
+        <button class="btn btn-outline btn-sm" onclick="refreshDashboard()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23,4 23,10 17,10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+          Refresh
+        </button>
+      </div>
+    </div>
+    <div class="dash-stats" id="dashStats"></div>
+    <div class="dash-kanban" id="dashKanban"></div>
+    <div class="empty" id="dashEmpty" style="display:none">
+      <p>No projects yet. Go to <strong>New Project</strong> to create one.</p>
+    </div>
+  </div>
+
   <!-- STATUS -->
-  <div class="panel active" id="panel-status">
+  <div class="panel" id="panel-status">
     <h2>System Status</h2>
     <p class="desc">Current state of your development environment</p>
     <div class="status-grid" id="statusGrid"></div>
@@ -198,6 +232,17 @@
       <button class="btn btn-outline btn-sm" onclick="hideModal('modalDuplicate')">Cancel</button>
       <button class="btn btn-primary btn-sm" onclick="confirmDuplicate()">Duplicate</button>
     </div>
+  </div>
+</div>
+
+<!-- Project Detail Modal -->
+<div class="modal-overlay" id="modalDetail">
+  <div class="modal" style="max-width:800px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 id="detailTitle" style="margin:0">Project Detail</h3>
+      <button class="btn-close-modal" onclick="hideModal('modalDetail')">&#10005;</button>
+    </div>
+    <div id="detailContent"></div>
   </div>
 </div>
 

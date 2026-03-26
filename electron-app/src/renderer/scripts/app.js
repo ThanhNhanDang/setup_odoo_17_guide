@@ -14,7 +14,7 @@ function showPanel(name, el) {
   document.querySelectorAll('.nav-tab').forEach(m => m.classList.remove('active'));
   $('panel-' + name).classList.add('active');
   if (el) el.classList.add('active');
-  if (name === 'status' || name === 'projects') refreshStatus();
+  if (name === 'dashboard' || name === 'status' || name === 'projects') refreshStatus();
   if (name === 'log') pollLog();
 }
 
@@ -127,8 +127,9 @@ async function refreshStatus() {
     $('nativePgDetail').innerHTML = '';
   }
 
-  // Projects list
+  // Projects list + Dashboard
   renderProjects(s);
+  renderDashboard(s);
 }
 
 // ---------------------------------------------------------------------------
@@ -368,6 +369,183 @@ async function confirmDuplicate() {
   hideModal('modalDuplicate');
   refreshStatus();
   alert(res.ok ? '\u2705 Duplicated!\n' + res.msg : '\u274C ' + res.msg);
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard
+// ---------------------------------------------------------------------------
+function refreshDashboard() {
+  refreshStatus();
+}
+
+function renderDashboard(s) {
+  if (!s || !s.projects) return;
+  const projects = s.projects;
+
+  // Stats row
+  const totalProjects = projects.length;
+  const totalModules = projects.reduce((sum, p) => sum + (p.custom_modules || 0), 0);
+  const uniquePorts = new Set(projects.map(p => p.db_port || '5432')).size;
+
+  $('dashStats').innerHTML = `
+    <div class="dash-stat accent">
+      <div class="dash-stat-value">${totalProjects}</div>
+      <div class="dash-stat-label">Total Projects</div>
+    </div>
+    <div class="dash-stat green">
+      <div class="dash-stat-value">${totalModules}</div>
+      <div class="dash-stat-label">Custom Modules</div>
+    </div>
+    <div class="dash-stat blue">
+      <div class="dash-stat-value">${uniquePorts}</div>
+      <div class="dash-stat-label">DB Connections</div>
+    </div>
+    <div class="dash-stat">
+      <div class="dash-stat-value">${s.python311 ? '<span style="color:#3fb950">OK</span>' : '<span style="color:#f85149">Missing</span>'}</div>
+      <div class="dash-stat-label">Python 3.11</div>
+    </div>
+    <div class="dash-stat">
+      <div class="dash-stat-value">${s.postgres ? '<span style="color:#3fb950">OK</span>' : '<span style="color:#f85149">Missing</span>'}</div>
+      <div class="dash-stat-label">PostgreSQL</div>
+    </div>
+  `;
+
+  // Kanban cards
+  renderKanban(projects);
+}
+
+function renderKanban(projects) {
+  const search = ($('dashSearch')?.value || '').toLowerCase();
+  const filter = $('dashFilter')?.value || 'all';
+
+  let filtered = projects;
+
+  // Search filter
+  if (search) {
+    filtered = filtered.filter(p =>
+      p.name.toLowerCase().includes(search) ||
+      (p.http_port || '').includes(search) ||
+      (p.db_user || '').toLowerCase().includes(search) ||
+      (p.path || '').toLowerCase().includes(search)
+    );
+  }
+
+  // Category filter
+  if (filter === 'custom') {
+    filtered = filtered.filter(p => p.custom_modules > 0);
+  }
+
+  // Show/hide empty state
+  $('dashEmpty').style.display = filtered.length === 0 ? 'block' : 'none';
+  $('dashKanban').style.display = filtered.length === 0 ? 'none' : 'grid';
+
+  $('dashKanban').innerHTML = filtered.map(p => `
+    <div class="kanban-card">
+      <div class="kanban-card-header">
+        <span class="kanban-card-name">${escHtml(p.name)}</span>
+        <span class="kanban-card-port">:${escHtml(p.http_port || '8069')}</span>
+      </div>
+      <div class="kanban-card-body">
+        <div class="kanban-card-meta">
+          <div class="kanban-meta-item">
+            <span class="kanban-meta-label">Database</span>
+            <span class="kanban-meta-value">${escHtml(p.db_host || 'localhost')}:${escHtml(p.db_port || '5432')}</span>
+          </div>
+          <div class="kanban-meta-item">
+            <span class="kanban-meta-label">DB User</span>
+            <span class="kanban-meta-value">${escHtml(p.db_user || 'odoo')}</span>
+          </div>
+          <div class="kanban-meta-item">
+            <span class="kanban-meta-label">Workers</span>
+            <span class="kanban-meta-value">${escHtml(p.workers || '0')}</span>
+          </div>
+          <div class="kanban-meta-item">
+            <span class="kanban-meta-label">Log Level</span>
+            <span class="kanban-meta-value">${escHtml(p.log_level || 'error')}</span>
+          </div>
+        </div>
+        <div class="kanban-card-tags">
+          <span class="kanban-tag kanban-tag-ready">ready</span>
+          ${p.custom_modules > 0 ? `<span class="kanban-tag kanban-tag-modules">${p.custom_modules} modules</span>` : ''}
+        </div>
+      </div>
+      <div class="kanban-card-actions">
+        <button class="btn btn-success btn-xs" onclick="startOdoo('${escHtml(p.name)}')">Start</button>
+        <button class="btn btn-outline btn-xs" onclick="openVSCode('${escHtml(p.path)}')">VS Code</button>
+        <button class="btn btn-outline btn-xs" onclick="openExplorer('${escHtml(p.path)}')">Explorer</button>
+        <button class="btn btn-outline btn-xs" onclick="showProjectDetail('${escHtml(p.name)}')">Detail</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function filterDashboard() {
+  if (_status && _status.projects) {
+    renderKanban(_status.projects);
+  }
+}
+
+function showProjectDetail(name) {
+  if (!_status || !_status.projects) return;
+  const p = _status.projects.find(proj => proj.name === name);
+  if (!p) return;
+
+  $('detailTitle').textContent = p.name;
+
+  const details = [
+    ['HTTP Port', p.http_port],
+    ['Longpolling', p.longpolling_port],
+    ['DB Host', p.db_host || 'localhost'],
+    ['DB Port', p.db_port || '5432'],
+    ['DB User', p.db_user],
+    ['Workers', p.workers],
+    ['Log Level', p.log_level],
+    ['Custom Modules', p.custom_modules],
+    ['List DB', p.list_db],
+    ['DB Filter', p.dbfilter],
+    ['Proxy Mode', p.proxy_mode],
+    ['Server Modules', p.server_wide_modules],
+    ['Data Dir', p.data_dir],
+    ['Path', p.path],
+  ].filter(([, v]) => v !== '' && v !== undefined && v !== null);
+
+  $('detailContent').innerHTML = `
+    <div class="detail-grid">
+      ${details.map(([l, v]) => `
+        <div class="detail-item">
+          <div class="detail-label">${l}</div>
+          <div class="detail-value">${escHtml(v)}</div>
+        </div>
+      `).join('')}
+    </div>
+    ${p.addon_dirs && p.addon_dirs.length ? `
+      <div style="margin-bottom:16px">
+        <div class="detail-label" style="margin-bottom:8px">Addon Directories</div>
+        <div class="detail-grid">
+          ${p.addon_dirs.map(a => `
+            <div class="detail-item">
+              <div class="detail-label">${a.is_base ? 'Base Addons' : 'Custom Addons'}</div>
+              <div class="detail-value">${escHtml(a.path)} (${a.count} modules)</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    ` : ''}
+    <div class="cmd-box" onclick="copyCmd(this)" title="Click to copy" style="margin-bottom:16px">
+      <span>${escHtml(p.start_command)}</span>
+      <span class="copy-hint">click to copy</span>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-success btn-sm" onclick="startOdoo('${escHtml(p.name)}');hideModal('modalDetail')">Start Odoo</button>
+      <button class="btn btn-outline btn-sm" onclick="openVSCode('${escHtml(p.path)}')">VS Code</button>
+      <button class="btn btn-outline btn-sm" onclick="openExplorer('${escHtml(p.path)}')">Explorer</button>
+      <button class="btn btn-outline btn-sm" onclick="hideModal('modalDetail');editConfig('${escHtml(p.name)}')">Edit Config</button>
+      <button class="btn btn-outline btn-sm" onclick="hideModal('modalDetail');duplicateProject('${escHtml(p.name)}','${escHtml(p.http_port)}')">Duplicate</button>
+      <button class="btn btn-danger btn-sm" onclick="hideModal('modalDetail');deleteProject('${escHtml(p.name)}')">Delete</button>
+    </div>
+  `;
+
+  showModal('modalDetail');
 }
 
 // ---------------------------------------------------------------------------

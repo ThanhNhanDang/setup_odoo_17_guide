@@ -181,6 +181,86 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#0d111
   .project-detail-grid{grid-template-columns:1fr}
 }
 
+/* ===== Dashboard ===== */
+.dash-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;gap:16px;flex-wrap:wrap}
+.dash-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.dash-search{
+  display:flex;align-items:center;gap:8px;
+  background:#161b22;border:1px solid #30363d;border-radius:6px;
+  padding:0 12px;height:34px;min-width:220px;
+}
+.dash-search svg{color:#484f58;flex-shrink:0}
+.dash-search input{
+  border:none;background:transparent;color:#c9d1d9;font-size:0.85rem;
+  outline:none;width:100%;
+}
+.dash-search input::placeholder{color:#484f58}
+.dash-actions select{
+  padding:6px 12px;border-radius:6px;border:1px solid #30363d;
+  background:#161b22;color:#8b949e;font-size:0.8rem;outline:none;cursor:pointer;
+  height:34px;
+}
+
+/* Dashboard Stats Row */
+.dash-stats{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.dash-stat{
+  background:#161b22;border:1px solid #21262d;border-radius:8px;
+  padding:14px 20px;min-width:140px;flex:1;
+}
+.dash-stat-value{font-size:1.4rem;font-weight:700;color:#e6edf3}
+.dash-stat-label{font-size:0.75rem;color:#8b949e;margin-top:2px;text-transform:uppercase;letter-spacing:0.5px}
+.dash-stat.accent .dash-stat-value{color:#f0883e}
+.dash-stat.green .dash-stat-value{color:#3fb950}
+.dash-stat.blue .dash-stat-value{color:#58a6ff}
+
+/* Kanban Grid */
+.dash-kanban{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+  gap:14px;
+}
+
+/* Kanban Card */
+.kanban-card{
+  background:#161b22;border:1px solid #21262d;border-radius:10px;
+  padding:0;overflow:hidden;transition:all 0.2s;cursor:default;
+}
+.kanban-card:hover{border-color:#30363d;transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.3)}
+.kanban-card-header{
+  padding:16px 18px 12px;display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid #21262d;
+}
+.kanban-card-name{font-weight:700;color:#e6edf3;font-size:1rem}
+.kanban-card-port{
+  background:#0c2d6b;color:#58a6ff;padding:3px 10px;border-radius:20px;
+  font-size:0.7rem;font-weight:600;
+}
+.kanban-card-body{padding:14px 18px}
+.kanban-card-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.kanban-meta-item{display:flex;flex-direction:column;gap:2px}
+.kanban-meta-label{font-size:0.65rem;color:#484f58;text-transform:uppercase;letter-spacing:0.5px}
+.kanban-meta-value{font-size:0.8rem;color:#c9d1d9;font-family:'Cascadia Code',Consolas,monospace}
+.kanban-card-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.kanban-tag{
+  padding:2px 8px;border-radius:20px;font-size:0.65rem;font-weight:600;
+}
+.kanban-tag-modules{background:#1c1208;color:#f0883e}
+.kanban-tag-ready{background:#0d2818;color:#3fb950}
+.kanban-card-actions{
+  display:flex;gap:6px;padding:12px 18px;border-top:1px solid #21262d;
+  background:#0d1117;
+}
+.kanban-card-actions .btn-xs{flex:1;justify-content:center;border-radius:6px}
+
+/* Detail modal close button */
+.btn-close-modal{
+  background:none;border:none;color:#484f58;font-size:1.2rem;
+  cursor:pointer;padding:4px 8px;border-radius:4px;
+}
+.btn-close-modal:hover{color:#c9d1d9;background:#21262d}
+
+/* Detail project info inside modal */
+.detail-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:16px}
+
 /* ===== Update Toast ===== */
 .update-toast{
   position:fixed;top:50px;right:16px;z-index:300;
