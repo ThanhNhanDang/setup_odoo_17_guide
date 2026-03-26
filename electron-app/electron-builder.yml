@@ -15,9 +15,10 @@ extraResources:
 
 win:
   target:
+    - target: nsis
     - target: dir
   icon: resources/icon.ico
-  # requestedExecutionLevel: requireAdministrator  # Enable when building from Admin terminal
+  requestedExecutionLevel: requireAdministrator
   signDlls: false
 
 forceCodeSigning: false
