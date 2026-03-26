@@ -169,7 +169,9 @@ function renderProjects(s) {
       <div class="project-header">
         <div><span class="name">${escHtml(p.name)}</span>
           <span class="tag tag-port" onclick="openBrowser('${escAttr(p.http_port)}')" style="cursor:pointer" title="Open in browser">:${escHtml(p.http_port)}</span>
-          <span class="tag tag-ready">ready</span>
+          ${p.is_running
+            ? '<span class="tag tag-running">running</span>'
+            : '<span class="tag tag-stopped">stopped</span>'}
           <span class="project-url" onclick="openBrowser('${escAttr(p.http_port)}')" title="Click to open">http://localhost:${escHtml(p.http_port)}</span></div>
         <div style="font-size:0.75rem;color:var(--text-tertiary)">${escHtml(p.path)}</div>
       </div>
@@ -650,7 +652,9 @@ function renderKanban(projects) {
           </div>
         </div>
         <div class="kanban-card-tags">
-          <span class="kanban-tag kanban-tag-ready">ready</span>
+          ${p.is_running
+            ? '<span class="kanban-tag kanban-tag-running">running</span>'
+            : '<span class="kanban-tag kanban-tag-stopped">stopped</span>'}
           ${p.custom_modules > 0 ? `<span class="kanban-tag kanban-tag-modules">${p.custom_modules} modules</span>` : ''}
         </div>
       </div>

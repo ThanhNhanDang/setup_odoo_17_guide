@@ -59,7 +59,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   ipcMain.handle('status', async (_event, data: Record<string, string>) => {
     const baseDir = data?.base_dir || DEFAULT_BASE_DIR;
     const projectsDir = data?.projects_dir || DEFAULT_PROJECTS_DIR;
-    return safe(() => Promise.resolve(detectStatus(baseDir, projectsDir)));
+    return safe(() => detectStatus(baseDir, projectsDir));
   });
 
   // --- Log ---

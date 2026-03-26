@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as net from 'net';
 import * as path from 'path';
 import {
   findPython311,
@@ -45,6 +46,7 @@ export interface ProjectInfo {
   readonly custom_modules: number;
   readonly addon_dirs: readonly AddonDir[];
   readonly start_command: string;
+  readonly is_running: boolean;
 }
 
 export interface StatusResult {
@@ -69,10 +71,25 @@ export interface StatusResult {
 }
 
 // ---------------------------------------------------------------------------
+// Port check - detect if Odoo is running
+// ---------------------------------------------------------------------------
+
+function checkPort(port: number, host: string = 'localhost', timeout: number = 1000): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    socket.setTimeout(timeout);
+    socket.once('connect', () => { socket.destroy(); resolve(true); });
+    socket.once('timeout', () => { socket.destroy(); resolve(false); });
+    socket.once('error', () => { socket.destroy(); resolve(false); });
+    socket.connect(port, host);
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Parse project config (odoo.conf)
 // ---------------------------------------------------------------------------
 
-export function parseProjectConfig(projectPath: string, baseDir: string = DEFAULT_BASE_DIR): ProjectInfo {
+export async function parseProjectConfig(projectPath: string, baseDir: string = DEFAULT_BASE_DIR): Promise<ProjectInfo> {
   const confFile = path.join(projectPath, 'odoo.conf');
   const info: {
     name: string;
@@ -94,6 +111,7 @@ export function parseProjectConfig(projectPath: string, baseDir: string = DEFAUL
     custom_modules: number;
     addon_dirs: AddonDir[];
     start_command: string;
+    is_running: boolean;
   } = {
     name: path.basename(projectPath),
     path: projectPath,
@@ -114,6 +132,7 @@ export function parseProjectConfig(projectPath: string, baseDir: string = DEFAUL
     custom_modules: 0,
     addon_dirs: [],
     start_command: '',
+    is_running: false,
   };
 
   if (!fs.existsSync(confFile)) return info;
@@ -178,6 +197,10 @@ export function parseProjectConfig(projectPath: string, baseDir: string = DEFAUL
   const odooBin = path.join(baseDir, 'odoo', 'odoo-bin');
   info.start_command = `"${venvPy}" "${odooBin}" -c "${confFile}"`;
 
+  // Check if Odoo is running on this port
+  const httpPort = parseInt(info.http_port, 10);
+  info.is_running = !isNaN(httpPort) ? await checkPort(httpPort) : false;
+
   return info;
 }
 
@@ -185,7 +208,7 @@ export function parseProjectConfig(projectPath: string, baseDir: string = DEFAUL
 // Detect full system status
 // ---------------------------------------------------------------------------
 
-export function detectStatus(baseDir: string, projectsDir: string): StatusResult {
+export async function detectStatus(baseDir: string, projectsDir: string): Promise<StatusResult> {
   const py311 = findPython311();
   const pgBin = findPostgresBin();
   const dockerAvailable = findDocker();
@@ -208,7 +231,7 @@ export function detectStatus(baseDir: string, projectsDir: string): StatusResult
       const dirPath = path.join(projectsDir, entry);
       try {
         if (fs.statSync(dirPath).isDirectory() && fs.existsSync(path.join(dirPath, 'odoo.conf'))) {
-          projects.push(parseProjectConfig(dirPath, baseDir));
+          projects.push(await parseProjectConfig(dirPath, baseDir));
         }
       } catch {
         // skip entries we can't stat

@@ -256,6 +256,8 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 /* ===== Tags ===== */
 .tag{display:inline-block;padding:3px 10px;border-radius:20px;font-size:0.7rem;font-weight:600;letter-spacing:0.3px}
 .tag-ready{background:var(--success-bg);color:var(--success)}
+.tag-running{background:var(--success-bg);color:var(--success)}
+.tag-stopped{background:var(--danger-bg);color:var(--danger)}
 .tag-port{background:var(--info-bg);color:var(--info);margin-left:6px}
 
 /* ===== Modal ===== */
@@ -350,6 +352,8 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .kanban-tag{padding:2px 8px;border-radius:20px;font-size:0.65rem;font-weight:600}
 .kanban-tag-modules{background:var(--accent-bg);color:var(--accent)}
 .kanban-tag-ready{background:var(--success-bg);color:var(--success)}
+.kanban-tag-running{background:var(--success-bg);color:var(--success)}
+.kanban-tag-stopped{background:var(--danger-bg);color:var(--danger)}
 .kanban-card-actions{
   display:flex;gap:6px;padding:12px 18px;border-top:1px solid var(--border-default);
   background:var(--bg-canvas);
