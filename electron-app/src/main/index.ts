@@ -1,7 +1,33 @@
 import { app, BrowserWindow, dialog, Menu } from 'electron';
 import * as path from 'path';
+import { execSync } from 'child_process';
 import { registerIpcHandlers } from './ipc-handlers';
 import { UpdaterService } from './services/updater';
+
+// Self-elevate to Admin if not already (Windows only)
+function ensureAdmin(): void {
+  if (process.platform !== 'win32') return;
+  try {
+    execSync('net session', { stdio: 'ignore', windowsHide: true });
+    // Already admin
+  } catch {
+    // Not admin - relaunch with elevation
+    const { shell } = require('electron');
+    const appPath = app.isPackaged
+      ? process.execPath
+      : `"${process.execPath}" "${path.join(__dirname, '..', '..', 'node_modules', 'electron', 'dist', 'electron.exe')}"`;
+
+    if (app.isPackaged) {
+      // Use PowerShell Start-Process -Verb RunAs for packaged app
+      const args = process.argv.slice(1).join('" "');
+      execSync(
+        `powershell -Command "Start-Process -FilePath '${process.execPath}' -ArgumentList '${args}' -Verb RunAs"`,
+        { windowsHide: true }
+      );
+    }
+    app.quit();
+  }
+}
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -95,7 +121,10 @@ if (!gotTheLock) {
     }
   });
 
-  app.whenReady().then(createWindow);
+  app.whenReady().then(() => {
+    ensureAdmin();
+    createWindow();
+  });
 
   app.on('window-all-closed', () => {
     app.quit();

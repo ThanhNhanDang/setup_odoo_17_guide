@@ -179,6 +179,15 @@ export async function stepInstallPostgres(
     logger.log(`  > Installer exit code: ${code}`);
     await new Promise(resolve => setTimeout(resolve, 10000));
     if (findPostgresBin()) {
+      // Start service + set to auto-start on boot
+      logger.log('  > Starting PostgreSQL service...');
+      await runCmd(`net start postgresql-16`);
+      await runCmd(`sc.exe config postgresql-16 start=auto`);
+      // Also try with -x64 suffix
+      await runCmd(`net start postgresql-x64-16`);
+      await runCmd(`sc.exe config postgresql-x64-16 start=auto`);
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      logger.log('  > PostgreSQL service started and set to auto-start.');
       return { ok: true, msg: 'Installed (native)' };
     }
     return { ok: false, msg: 'Install failed. Run as Administrator.' };
