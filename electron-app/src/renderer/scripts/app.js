@@ -400,38 +400,51 @@ async function runStep(step) {
 // Create Project
 // ---------------------------------------------------------------------------
 async function createProject() {
-  const name = ($('newProjName')?.value || '').trim();
-  if (!name) { alert('Enter a project name'); return; }
+  try {
+    const name = ($('newProjName')?.value || '').trim();
+    if (!name) { alert('Enter a project name'); return; }
 
-  // Ensure default paths are loaded
-  if (!$('baseDir').value || !$('projectsDir').value) {
-    try {
-      const paths = await api('default-paths');
-      if (!$('baseDir').value) $('baseDir').value = paths.base_dir || '';
-      if (!$('projectsDir').value) $('projectsDir').value = paths.projects_dir || '';
-    } catch (e) { /* ignore */ }
-  }
+    // Ensure default paths are loaded
+    if (!$('baseDir')?.value || !$('projectsDir')?.value) {
+      try {
+        const paths = await api('default-paths');
+        if ($('baseDir') && !$('baseDir').value) $('baseDir').value = paths.base_dir || '';
+        if ($('projectsDir') && !$('projectsDir').value) $('projectsDir').value = paths.projects_dir || '';
+      } catch (e) {
+        console.error('Failed to load default paths:', e);
+      }
+    }
 
-  const data = getFormData();
-  data.project_name = name;
-  data.http_port = $('newProjPort')?.value || '8070';
-  data.db_host = $('newProjDbHost')?.value || 'localhost';
-  data.db_port = $('newProjDbPort')?.value || '5434';
-  data.db_user = $('newProjDbUser')?.value || 'odoo';
-  data.db_password = $('newProjDbPass')?.value || 'odoo';
-  data.log_level = $('newLogLevel')?.value || 'error';
-  data.workers = $('newWorkers')?.value || '0';
-  data.dbfilter = $('newDbfilter')?.value || '';
-  data.proxy_mode = $('newProxyMode')?.value || 'True';
+    const data = getFormData();
+    data.project_name = name;
+    data.http_port = $('newProjPort')?.value || '8070';
+    data.db_host = $('newProjDbHost')?.value || data.db_host || 'localhost';
+    data.db_port = $('newProjDbPort')?.value || data.db_port || '5434';
+    data.db_user = $('newProjDbUser')?.value || data.db_user || 'odoo';
+    data.db_password = $('newProjDbPass')?.value || data.db_password || 'odoo';
+    data.log_level = $('newLogLevel')?.value || 'error';
+    data.workers = $('newWorkers')?.value || '0';
+    data.dbfilter = $('newDbfilter')?.value || '';
+    data.proxy_mode = $('newProxyMode')?.value || 'True';
 
-  showToastMessage('Creating project...', 'info');
-  const res = await api('create_project', data);
-  refreshStatus();
-  hideModal('modalNewProject');
-  if (res.ok) {
-    showToastMessage('Project created: ' + name, 'success');
-  } else {
-    showToastMessage('Failed: ' + res.msg, 'error');
+    console.log('Creating project with data:', JSON.stringify(data));
+    showToastMessage('Creating project "' + name + '"...', 'info');
+
+    const res = await api('create_project', data);
+    console.log('Create project result:', JSON.stringify(res));
+
+    hideModal('modalNewProject');
+    refreshStatus();
+    if (res.ok) {
+      showToastMessage('Project created: ' + name, 'success');
+      // Switch to My Projects tab
+      showPanel('projects', document.querySelectorAll('.nav-tab')[3]);
+    } else {
+      showToastMessage('Failed: ' + (res.msg || 'Unknown error'), 'error');
+    }
+  } catch (e) {
+    console.error('createProject error:', e);
+    showToastMessage('Error: ' + e.message, 'error');
   }
 }
 
