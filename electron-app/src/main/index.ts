@@ -21,9 +21,11 @@ function createWindow(): void {
     minWidth: 900,
     minHeight: 600,
     title: 'Odoo 17 Installer',
-    backgroundColor: '#111111',
+    backgroundColor: '#0d1117',
     icon: getIconPath(),
-    autoHideMenuBar: true,  // Extra safety: hide menu bar
+    frame: false,             // Frameless - custom title bar
+    titleBarStyle: 'hidden',
+    autoHideMenuBar: true,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

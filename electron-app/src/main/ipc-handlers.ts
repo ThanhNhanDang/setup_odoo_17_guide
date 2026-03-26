@@ -33,6 +33,15 @@ function safe<T>(fn: () => Promise<T>): Promise<T | { ok: false; msg: string }> 
 export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   const logger = new LoggerService(mainWindow);
 
+  // --- Window Controls (frameless) ---
+  ipcMain.handle('window-minimize', () => { mainWindow.minimize(); });
+  ipcMain.handle('window-maximize', () => {
+    if (mainWindow.isMaximized()) mainWindow.unmaximize();
+    else mainWindow.maximize();
+  });
+  ipcMain.handle('window-close', () => { mainWindow.close(); });
+  ipcMain.handle('window-is-maximized', () => mainWindow.isMaximized());
+
   // --- Status ---
   ipcMain.handle('status', async (_event, data: Record<string, string>) => {
     const baseDir = data?.base_dir || DEFAULT_BASE_DIR;

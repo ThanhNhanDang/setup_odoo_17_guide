@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'create_project', 'read_config', 'save_config',
       'delete_project', 'duplicate_project',
       'start_odoo', 'open_vscode', 'open_explorer',
+      'window-minimize', 'window-maximize', 'window-close', 'window-is-maximized',
     ];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, data);

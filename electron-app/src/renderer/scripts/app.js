@@ -11,7 +11,7 @@ let _status = null;
 // ---------------------------------------------------------------------------
 function showPanel(name, el) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(m => m.classList.remove('active'));
   $('panel-' + name).classList.add('active');
   if (el) el.classList.add('active');
   if (name === 'status' || name === 'projects') refreshStatus();
