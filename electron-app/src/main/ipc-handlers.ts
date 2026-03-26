@@ -328,8 +328,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const targetPath = data?.path;
     if (!targetPath) return { ok: false, msg: 'No path provided' };
     try {
-      // Use shell.openExternal with vscode:// protocol (no terminal window)
-      await shell.openExternal(`vscode://file/${targetPath.replace(/\\/g, '/')}`);
+      const { exec } = require('child_process');
+      exec(`code "${targetPath}"`, { windowsHide: true });
       return { ok: true };
     } catch (e) {
       return { ok: false, msg: String(e) };
