@@ -181,8 +181,9 @@ export async function stepCreatePgUser(
         return { ok: true, msg: `User exists (Docker: ${cname})` };
       }
       logger.log(`  > Creating user '${dbUser}' in Docker container '${cname}'...`);
+      // Use sh -c to wrap the entire SQL command as a single argument
       const { code, output } = await runCmd(
-        `docker exec ${cname} psql -U postgres -c "CREATE ROLE ${dbUser} WITH LOGIN PASSWORD '${dbPassword}' CREATEDB;"`
+        `docker exec ${cname} sh -c "psql -U postgres -c \\"CREATE ROLE ${dbUser} WITH LOGIN PASSWORD '${dbPassword}' CREATEDB;\\""`
       );
       if (code === 0) {
         return { ok: true, msg: `User created (Docker: ${cname})` };

@@ -1,4 +1,4 @@
-import { execFile, spawn, ChildProcess } from 'child_process';
+import { exec, spawn, ChildProcess } from 'child_process';
 import { LoggerService } from '../services/logger';
 
 // ---------------------------------------------------------------------------
@@ -12,20 +12,26 @@ export interface CmdResult {
 
 /**
  * Run a shell command and return the result.
- * Uses cmd.exe as shell on Windows (equivalent to Python's shell=True).
+ * Uses cmd.exe shell (equivalent to Python's shell=True).
+ *
+ * IMPORTANT: Uses exec() with shell:true, NOT execFile().
+ * execFile('cmd.exe', ['/c', cmd]) breaks when cmd contains
+ * quoted paths like "C:\path\python.exe" because cmd.exe /c
+ * has special quoting rules that mangle the quotes.
  */
 export function runCmd(cmd: string, cwd?: string, env?: NodeJS.ProcessEnv): Promise<CmdResult> {
   return new Promise((resolve) => {
-    execFile('cmd.exe', ['/c', cmd], {
+    exec(cmd, {
       cwd,
       env: env ?? process.env,
+      shell: 'cmd.exe',
       timeout: 1_800_000, // 30 minutes
       windowsHide: true,
       maxBuffer: 10 * 1024 * 1024,
     }, (error, stdout, stderr) => {
       const output = (stdout || '') + (stderr || '');
       resolve({
-        code: error ? (error as NodeJS.ErrnoException).code ? 1 : (error.killed ? 1 : 1) : 0,
+        code: error ? 1 : 0,
         output,
       });
     });
@@ -42,9 +48,10 @@ export function runCmdStreaming(
   options?: { cwd?: string; env?: NodeJS.ProcessEnv }
 ): Promise<number> {
   return new Promise((resolve) => {
-    const proc: ChildProcess = spawn('cmd.exe', ['/c', cmd], {
+    const proc: ChildProcess = spawn(cmd, [], {
       cwd: options?.cwd,
       env: options?.env ?? process.env,
+      shell: true,
       windowsHide: true,
     });
 
