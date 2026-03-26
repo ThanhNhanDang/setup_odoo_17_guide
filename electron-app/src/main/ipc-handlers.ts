@@ -184,15 +184,18 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       const pgBin = findPostgresBin();
       if (pgBin) {
         const pgDetails = detectNativePostgresDetails();
+        const pgPort = pgDetails?.port || '5432';
+        logger.log(`  > PostgreSQL detected: bin=${pgBin}, port=${pgPort}, ready=${pgDetails?.is_ready}`);
+
         if (pgDetails && !pgDetails.is_ready) {
           logger.log('PostgreSQL is stopped. Starting...');
           let started = false;
 
           // Method 1: net start (requires Admin)
           for (const svc of ['postgresql-x64-17', 'postgresql-x64-16', 'postgresql-x64-15', 'postgresql-x64-14']) {
-            const { code } = await runCmd(`net start "${svc}"`);
+            const { code, output } = await runCmd(`net start "${svc}"`);
             if (code === 0) {
-              logger.log(`Service '${svc}' started!`);
+              logger.log(`  > Service '${svc}' started!`);
               started = true;
               break;
             }
@@ -201,10 +204,12 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
           // Method 2: pg_ctl (no Admin needed)
           if (!started && pgDetails.data_dir) {
             const pgCtl = path.join(pgBin, 'pg_ctl.exe');
-            logger.log('  > Trying pg_ctl start...');
-            const { code } = await runCmd(`"${pgCtl}" start -D "${pgDetails.data_dir}" -w`);
+            logger.log(`  > Trying pg_ctl start -D "${pgDetails.data_dir}" -w`);
+            const { code, output } = await runCmd(`"${pgCtl}" start -D "${pgDetails.data_dir}" -w`);
+            logger.log(`  > pg_ctl exit code: ${code}`);
+            if (output.trim()) logger.log(`  > ${output.trim().split('\n').pop()}`);
             if (code === 0) {
-              logger.log('PostgreSQL started via pg_ctl!');
+              logger.log('  > PostgreSQL started via pg_ctl!');
               started = true;
             }
           }
@@ -215,12 +220,22 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
             logger.log('  > Could not start PostgreSQL. Start it manually.');
           }
         }
+      } else {
+        logger.log('  > No native PostgreSQL found.');
       }
 
-      // Verify PostgreSQL is ready before starting Odoo
+      // Verify PostgreSQL is ready - check directly with pg_isready
       const pgDetailsAfter = detectNativePostgresDetails();
-      if (pgDetailsAfter && !pgDetailsAfter.is_ready) {
-        return { ok: false, msg: 'PostgreSQL is not running. Start it manually: net start postgresql-x64-15' };
+      const pgReady = pgDetailsAfter?.is_ready ?? false;
+      logger.log(`  > PostgreSQL ready check: ${pgReady} (port: ${pgDetailsAfter?.port || 'unknown'})`);
+      if (!pgReady) {
+        // Also check Docker containers
+        const { findDockerPostgres } = require('./services/detection');
+        const dockerPg = findDockerPostgres();
+        if (dockerPg.length === 0) {
+          return { ok: false, msg: `PostgreSQL is not running on port ${pgDetailsAfter?.port || '5434'}. Run as Admin: net start postgresql-x64-15` };
+        }
+        logger.log('  > Using Docker PostgreSQL instead.');
       }
 
       logger.log(`Starting Odoo: ${cmd}`);
