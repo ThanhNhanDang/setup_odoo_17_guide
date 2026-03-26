@@ -1,13 +1,20 @@
 # Odoo 17 Development Environment Installer
 
-Web-based one-click installer for Odoo 17 development on Windows.
+One-click installer for Odoo 17 development on Windows. Available as **Electron desktop app** (recommended) or Python web UI.
 
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
 ![Odoo](https://img.shields.io/badge/Odoo-17.0-purple)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue)
+![Electron](https://img.shields.io/badge/Electron-33-47848F)
 ![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey)
 
 ## Quick Start
+
+### Option 1: Desktop App (recommended)
+
+Download **Odoo17Installer.exe** from [Releases](https://github.com/ThanhNhanDang/setup_odoo_17_guide/releases/latest) and run it. No Python or Node.js required.
+
+### Option 2: Python Web UI
 
 ```cmd
 git clone https://github.com/ThanhNhanDang/setup_odoo_17_guide.git
@@ -17,7 +24,7 @@ start.bat
 
 Browser opens at `http://localhost:9017` - click **Install Everything** and done.
 
-> **Note:** Run `start.bat` as **Administrator** for PostgreSQL install and symlinks.
+> **Note:** Run as **Administrator** for PostgreSQL install and junction symlinks.
 
 ## What it installs
 
@@ -29,6 +36,17 @@ Browser opens at `http://localhost:9017` - click **Install Everything** and done
 | Virtual Environment | Isolated Python packages |
 | pip requirements | All Odoo dependencies |
 | Project folder | Config + VS Code debug + symlink |
+
+## Features
+
+- **Dashboard** with kanban project cards, search & filter
+- **Auto-update** - notifies when new version is available
+- **Docker PostgreSQL** support (auto-detect or create containers)
+- Real-time installation log with progress tracking
+- Multiple projects with independent ports and configs
+- Start Odoo, open VS Code, open Explorer from the app
+- Edit `odoo.conf` directly, duplicate/delete projects
+- Frameless dark UI (GitHub Dark theme)
 
 ## Project Structure
 
@@ -52,28 +70,50 @@ D:\workspaces\
 ## How to use
 
 ### Add a new project
-1. Open installer (`start.bat`)
-2. Go to **New Project**
+1. Open the app
+2. Go to **New Project** tab
 3. Enter name + port
 4. Click **Create Project**
 
 ### Run Odoo
-1. Open project folder in VS Code
-2. Press **F5**
-3. Open `http://localhost:<port>`
+- Click **Start** on any project card in the Dashboard, or
+- Open project folder in VS Code and press **F5**
+- Open `http://localhost:<port>`
 
-## Features
+## Electron App Development
 
-- Zero external dependencies (Python stdlib only)
-- SoundCloud-inspired dark UI
-- Real-time installation log
-- Individual step buttons for partial installs
-- Auto-detects already installed components
-- Multiple projects with different ports
+```cmd
+cd electron-app
+
+# Development (with DevTools)
+npm run dev
+
+# Build portable exe
+npm run pack
+
+# Build NSIS installer + publish to GitHub Releases
+set GH_TOKEN=your_github_token
+publish.bat patch    # 1.0.0 -> 1.0.1
+publish.bat minor    # 1.0.0 -> 1.1.0
+publish.bat major    # 1.0.0 -> 2.0.0
+```
+
+### Architecture
+
+```
+electron-app/
+├── src/main/            # Node.js backend (IPC handlers, services)
+│   ├── services/        # detection, installer, projects, logger, updater
+│   └── utils/           # shell, download
+├── src/preload/         # Secure IPC bridge (contextBridge)
+└── src/renderer/        # Frontend (HTML, CSS, vanilla JS)
+```
+
+See [SKILL_ELECTRON_APP.md](SKILL_ELECTRON_APP.md) for the full Electron development guide.
 
 ## Requirements
 
 - Windows 10/11
 - Git
 - Internet connection
-- Administrator rights (for PostgreSQL + symlinks)
+- Administrator rights (for PostgreSQL + junction symlinks)
