@@ -1337,8 +1337,23 @@ async function resetIcon() {
 }
 
 // ---------------------------------------------------------------------------
-// Init
+// Init — show skeleton immediately, then load real data
 // ---------------------------------------------------------------------------
+
+// Render loading skeleton for dashboard stats
+(function showSkeleton() {
+  const stats = $('dashStats');
+  if (stats) {
+    stats.innerHTML = Array(5).fill(0).map(() =>
+      '<div class="dash-stat"><div class="dash-stat-value" style="background:var(--border-default);width:40px;height:1.4em;border-radius:4px;animation:pulse 1.2s ease-in-out infinite"></div><div class="dash-stat-label" style="background:var(--border-default);width:80px;height:0.75em;border-radius:3px;margin-top:6px;animation:pulse 1.2s ease-in-out infinite"></div></div>'
+    ).join('');
+  }
+  const kanban = $('dashKanban');
+  if (kanban) {
+    kanban.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-tertiary)">Loading...</div>';
+  }
+})();
+
 refreshStatus();
 
 // Auto-refresh status every 10 seconds (real-time running/stopped sync)

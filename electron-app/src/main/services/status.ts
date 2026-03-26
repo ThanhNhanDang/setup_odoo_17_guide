@@ -10,6 +10,11 @@ import {
   findGit,
   findVSCode,
   getVSCodeVersion,
+  findVSCodeAsync,
+  findGitAsync,
+  findDockerAsync,
+  findDockerPostgresAsync,
+  detectNativePostgresDetailsAsync,
   DockerContainer,
   NativePostgresDetails,
 } from './detection';
@@ -217,15 +222,36 @@ export async function parseProjectConfig(projectPath: string, baseDir: string = 
 }
 
 // ---------------------------------------------------------------------------
-// Detect full system status
+// Detect full system status — parallel + cached
 // ---------------------------------------------------------------------------
 
+let _statusCache: { result: StatusResult; timestamp: number } | null = null;
+const CACHE_TTL = 5000; // 5 seconds
+
 export async function detectStatus(baseDir: string, projectsDir: string): Promise<StatusResult> {
+  // Return cache if fresh
+  if (_statusCache && Date.now() - _statusCache.timestamp < CACHE_TTL) {
+    return _statusCache.result;
+  }
+
+  // Fast: file-only checks (no external processes)
   const py311 = findPython311();
   const pgBin = findPostgresBin();
-  const dockerAvailable = findDocker();
-  const dockerPg = dockerAvailable ? findDockerPostgres() : [];
-  const nativePg = detectNativePostgresDetails();
+  const odooCloned = fs.existsSync(path.join(baseDir, 'odoo', 'odoo-bin'));
+  const venvCreated = fs.existsSync(path.join(baseDir, 'venv', 'Scripts', 'python.exe'));
+  const reqInstalled = fs.existsSync(path.join(baseDir, 'venv', 'Lib', 'site-packages', 'lxml'));
+  const caddy = isCaddyInstalled(baseDir);
+
+  // Slow: run ALL external process checks in parallel
+  const [vsResult, gitVersion, dockerAvailable, nativePg] = await Promise.all([
+    findVSCodeAsync(),
+    findGitAsync(),
+    findDockerAsync(),
+    detectNativePostgresDetailsAsync(),
+  ]);
+
+  // Docker postgres depends on docker being available
+  const dockerPg = dockerAvailable ? await findDockerPostgresAsync() : [];
   const pgOk = pgBin !== null || dockerPg.length > 0;
 
   let pgDetail = '';
@@ -235,23 +261,26 @@ export async function detectStatus(baseDir: string, projectsDir: string): Promis
     pgDetail = pgBin;
   }
 
-  // Scan projects
+  // Scan projects (parallel port checks)
   const projects: ProjectInfo[] = [];
   if (fs.existsSync(projectsDir) && fs.statSync(projectsDir).isDirectory()) {
     const entries = fs.readdirSync(projectsDir).sort();
+    const projectPromises: Promise<ProjectInfo | null>[] = [];
     for (const entry of entries) {
       const dirPath = path.join(projectsDir, entry);
       try {
         if (fs.statSync(dirPath).isDirectory() && fs.existsSync(path.join(dirPath, 'odoo.conf'))) {
-          projects.push(await parseProjectConfig(dirPath, baseDir));
+          projectPromises.push(parseProjectConfig(dirPath, baseDir).catch(() => null));
         }
-      } catch {
-        // skip entries we can't stat
-      }
+      } catch { /* skip */ }
+    }
+    const results = await Promise.all(projectPromises);
+    for (const p of results) {
+      if (p) projects.push(p);
     }
   }
 
-  return {
+  const result: StatusResult = {
     python311: py311 !== null,
     python311_path: py311 || '',
     postgres: pgOk,
@@ -260,16 +289,24 @@ export async function detectStatus(baseDir: string, projectsDir: string): Promis
     docker: dockerAvailable,
     docker_postgres: dockerPg,
     native_postgres: nativePg,
-    odoo_cloned: fs.existsSync(path.join(baseDir, 'odoo', 'odoo-bin')),
-    venv_created: fs.existsSync(path.join(baseDir, 'venv', 'Scripts', 'python.exe')),
-    requirements_installed: fs.existsSync(path.join(baseDir, 'venv', 'Lib', 'site-packages', 'lxml')),
-    git: findGit() !== null,
-    git_version: findGit() || '',
-    caddy: isCaddyInstalled(baseDir),
-    vscode: findVSCode() !== null,
-    vscode_version: getVSCodeVersion(),
+    odoo_cloned: odooCloned,
+    venv_created: venvCreated,
+    requirements_installed: reqInstalled,
+    git: gitVersion !== null,
+    git_version: gitVersion || '',
+    caddy,
+    vscode: vsResult.path !== null,
+    vscode_version: vsResult.version,
     base_dir: baseDir,
     projects_dir: projectsDir,
     projects,
   };
+
+  _statusCache = { result, timestamp: Date.now() };
+  return result;
+}
+
+/** Invalidate status cache (call after install steps complete) */
+export function invalidateStatusCache(): void {
+  _statusCache = null;
 }

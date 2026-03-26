@@ -1,6 +1,25 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { execFileSync, execSync } from 'child_process';
+import { execFileSync, execSync, execFile, exec } from 'child_process';
+
+// ---------------------------------------------------------------------------
+// Async exec helper — wraps callback exec into Promise with timeout
+// ---------------------------------------------------------------------------
+
+function execAsync(cmd: string, opts: { timeout?: number; env?: NodeJS.ProcessEnv } = {}): Promise<string> {
+  return new Promise((resolve, reject) => {
+    exec(cmd, {
+      timeout: opts.timeout ?? 2000,
+      windowsHide: true,
+      encoding: 'utf8',
+      env: opts.env ?? process.env,
+      shell: 'cmd.exe',
+    } as any, (err, stdout, stderr) => {
+      if (err) reject(err);
+      else resolve(String(stdout || ''));
+    });
+  });
+}
 
 // ---------------------------------------------------------------------------
 // .lnk shortcut parser — reads target path from Windows Shell Link binary
@@ -371,6 +390,172 @@ export function detectNativePostgresDetails(): NativePostgresDetails | null {
     } catch {
       // ignore errors
     }
+  }
+
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Async Detection Functions — for parallel execution in detectStatus
+// ---------------------------------------------------------------------------
+
+/** Async findVSCode: check file paths first (fast), then PATH (slow) */
+export async function findVSCodeAsync(): Promise<{ path: string | null; version: string }> {
+  // 1. Fast: check standard install locations
+  const localAppData = process.env.LOCALAPPDATA || '';
+  const programFiles = process.env['ProgramFiles'] || 'C:\\Program Files';
+  const candidates = [
+    path.join(localAppData, 'Programs', 'Microsoft VS Code', 'Code.exe'),
+    path.join(programFiles, 'Microsoft VS Code', 'Code.exe'),
+    'C:\\Program Files\\Microsoft VS Code\\Code.exe',
+    'C:\\Program Files (x86)\\Microsoft VS Code\\Code.exe',
+  ];
+  for (const p of candidates) {
+    if (p && fs.existsSync(p)) return { path: p, version: '' };
+  }
+
+  // 2. Fast: check Start Menu shortcuts
+  const startMenuDirs = [
+    path.join(process.env.APPDATA || '', 'Microsoft', 'Windows', 'Start Menu', 'Programs'),
+    'C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs',
+  ];
+  for (const menuDir of startMenuDirs) {
+    try {
+      if (!fs.existsSync(menuDir)) continue;
+      const findLnk = (dir: string): string | null => {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          const fullPath = path.join(dir, entry.name);
+          if (entry.isDirectory()) {
+            const found = findLnk(fullPath);
+            if (found) return found;
+          } else if (entry.name.toLowerCase().includes('code') && entry.name.endsWith('.lnk')) {
+            const target = readLnkTarget(fullPath);
+            if (target && target.toLowerCase().endsWith('code.exe') && fs.existsSync(target)) return target;
+          }
+        }
+        return null;
+      };
+      const found = findLnk(menuDir);
+      if (found) {
+        const dirName = path.basename(path.dirname(found));
+        const match = dirName.match(/(\d+\.\d+\.\d+)/);
+        return { path: found, version: match ? match[1] : '' };
+      }
+    } catch { /* ignore */ }
+  }
+
+  // 3. Slow: check PATH (async, 2s timeout)
+  try {
+    const output = await execAsync('code --version', { timeout: 2000 });
+    const ver = output.trim().split('\n')[0]?.trim();
+    if (ver && /^\d+\.\d+/.test(ver)) return { path: 'code', version: ver };
+  } catch { /* not in PATH */ }
+
+  return { path: null, version: '' };
+}
+
+/** Async findGit */
+export async function findGitAsync(): Promise<string | null> {
+  // Fast: check common path
+  if (fs.existsSync('C:\\Program Files\\Git\\cmd\\git.exe')) return 'C:\\Program Files\\Git\\cmd\\git.exe';
+  // Slow: check PATH
+  try {
+    const output = await execAsync('git --version', { timeout: 2000 });
+    const match = output.trim().match(/(\d+\.\d+\.\d+)/);
+    return match ? match[1] : output.trim();
+  } catch { return null; }
+}
+
+/** Async findDocker */
+export async function findDockerAsync(): Promise<boolean> {
+  try {
+    await execAsync('docker --version', { timeout: 2000 });
+    return true;
+  } catch { return false; }
+}
+
+/** Async findDockerPostgres */
+export async function findDockerPostgresAsync(): Promise<readonly DockerContainer[]> {
+  try {
+    const output = await execAsync(
+      'docker ps --format "{{.Names}}\\t{{.Image}}\\t{{.Ports}}\\t{{.Status}}"',
+      { timeout: 5000 }
+    );
+    const containers: DockerContainer[] = [];
+    if (!output.trim()) return containers;
+    for (const line of output.trim().split('\n')) {
+      const parts = line.split('\t');
+      if (parts.length >= 3 && parts[1].toLowerCase().includes('postgres')) {
+        let port = '';
+        for (const mapping of parts[2].split(',')) {
+          const trimmed = mapping.trim();
+          if (trimmed.includes('->5432') && trimmed.includes(':')) {
+            port = trimmed.split(':')[1].split('->')[0];
+            break;
+          }
+        }
+        containers.push({ name: parts[0], image: parts[1], port, status: parts.length > 3 ? parts[3] : '' });
+      }
+    }
+    return containers;
+  } catch { return []; }
+}
+
+/** Async detectNativePostgresDetails */
+export async function detectNativePostgresDetailsAsync(): Promise<NativePostgresDetails | null> {
+  const pgBin = findPostgresBin();
+  if (!pgBin) return null;
+
+  const result: { data_dir: string; port: string; is_ready: boolean; databases: string[]; bin_path: string } = {
+    data_dir: '', port: '', is_ready: false, databases: [], bin_path: pgBin,
+  };
+
+  // Find data dir + port (fast, file reads only)
+  for (const ver of ['17', '16', '15', '14']) {
+    const dataDir = `C:\\Program Files\\PostgreSQL\\${ver}\\data`;
+    if (fs.existsSync(dataDir) && fs.statSync(dataDir).isDirectory()) {
+      result.data_dir = dataDir;
+      const confFile = path.join(dataDir, 'postgresql.conf');
+      if (fs.existsSync(confFile)) {
+        try {
+          const content = fs.readFileSync(confFile, 'utf8');
+          for (const line of content.split('\n')) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('port') && trimmed.includes('=')) {
+              result.port = trimmed.split('=')[1].trim().split('#')[0].trim();
+              break;
+            }
+          }
+        } catch { /* ignore */ }
+      }
+      break;
+    }
+  }
+
+  // pg_isready (async)
+  const port = result.port || '5432';
+  const pgIsready = path.join(pgBin, 'pg_isready.exe');
+  if (fs.existsSync(pgIsready)) {
+    try {
+      await execAsync(`"${pgIsready}" -p ${port}`, { timeout: 3000 });
+      result.is_ready = true;
+    } catch { result.is_ready = false; }
+  }
+
+  // List databases (async)
+  if (result.is_ready) {
+    const psql = path.join(pgBin, 'psql.exe');
+    try {
+      const env = { ...process.env, PGPASSWORD: 'postgres' };
+      const output = await execAsync(
+        `"${psql}" -U postgres -p ${port} --no-password -tAc "SELECT datname FROM pg_database WHERE datistemplate=false"`,
+        { timeout: 5000, env }
+      );
+      if (output.trim()) {
+        result.databases = output.trim().split('\n').map(db => db.trim()).filter(Boolean);
+      }
+    } catch { /* ignore */ }
   }
 
   return result;

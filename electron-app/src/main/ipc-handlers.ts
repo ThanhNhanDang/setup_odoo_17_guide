@@ -6,7 +6,7 @@ import { runCmd } from './utils/shell';
 import { LoggerService } from './services/logger';
 import { StepLockManager } from './services/step-lock';
 import { DEFAULT_BASE_DIR, DEFAULT_PROJECTS_DIR } from './services/config';
-import { detectStatus } from './services/status';
+import { detectStatus, invalidateStatusCache } from './services/status';
 import {
   stepInstallCaddy,
   stepInstallGit,
@@ -92,6 +92,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     // Run in background (non-blocking)
     stepFullInstall(baseDir, projectsDir, projectName, logger, opts, stepLock)
       .then(results => {
+        invalidateStatusCache();
         logger.updateTask({ status: 'done', step: 'Complete!', progress: 100, results });
       })
       .catch(e => {
@@ -135,7 +136,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const promise = fn();
     stepLock.acquire(step, 'run_step', promise);
     try {
-      return await promise;
+      const result = await promise;
+      invalidateStatusCache();
+      return result;
     } finally {
       stepLock.release(step);
     }
