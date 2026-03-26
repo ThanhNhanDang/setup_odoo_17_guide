@@ -751,7 +751,6 @@ function showProjectDetail(name) {
   const editableFields = [
     ['http_port', 'HTTP Port', p.http_port, 'number'],
     ['db_port', 'DB Port', p.db_port || '5434', 'number'],
-    ['dbfilter', 'Database Access', p.dbfilter || '', 'dbfilter'],
     ['log_level', 'Log Level', p.log_level || 'error', 'select:error,warn,info,debug'],
   ];
 
@@ -766,21 +765,6 @@ function showProjectDetail(name) {
   $('detailContent').innerHTML = `
     <div class="detail-grid">
       ${editableFields.map(([key, label, value, type]) => {
-        if (type === 'dbfilter') {
-          // User-friendly DB access selector
-          const isAll = !value || value === '' || value === '.*';
-          const isProject = value === '^' + p.name + '$';
-          const isCustom = !isAll && !isProject;
-          return `<div class="detail-item detail-editable" style="grid-column:1/-1">
-            <div class="detail-label">${label}</div>
-            <select class="detail-input" data-key="${key}" id="detailDbFilter" onchange="onDbFilterChange()">
-              <option value="" ${isAll ? 'selected' : ''}>All databases (show all)</option>
-              <option value="^${escHtml(p.name)}$" ${isProject ? 'selected' : ''}>Only "${escHtml(p.name)}" database</option>
-              <option value="__custom__" ${isCustom ? 'selected' : ''}>Custom filter</option>
-            </select>
-            <input class="detail-input" id="detailDbFilterCustom" value="${escHtml(value)}" placeholder="e.g. ^mydb.*$" style="margin-top:4px;display:${isCustom ? 'block' : 'none'}">
-          </div>`;
-        }
         if (type.startsWith('select:')) {
           const opts = type.split(':')[1].split(',');
           return `<div class="detail-item detail-editable">
@@ -863,19 +847,6 @@ function showProjectDetail(name) {
   showModal('modalDetail');
 }
 
-function onDbFilterChange() {
-  const sel = $('detailDbFilter');
-  const custom = $('detailDbFilterCustom');
-  if (!sel || !custom) return;
-  if (sel.value === '__custom__') {
-    custom.style.display = 'block';
-    custom.focus();
-  } else {
-    custom.style.display = 'none';
-    custom.value = sel.value;
-  }
-}
-
 function togglePwdVisibility(id) {
   const el = $(id);
   if (!el) return;
@@ -922,25 +893,12 @@ async function saveDetailAndRestart(name) {
       content = content.replace(addonsRegex, `addons_path = ${addonPaths}`);
     }
 
-    // Resolve dbfilter value
-    const dbFilterSel = $('detailDbFilter');
-    const dbFilterCustom = $('detailDbFilterCustom');
-    if (dbFilterSel) {
-      const dbVal = dbFilterSel.value === '__custom__' ? (dbFilterCustom?.value || '') : dbFilterSel.value;
-      const dbRegex = /^dbfilter\s*=.*$/m;
-      if (dbRegex.test(content)) {
-        content = content.replace(dbRegex, `dbfilter = ${dbVal}`);
-      } else {
-        content = content.replace('[options]', `[options]\ndbfilter = ${dbVal}`);
-      }
-    }
-
     // Update other fields
-    const inputs = document.querySelectorAll('#detailContent .detail-input:not(.detail-addons-input):not(#detailDbFilter):not(#detailDbFilterCustom)');
+    const inputs = document.querySelectorAll('#detailContent .detail-input:not(.detail-addons-input)');
     for (const input of inputs) {
       const key = input.getAttribute('data-key');
       const value = input.value;
-      if (!key || key === 'dbfilter') continue;
+      if (!key) continue;
       // Replace or add key in [options] section
       const regex = new RegExp(`^${key}\\s*=.*$`, 'm');
       if (regex.test(content)) {

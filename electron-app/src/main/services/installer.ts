@@ -401,6 +401,8 @@ export async function stepCreateProject(
   for (const [key, value] of Object.entries(cfg)) {
     confContent = confContent.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
   }
+  // Replace {project_name} for dbfilter
+  confContent = confContent.replace(/\{project_name\}/g, projectName);
   fs.writeFileSync(path.join(proj, 'odoo.conf'), confContent, 'utf8');
 
   // launch.json from template
