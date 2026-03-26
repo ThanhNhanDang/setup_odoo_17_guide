@@ -323,6 +323,17 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
+  // --- Pick Folder (dialog) ---
+  ipcMain.handle('pick-folder', async () => {
+    const { dialog } = require('electron');
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openDirectory'],
+      title: 'Select Addons Folder',
+    });
+    if (result.canceled || result.filePaths.length === 0) return { path: '' };
+    return { path: result.filePaths[0] };
+  });
+
   // --- Open VS Code ---
   ipcMain.handle('open_vscode', async (_event, data: Record<string, string>) => {
     const targetPath = data?.path;

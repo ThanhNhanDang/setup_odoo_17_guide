@@ -376,6 +376,13 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 }
 .detail-input:focus{border-color:var(--accent)}
 select.detail-input{cursor:pointer}
+.btn-icon{
+  width:32px;height:32px;border-radius:6px;border:1px solid var(--border-muted);
+  background:transparent;color:var(--text-secondary);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0;
+}
+.btn-icon:hover{border-color:var(--accent);color:var(--text-primary);background:var(--bg-surface)}
+.btn-icon-danger:hover{border-color:var(--danger);color:var(--danger)}
 
 /* ===== Update Toast ===== */
 .update-toast{

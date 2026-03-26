@@ -717,18 +717,17 @@ function showProjectDetail(name) {
   const editableFields = [
     ['http_port', 'HTTP Port', p.http_port, 'number'],
     ['db_port', 'DB Port', p.db_port || '5434', 'number'],
-    ['db_user', 'DB User', p.db_user || 'odoo', 'text'],
     ['dbfilter', 'DB Filter', p.dbfilter || '', 'text'],
     ['log_level', 'Log Level', p.log_level || 'error', 'select:error,warn,info,debug'],
-    ['workers', 'Workers', p.workers || '0', 'number'],
-    ['list_db', 'List DB', p.list_db || 'True', 'select:True,False'],
   ];
 
   const readonlyFields = [
-    ['DB Host', p.db_host || 'localhost'],
     ['Custom Modules', p.custom_modules],
     ['Path', p.path],
   ].filter(([, v]) => v !== '' && v !== undefined && v !== null);
+
+  // Parse addons_path into array
+  const addonsPaths = (p.addons_path || '').split(',').map(s => s.trim()).filter(Boolean);
 
   $('detailContent').innerHTML = `
     <div class="detail-grid">
@@ -747,12 +746,38 @@ function showProjectDetail(name) {
           <input class="detail-input" data-key="${key}" type="${type}" value="${escHtml(value)}">
         </div>`;
       }).join('')}
+      <div class="detail-item detail-editable">
+        <div class="detail-label">Admin Password</div>
+        <div style="display:flex;gap:4px;align-items:center;margin-top:4px">
+          <input class="detail-input" data-key="admin_passwd" type="password" value="${escHtml(p.admin_passwd || 'odoo')}" style="margin:0;flex:1" id="detailAdminPwd">
+          <button class="btn-icon" onclick="togglePwdVisibility('detailAdminPwd')" title="Show/Hide" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
       ${readonlyFields.map(([l, v]) => `
         <div class="detail-item">
           <div class="detail-label">${l}</div>
           <div class="detail-value">${escHtml(v)}</div>
         </div>
       `).join('')}
+    </div>
+    <div class="detail-item" style="margin-bottom:16px;padding:12px;background:var(--bg-surface);border:1px solid var(--border-default);border-radius:8px">
+      <div class="detail-label" style="margin-bottom:8px">Addons Path</div>
+      <div id="detailAddonsList">
+        ${addonsPaths.map((ap, i) => `
+          <div class="addons-row" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+            <input class="detail-input detail-addons-input" value="${escHtml(ap)}" style="margin:0;flex:1" readonly>
+            <button class="btn-icon btn-icon-danger" onclick="removeAddonPath(${i})" title="Remove">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        `).join('')}
+      </div>
+      <button class="btn btn-outline btn-xs" onclick="addAddonPath()" style="margin-top:4px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Folder
+      </button>
     </div>
     ${p.addon_dirs && p.addon_dirs.length ? `
       <div style="margin-bottom:16px">
@@ -789,6 +814,34 @@ function showProjectDetail(name) {
   showModal('modalDetail');
 }
 
+function togglePwdVisibility(id) {
+  const el = $(id);
+  if (!el) return;
+  el.type = el.type === 'password' ? 'text' : 'password';
+}
+
+function removeAddonPath(index) {
+  const rows = document.querySelectorAll('#detailAddonsList .addons-row');
+  if (rows[index]) rows[index].remove();
+}
+
+async function addAddonPath() {
+  const result = await api('pick-folder');
+  if (!result || !result.path) return;
+  const list = $('detailAddonsList');
+  const i = list.querySelectorAll('.addons-row').length;
+  const div = document.createElement('div');
+  div.className = 'addons-row';
+  div.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px';
+  div.innerHTML = `
+    <input class="detail-input detail-addons-input" value="${escHtml(result.path)}" style="margin:0;flex:1" readonly>
+    <button class="btn-icon btn-icon-danger" onclick="this.parentElement.remove()" title="Remove">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  `;
+  list.appendChild(div);
+}
+
 async function saveDetailAndRestart(name) {
   try {
     // Read current config
@@ -798,7 +851,17 @@ async function saveDetailAndRestart(name) {
 
     // Parse current config and update fields
     let content = readRes.content;
-    const inputs = document.querySelectorAll('#detailContent .detail-input');
+
+    // Collect addons_path from addon rows
+    const addonInputs = document.querySelectorAll('#detailAddonsList .detail-addons-input');
+    const addonPaths = [...addonInputs].map(el => el.value.trim()).filter(Boolean).join(',');
+    const addonsRegex = /^addons_path\s*=.*$/m;
+    if (addonsRegex.test(content)) {
+      content = content.replace(addonsRegex, `addons_path = ${addonPaths}`);
+    }
+
+    // Update other fields
+    const inputs = document.querySelectorAll('#detailContent .detail-input:not(.detail-addons-input)');
     for (const input of inputs) {
       const key = input.getAttribute('data-key');
       const value = input.value;
