@@ -93,15 +93,16 @@ async function refreshStatus() {
 
   // Status grid
   const items = [
+    ['Git', s.git, s.git_version || ''],
     ['Python 3.11', s.python311, s.python311_path],
     ['PostgreSQL', s.postgres, s.postgres_path],
-    ['Docker', s.docker, s.docker ? 'Available' : 'Not found'],
+    ['VS Code', s.vscode, s.vscode_version || ''],
     ['Odoo Source', s.odoo_cloned, ''],
     ['Virtual Env', s.venv_created, ''],
     ['Requirements', s.requirements_installed, ''],
-    ['Git', s.git, s.git_version || ''],
-    ['VS Code', s.vscode, s.vscode_version || ''],
   ];
+  // Only show Docker if installed
+  if (s.docker) items.push(['Docker', true, 'Available']);
   $('statusGrid').innerHTML = items.map(([label, ok, detail]) => `
     <div class="status-card">
       <div class="status-icon ${ok ? 'ok' : 'missing'}">${ok ? '\u2713' : '\u2717'}</div>
