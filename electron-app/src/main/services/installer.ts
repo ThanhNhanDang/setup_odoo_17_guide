@@ -388,6 +388,35 @@ interface FullInstallResult {
   readonly msg: string;
 }
 
+/**
+ * Run a named step, log it, and push progress to renderer.
+ */
+async function runNamedStep(
+  label: string,
+  fn: () => Promise<StepResult>,
+  logger: LoggerService,
+): Promise<FullInstallResult> {
+  logger.updateTask({ status: 'running', step: label, progress: 0 });
+  logger.log('');
+  logger.log(`>> ${label}`);
+  const result = await fn();
+  if (!result.ok) {
+    logger.log(`[WARN] ${label} - ${result.msg}`);
+  } else {
+    logger.log(`[OK] ${label} - ${result.msg}`);
+  }
+  return { step: label, ok: result.ok, msg: result.msg };
+}
+
+/**
+ * Full Install Orchestrator - runs independent steps in parallel.
+ *
+ * Dependency graph:
+ *   Group 1 (parallel): VS Code, Python 3.11, PostgreSQL, Clone Odoo
+ *   Group 2 (needs Python): Create Venv
+ *   Group 3 (needs Venv + Odoo + PG): Install Requirements, Create DB User
+ *   Group 4 (needs all): Create Project
+ */
 export async function stepFullInstall(
   baseDir: string,
   projectsDir: string,
@@ -398,42 +427,66 @@ export async function stepFullInstall(
   fs.mkdirSync(baseDir, { recursive: true });
   fs.mkdirSync(projectsDir, { recursive: true });
 
-  const dbPort = opts.db_port || '5432';
+  const dbPort = opts.db_port || '5434';
   const dbUser = opts.db_user || 'odoo';
   const dbPassword = opts.db_password || 'odoo';
   const pgSuperPassword = opts.pg_super_password || 'postgres';
-
-  const steps: Array<[string, () => Promise<StepResult>]> = [
-    ['Installing VS Code...', () => stepInstallVSCode(baseDir, logger)],
-    ['Installing Python 3.11...', () => stepInstallPython(baseDir, logger)],
-    ['Installing PostgreSQL...', () => stepInstallPostgres(baseDir, logger, pgSuperPassword, dbPort, dbUser, dbPassword, opts.pg_mode || 'auto')],
-    ['Creating DB user...', () => stepCreatePgUser(logger, dbUser, dbPassword, dbPort, pgSuperPassword, opts.pg_mode || 'auto')],
-    ['Cloning Odoo 17...', () => stepCloneOdoo(baseDir, logger)],
-    ['Creating virtual environment...', () => stepCreateVenv(baseDir, logger)],
-    ['Installing requirements...', () => stepInstallRequirements(baseDir, logger)],
-    ['Creating project...', () => stepCreateProject(baseDir, projectsDir, projectName, logger, opts)],
-  ];
-
+  const pgMode = opts.pg_mode || 'auto';
   const results: FullInstallResult[] = [];
 
-  for (let i = 0; i < steps.length; i++) {
-    const [label, fn] = steps[i];
-    logger.updateTask({
-      status: 'running',
-      step: label,
-      progress: Math.round((i / steps.length) * 100),
-    });
-    logger.log('');
-    logger.log('==================================================');
-    logger.log(`Step ${i + 1}/${steps.length}: ${label}`);
+  // ── Group 1: Independent steps (parallel) ──
+  logger.log('==================================================');
+  logger.log('Group 1: Installing independent components (parallel)...');
+  logger.log('==================================================');
 
-    const result = await fn();
-    results.push({ step: label, ok: result.ok, msg: result.msg });
+  const group1 = await Promise.all([
+    runNamedStep('Installing VS Code...', () => stepInstallVSCode(baseDir, logger), logger),
+    runNamedStep('Installing Python 3.11...', () => stepInstallPython(baseDir, logger), logger),
+    runNamedStep('Installing PostgreSQL...', () => stepInstallPostgres(baseDir, logger, pgSuperPassword, dbPort, dbUser, dbPassword, pgMode), logger),
+    runNamedStep('Cloning Odoo 17...', () => stepCloneOdoo(baseDir, logger), logger),
+  ]);
+  results.push(...group1);
+  logger.updateTask({ status: 'running', step: 'Group 1 done', progress: 40 });
 
-    if (!result.ok) {
-      logger.log(`[WARN] ${result.msg} - continuing...`);
-    }
-  }
+  // ── Group 2: Needs Python (sequential) ──
+  logger.log('');
+  logger.log('==================================================');
+  logger.log('Group 2: Setting up Python environment...');
+  logger.log('==================================================');
+
+  const venvResult = await runNamedStep('Creating virtual environment...', () => stepCreateVenv(baseDir, logger), logger);
+  results.push(venvResult);
+  logger.updateTask({ status: 'running', step: 'Group 2 done', progress: 60 });
+
+  // ── Group 3: Needs Venv + Odoo + PG (parallel) ──
+  logger.log('');
+  logger.log('==================================================');
+  logger.log('Group 3: Installing dependencies (parallel)...');
+  logger.log('==================================================');
+
+  const group3 = await Promise.all([
+    runNamedStep('Installing requirements...', () => stepInstallRequirements(baseDir, logger), logger),
+    runNamedStep('Creating DB user...', () => stepCreatePgUser(logger, dbUser, dbPassword, dbPort, pgSuperPassword, pgMode), logger),
+  ]);
+  results.push(...group3);
+  logger.updateTask({ status: 'running', step: 'Group 3 done', progress: 85 });
+
+  // ── Group 4: Final (needs everything) ──
+  logger.log('');
+  logger.log('==================================================');
+  logger.log('Group 4: Creating project...');
+  logger.log('==================================================');
+
+  const projResult = await runNamedStep('Creating project...', () => stepCreateProject(baseDir, projectsDir, projectName, logger, opts), logger);
+  results.push(projResult);
+
+  // ── Done ──
+  const allOk = results.every(r => r.ok);
+  const failCount = results.filter(r => !r.ok).length;
+  logger.log('');
+  logger.log('==================================================');
+  logger.log(allOk ? 'All steps completed successfully!' : `Completed with ${failCount} warning(s).`);
+  logger.log('==================================================');
 
   logger.updateTask({
     status: 'done',
