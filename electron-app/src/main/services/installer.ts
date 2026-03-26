@@ -32,10 +32,19 @@ interface StepResult {
 // ---------------------------------------------------------------------------
 
 export async function stepInstallGit(baseDir: string, logger: LoggerService): Promise<StepResult> {
+  // Check PATH first
   if (findGit()) {
     logger.log(`Git already installed (${findGit()}).`);
     return { ok: true, msg: `Already installed (${findGit()})` };
   }
+  // Check file-based (PATH may not be updated yet)
+  const gitExe = 'C:\\Program Files\\Git\\cmd\\git.exe';
+  if (fs.existsSync(gitExe)) {
+    process.env.PATH = `C:\\Program Files\\Git\\cmd;${process.env.PATH}`;
+    logger.log('Git found at ' + gitExe);
+    return { ok: true, msg: 'Already installed' };
+  }
+
   logger.log('Downloading Git for Windows...');
   fs.mkdirSync(baseDir, { recursive: true });
   const installer = path.join(baseDir, 'git-installer.exe');
@@ -45,12 +54,12 @@ export async function stepInstallGit(baseDir: string, logger: LoggerService): Pr
     return { ok: false, msg: `Download failed: ${e}` };
   }
   logger.log('Installing Git (silent)...');
+  // /CLOSEAPPLICATIONS kills running git processes to avoid conflict
   await runCmd(`"${installer}" /VERYSILENT /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS /COMPONENTS="icons,ext\\reg\\shellhere,assoc,assoc_sh"`);
   await new Promise(resolve => setTimeout(resolve, 5000));
-  // Refresh PATH for current process
-  const gitPath = 'C:\\Program Files\\Git\\cmd';
-  if (fs.existsSync(path.join(gitPath, 'git.exe'))) {
-    process.env.PATH = `${gitPath};${process.env.PATH}`;
+  // Add to PATH for current process
+  if (fs.existsSync(gitExe)) {
+    process.env.PATH = `C:\\Program Files\\Git\\cmd;${process.env.PATH}`;
     logger.log('Git installed!');
     return { ok: true, msg: 'Installed' };
   }

@@ -1,6 +1,7 @@
 # ============================================================
 # Sandbox Test - Odoo 17 Installer (Electron App)
 # Tests the portable exe in a clean Windows environment
+# The app handles ALL installations (Git, Python, PG, etc.)
 # ============================================================
 
 Write-Host "============================================" -ForegroundColor Cyan
@@ -27,21 +28,13 @@ if (Test-Path "$source\Odoo17Installer.exe") {
     exit 1
 }
 
-# Install Git (needed for clone odoo)
-Write-Host ""
-Write-Host "[2] Installing Git..." -ForegroundColor Yellow
-$gitInstaller = "$env:TEMP\git-installer.exe"
-Invoke-WebRequest -Uri "https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe" -OutFile $gitInstaller
-Start-Process -FilePath $gitInstaller -ArgumentList "/VERYSILENT /NORESTART" -Wait
-Write-Host "    Git installed!" -ForegroundColor Green
-
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host "  Ready! Double-click Odoo17Installer.exe" -ForegroundColor Cyan
 Write-Host "  on the Desktop to test." -ForegroundColor Cyan
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "This is a clean Windows - no Python, no PG, no Node." -ForegroundColor Gray
-Write-Host "The app should install everything from scratch." -ForegroundColor Gray
+Write-Host "Clean Windows - no Git, no Python, no PG, no Node." -ForegroundColor Gray
+Write-Host "The app will install everything automatically." -ForegroundColor Gray
 Write-Host ""
 pause
