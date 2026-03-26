@@ -20,6 +20,7 @@ import {
 } from './detection';
 import { parseIniFile, iniGet } from './ini-parser';
 import { DEFAULT_BASE_DIR } from './config';
+import { DEFAULT_ODOO_VERSION } from './odoo-versions';
 import { isNginxInstalled } from '../utils/nginx';
 
 // ---------------------------------------------------------------------------
@@ -50,6 +51,7 @@ export interface ProjectInfo {
   readonly proxy_mode: string;
   readonly server_wide_modules: string;
   readonly logfile: string;
+  readonly odoo_version: string;
   readonly custom_modules: number;
   readonly addon_dirs: readonly AddonDir[];
   readonly start_command: string;
@@ -118,6 +120,7 @@ export async function parseProjectConfig(projectPath: string, baseDir: string = 
     proxy_mode: string;
     server_wide_modules: string;
     logfile: string;
+    odoo_version: string;
     custom_modules: number;
     addon_dirs: AddonDir[];
     start_command: string;
@@ -141,6 +144,7 @@ export async function parseProjectConfig(projectPath: string, baseDir: string = 
     proxy_mode: '',
     server_wide_modules: '',
     logfile: '',
+    odoo_version: DEFAULT_ODOO_VERSION,
     custom_modules: 0,
     addon_dirs: [],
     start_command: '',
@@ -176,8 +180,24 @@ export async function parseProjectConfig(projectPath: string, baseDir: string = 
     } else {
       info.logfile = path.join(projectPath, 'odoo.log');
     }
+    // Read odoo_version from config (or default to '17' for legacy projects)
+    const cfgVersion = get('odoo_version');
+    if (cfgVersion) {
+      info.odoo_version = cfgVersion;
+    }
   } catch {
     // ignore parse errors
+  }
+
+  // Also check for odoo_version in comment lines (legacy format: ; odoo_version = 17)
+  if (info.odoo_version === DEFAULT_ODOO_VERSION) {
+    try {
+      const content = fs.readFileSync(confFile, 'utf8');
+      const match = content.match(/^;\s*odoo_version\s*=\s*(\d+)/m);
+      if (match) {
+        info.odoo_version = match[1];
+      }
+    } catch { /* ignore */ }
   }
 
   // Count custom modules in each addon directory

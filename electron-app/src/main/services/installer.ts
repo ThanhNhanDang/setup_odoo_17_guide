@@ -2,16 +2,14 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { LoggerService } from './logger';
 import {
-  PYTHON_311_URL,
-  POSTGRES_URL,
   VSCODE_URL,
   GIT_URL,
   ODOO_GIT_URL,
-  ODOO_BRANCH,
   PROJECT_DEFAULTS,
   getTemplatesDir,
 } from './config';
-import { findPython311, findPostgresBin, findDocker, findDockerPostgres, findVSCode, findGit } from './detection';
+import { getVersionConfig, getPythonCandidates, DEFAULT_ODOO_VERSION } from './odoo-versions';
+import { findPython, findPostgresBin, findDocker, findDockerPostgres, findVSCode, findGit } from './detection';
 import { runCmd, runCmdStreaming } from '../utils/shell';
 import { downloadFile } from '../utils/download';
 import { installNginx, isNginxInstalled } from '../utils/nginx';
@@ -113,25 +111,27 @@ export async function stepInstallVSCode(baseDir: string, logger: LoggerService):
   return { ok: false, msg: 'Install may need admin rights.' };
 }
 
-export async function stepInstallPython(baseDir: string, logger: LoggerService): Promise<StepResult> {
-  if (findPython311()) {
-    logger.log('Python 3.11 already installed.');
+export async function stepInstallPython(baseDir: string, logger: LoggerService, odooVersion: string = DEFAULT_ODOO_VERSION): Promise<StepResult> {
+  const vCfg = getVersionConfig(odooVersion);
+  const candidates = getPythonCandidates(odooVersion);
+  if (findPython(candidates)) {
+    logger.log(`${vCfg.pythonVersion} already installed.`);
     return { ok: true, msg: 'Already installed' };
   }
-  logger.log('Downloading Python 3.11.4...');
+  const installerName = path.basename(new URL(vCfg.pythonUrl).pathname);
+  logger.log(`Downloading ${vCfg.pythonVersion}...`);
   fs.mkdirSync(baseDir, { recursive: true });
-  const installer = path.join(baseDir, 'python-3.11.4-amd64.exe');
+  const installer = path.join(baseDir, installerName);
   try {
-    await downloadFile(PYTHON_311_URL, installer, logger, 'install_python');
+    await downloadFile(vCfg.pythonUrl, installer, logger, 'install_python');
   } catch (e) {
     return { ok: false, msg: `Download failed: ${e}` };
   }
-  logger.log('Installing Python 3.11.4 (silent)...');
+  logger.log(`Installing ${vCfg.pythonVersion} (silent)...`);
   await runCmd(`"${installer}" /quiet InstallAllUsers=0 PrependPath=0 Include_launcher=1 Include_pip=1`);
-  // Wait for installation to finish
   await new Promise(resolve => setTimeout(resolve, 5000));
-  if (findPython311()) {
-    logger.log('Python 3.11.4 installed!');
+  if (findPython(candidates)) {
+    logger.log(`${vCfg.pythonVersion} installed!`);
     return { ok: true, msg: 'Installed' };
   }
   return { ok: false, msg: 'Install may need admin rights. Run as Administrator.' };
@@ -145,7 +145,11 @@ export async function stepInstallPostgres(
   dbUser: string = 'odoo',
   dbPassword: string = 'odoo',
   pgMode: string = 'auto',
+  odooVersion: string = DEFAULT_ODOO_VERSION,
 ): Promise<StepResult> {
+  const vCfg = getVersionConfig(odooVersion);
+  const pgVer = vCfg.postgresVersion;
+
   // Check existing installations
   const hasNative = findPostgresBin() !== null;
   const dockerPg = findDockerPostgres();
@@ -165,16 +169,21 @@ export async function stepInstallPostgres(
     if (!findDocker()) {
       return { ok: false, msg: 'Docker not available. Install Docker Desktop or choose Native mode.' };
     }
-    const cname = `odoo-postgres-${dbPort}`;
-    logger.log(`Creating PostgreSQL 16 Docker container '${cname}'...`);
-    const { code, output } = await runCmd(
+    const cname = `odoo-postgres-v${odooVersion}-${dbPort}`;
+    const dockerImage = vCfg.postgresDockerImage;
+    logger.log(`Creating ${dockerImage} Docker container '${cname}'...`);
+    let dockerRunCmd =
       `docker run -d --name ${cname} -e POSTGRES_USER=${dbUser} -e POSTGRES_PASSWORD=${dbPassword} ` +
-      `-e POSTGRES_DB=postgres -p ${dbPort}:5432 --restart unless-stopped postgres:16`
-    );
+      `-e POSTGRES_DB=postgres -p ${dbPort}:5432 --restart unless-stopped ${dockerImage}`;
+    const { code, output } = await runCmd(dockerRunCmd);
     if (code === 0) {
-      // Wait for PostgreSQL to be ready
       logger.log(`  > Waiting for PostgreSQL container to start...`);
       await new Promise(resolve => setTimeout(resolve, 5000));
+      // Enable pgvector extension for Odoo 19
+      if (vCfg.pgvector) {
+        logger.log(`  > Enabling pgvector extension for AI modules...`);
+        await runCmd(`docker exec ${cname} psql -U ${dbUser} -c "CREATE EXTENSION IF NOT EXISTS vector;"`);
+      }
       logger.log(`Docker container '${cname}' started on port ${dbPort}!`);
       return { ok: true, msg: `Docker container '${cname}' on port ${dbPort}` };
     }
@@ -186,29 +195,28 @@ export async function stepInstallPostgres(
 
   // Native install
   if (pgMode === 'native' || pgMode === 'auto') {
-    logger.log('Downloading PostgreSQL 16 (native installer)...');
+    logger.log(`Downloading PostgreSQL ${pgVer} (native installer)...`);
     fs.mkdirSync(baseDir, { recursive: true });
-    const installer = path.join(baseDir, 'postgresql-16-installer.exe');
+    const installer = path.join(baseDir, `postgresql-${pgVer}-installer.exe`);
     try {
-      await downloadFile(POSTGRES_URL, installer, logger, 'install_postgres');
+      await downloadFile(vCfg.postgresUrl, installer, logger, 'install_postgres');
     } catch (e) {
       return { ok: false, msg: `Download failed: ${e}` };
     }
-    logger.log('Installing PostgreSQL 16 (this may take a few minutes)...');
+    logger.log(`Installing PostgreSQL ${pgVer} (this may take a few minutes)...`);
+    const serviceName = `postgresql-${pgVer}`;
     const { code, output } = await runCmd(
-      `"${installer}" --mode unattended --superpassword "${pgSuperPassword}" --servicename postgresql-16 ` +
-      `--servicepassword "${pgSuperPassword}" --serverport ${dbPort} --prefix "C:\\Program Files\\PostgreSQL\\16"`
+      `"${installer}" --mode unattended --superpassword "${pgSuperPassword}" --servicename ${serviceName} ` +
+      `--servicepassword "${pgSuperPassword}" --serverport ${dbPort} --prefix "C:\\Program Files\\PostgreSQL\\${pgVer}"`
     );
     logger.log(`  > Installer exit code: ${code}`);
     await new Promise(resolve => setTimeout(resolve, 10000));
     if (findPostgresBin()) {
-      // Start service + set to auto-start on boot
       logger.log('  > Starting PostgreSQL service...');
-      await runCmd(`net start postgresql-16`);
-      await runCmd(`sc.exe config postgresql-16 start=auto`);
-      // Also try with -x64 suffix
-      await runCmd(`net start postgresql-x64-16`);
-      await runCmd(`sc.exe config postgresql-x64-16 start=auto`);
+      await runCmd(`net start ${serviceName}`);
+      await runCmd(`sc.exe config ${serviceName} start=auto`);
+      await runCmd(`net start postgresql-x64-${pgVer}`);
+      await runCmd(`sc.exe config postgresql-x64-${pgVer} start=auto`);
       await new Promise(resolve => setTimeout(resolve, 3000));
       logger.log('  > PostgreSQL service started and set to auto-start.');
       return { ok: true, msg: 'Installed (native)' };
@@ -299,16 +307,17 @@ export async function stepCreatePgUser(
   }
 }
 
-export async function stepCloneOdoo(baseDir: string, logger: LoggerService): Promise<StepResult> {
+export async function stepCloneOdoo(baseDir: string, logger: LoggerService, odooVersion: string = DEFAULT_ODOO_VERSION): Promise<StepResult> {
+  const vCfg = getVersionConfig(odooVersion);
   fs.mkdirSync(baseDir, { recursive: true });
   const odooBin = path.join(baseDir, 'odoo', 'odoo-bin');
   if (fs.existsSync(odooBin)) {
     logger.log('Odoo source already cloned.');
     return { ok: true, msg: 'Already cloned' };
   }
-  logger.log('Cloning Odoo 17.0 (shallow clone)...');
+  logger.log(`Cloning ${vCfg.label} (branch ${vCfg.branch}, shallow clone)...`);
   const code = await runCmdStreaming(
-    `git clone --progress --branch ${ODOO_BRANCH} --single-branch --depth 1 ${ODOO_GIT_URL}`,
+    `git clone --progress --branch ${vCfg.branch} --single-branch --depth 1 ${ODOO_GIT_URL}`,
     logger,
     {
       cwd: baseDir,
@@ -338,18 +347,20 @@ export async function stepCloneOdoo(baseDir: string, logger: LoggerService): Pro
   return { ok: false, msg: `Clone failed (exit code: ${code})` };
 }
 
-export async function stepCreateVenv(baseDir: string, logger: LoggerService): Promise<StepResult> {
+export async function stepCreateVenv(baseDir: string, logger: LoggerService, odooVersion: string = DEFAULT_ODOO_VERSION): Promise<StepResult> {
+  const vCfg = getVersionConfig(odooVersion);
+  const candidates = getPythonCandidates(odooVersion);
   const venvDir = path.join(baseDir, 'venv');
   const venvPython = path.join(venvDir, 'Scripts', 'python.exe');
-  const pythonPath = findPython311();
-  logger.log(`  > Python 3.11 path: ${pythonPath || 'NOT FOUND'}`);
+  const pythonPath = findPython(candidates);
+  logger.log(`  > ${vCfg.pythonVersion} path: ${pythonPath || 'NOT FOUND'}`);
   if (!pythonPath) {
-    return { ok: false, msg: 'Python 3.11 not found. Install Python first.' };
+    return { ok: false, msg: `${vCfg.pythonVersion} not found. Install Python first.` };
   }
   if (fs.existsSync(venvPython)) {
     const { output } = await runCmd(`"${venvPython}" --version`);
     logger.log(`  > Existing venv python: ${output.trim()}`);
-    if (output.includes('3.11')) {
+    if (output.includes(vCfg.pythonVersionPrefix)) {
       return { ok: true, msg: 'Already exists' };
     }
     logger.log('  > Wrong Python version in venv, recreating...');
@@ -366,7 +377,7 @@ export async function stepCreateVenv(baseDir: string, logger: LoggerService): Pr
   if (fs.existsSync(venvPython)) {
     return { ok: true, msg: 'Created' };
   }
-  return { ok: false, msg: `Failed to create venv (exit code: ${code}). Check Python 3.11 installation.` };
+  return { ok: false, msg: `Failed to create venv (exit code: ${code}). Check ${vCfg.pythonVersion} installation.` };
 }
 
 export async function stepInstallRequirements(baseDir: string, logger: LoggerService): Promise<StepResult> {
@@ -428,6 +439,7 @@ export async function stepCreateProject(
   projectName: string,
   logger: LoggerService,
   opts: Record<string, string> = {},
+  odooVersion: string = DEFAULT_ODOO_VERSION,
 ): Promise<StepResult> {
   fs.mkdirSync(projectsDir, { recursive: true });
   const proj = path.join(projectsDir, projectName);
@@ -466,6 +478,9 @@ export async function stepCreateProject(
 
   // Log file in project directory
   cfg.logfile = path.join(proj, 'odoo.log').replace(/\\/g, '/');
+
+  // Tag project with Odoo version
+  cfg.odoo_version = odooVersion;
 
   // Per-project domain (isolate browser sessions)
   const { projectToDomain, addHostEntry } = require('../utils/hosts');
@@ -591,6 +606,7 @@ export async function stepFullInstall(
   logger: LoggerService,
   opts: Record<string, string> = {},
   lock: StepLockManager = new StepLockManager(),
+  odooVersion: string = DEFAULT_ODOO_VERSION,
 ): Promise<readonly FullInstallResult[]> {
   fs.mkdirSync(baseDir, { recursive: true });
   fs.mkdirSync(projectsDir, { recursive: true });
@@ -607,25 +623,27 @@ export async function stepFullInstall(
   logger.log('Starting parallel installation pipeline...');
   logger.log('==================================================');
 
+  const vCfg = getVersionConfig(odooVersion);
+
   // Fire all independent tasks simultaneously (with lock support)
   const gitPromise = runNamedStep('Installing Git...', 'install_git', () => stepInstallGit(baseDir, logger), logger, lock);
   const vscodePromise = runNamedStep('Installing VS Code...', 'install_vscode', () => stepInstallVSCode(baseDir, logger), logger, lock);
-  const pythonPromise = runNamedStep('Installing Python 3.11...', 'install_python', () => stepInstallPython(baseDir, logger), logger, lock);
-  const pgPromise = runNamedStep('Installing PostgreSQL...', 'install_postgres', () => stepInstallPostgres(baseDir, logger, pgSuperPassword, dbPort, dbUser, dbPassword, pgMode), logger, lock);
+  const pythonPromise = runNamedStep(`Installing ${vCfg.pythonVersion}...`, 'install_python', () => stepInstallPython(baseDir, logger, odooVersion), logger, lock);
+  const pgPromise = runNamedStep(`Installing PostgreSQL ${vCfg.postgresVersion}...`, 'install_postgres', () => stepInstallPostgres(baseDir, logger, pgSuperPassword, dbPort, dbUser, dbPassword, pgMode, odooVersion), logger, lock);
   const nginxPromise = runNamedStep('Installing Nginx (HTTPS)...', 'install_nginx', () => stepInstallNginx(baseDir, logger), logger, lock);
 
   // ── Chain: Git done → Clone Odoo ──
   const clonePromise = gitPromise.then(gitResult => {
     results.push(gitResult);
-    logger.updateTask({ status: 'running', step: 'Cloning Odoo 17...', progress: 20 });
-    return runNamedStep('Cloning Odoo 17...', 'clone_odoo', () => stepCloneOdoo(baseDir, logger), logger, lock);
+    logger.updateTask({ status: 'running', step: `Cloning ${vCfg.label}...`, progress: 20 });
+    return runNamedStep(`Cloning ${vCfg.label}...`, 'clone_odoo', () => stepCloneOdoo(baseDir, logger, odooVersion), logger, lock);
   });
 
   // ── Chain: Python done → Venv → Pip Install ──
   const pipPromise = pythonPromise.then(async pyResult => {
     results.push(pyResult);
     logger.updateTask({ status: 'running', step: 'Creating venv...', progress: 30 });
-    const venvResult = await runNamedStep('Creating virtual environment...', 'create_venv', () => stepCreateVenv(baseDir, logger), logger, lock);
+    const venvResult = await runNamedStep('Creating virtual environment...', 'create_venv', () => stepCreateVenv(baseDir, logger, odooVersion), logger, lock);
     results.push(venvResult);
 
     // Wait for Odoo clone too (need requirements.txt)
