@@ -50,6 +50,8 @@ Quick reference for navigating the codebase. Organized by process boundary.
 |------|-------------|
 | `index.html` | SPA: titlebar, navigation, 3 panels (Dashboard, Install, Help), 6 modals (Settings, New Project, Edit Config, Delete, Duplicate, Detail) |
 | `styles/main.css` | ~1300 lines. CSS custom properties, 4 theme presets (default/autonsi/cyberpunk/luxury), dark/light modes |
+| `styles/tour.css` | Tour overlay spotlight, tooltip, navigation buttons |
+| `styles/docs.css` | Documentation panel layout, search results, troubleshooting cards |
 
 ### Scripts
 
