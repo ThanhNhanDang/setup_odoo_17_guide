@@ -521,13 +521,21 @@
       <button class="btn-close-modal" onclick="hideModal('modalDuplicate')">&#10005;</button>
     </div>
     <div class="modal-body">
-      <div class="form-grid" style="margin-bottom:12px">
-        <div class="form-group"><label data-i18n="modal.newName">New Project Name</label><input id="dupNewName" data-i18n-placeholder="modal.newNamePlaceholder" placeholder="e.g. my_project_copy" oninput="validateProjectNameInput(this)"><span class="input-hint" style="display:none"></span></div>
-        <div class="form-group"><label data-i18n="modal.newHttpPort">New HTTP Port</label><input id="dupNewPort" value="8071" type="number"></div>
+      <!-- Form (shown before duplicating) -->
+      <div id="dupForm">
+        <div class="form-grid" style="margin-bottom:12px">
+          <div class="form-group"><label data-i18n="modal.newName">New Project Name</label><input id="dupNewName" data-i18n-placeholder="modal.newNamePlaceholder" placeholder="e.g. my_project_copy" oninput="validateProjectNameInput(this);autoDupDomain()"><span class="input-hint" style="display:none"></span></div>
+          <div class="form-group"><label data-i18n="modal.newHttpPort">New HTTP Port</label><input id="dupNewPort" value="8071" type="number" oninput="validateDupPort()"><span class="input-hint" id="dupPortHint" style="display:none"></span></div>
+        </div>
+        <p style="font-size:0.75rem;color:var(--text-tertiary);margin:0 0 12px" data-i18n="modal.dupNote">Database will not be copied. Create a new database or restore from backup after duplication.</p>
+        <div class="btn-row">
+          <button class="btn btn-outline btn-sm" onclick="hideModal('modalDuplicate')" data-i18n="project.cancel">Cancel</button>
+          <button class="btn btn-primary btn-sm" id="btnDuplicate" onclick="confirmDuplicate()" data-i18n="project.duplicate">Duplicate</button>
+        </div>
       </div>
-      <div class="btn-row">
-        <button class="btn btn-outline btn-sm" onclick="hideModal('modalDuplicate')" data-i18n="project.cancel">Cancel</button>
-        <button class="btn btn-primary btn-sm" onclick="confirmDuplicate()" data-i18n="project.duplicate">Duplicate</button>
+      <!-- Progress (shown during duplicating) -->
+      <div id="dupProgress" style="display:none">
+        <div class="dup-steps" id="dupSteps"></div>
       </div>
     </div>
   </div>

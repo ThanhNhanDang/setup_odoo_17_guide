@@ -992,29 +992,123 @@ async function resetAllTemplates() {
 }
 
 let _dupSource = '';
+
+// Duplicate step definitions for progress display
+const DUP_STEPS = [
+  { id: 'create_folder', key: 'modal.dupStepFolder' },
+  { id: 'junction_link', key: 'modal.dupStepJunction' },
+  { id: 'copy_addons',   key: 'modal.dupStepAddons' },
+  { id: 'copy_vscode',   key: 'modal.dupStepVscode' },
+  { id: 'update_config', key: 'modal.dupStepConfig' },
+  { id: 'setup_domain',  key: 'modal.dupStepDomain' },
+];
+
 function duplicateProject(name, port) {
   _dupSource = name;
   $('dupSourceName').textContent = name;
   $('dupNewName').value = name + '_copy';
   $('dupNewPort').value = getNextAvailablePort();
+  // Reset form/progress visibility
+  $('dupForm').style.display = '';
+  $('dupProgress').style.display = 'none';
+  $('btnDuplicate').disabled = false;
   showModal('modalDuplicate');
+}
+
+function autoDupDomain() {
+  // Just trigger name validation — domain is auto-generated on backend
+}
+
+function validateDupPort() {
+  const port = parseInt($('dupNewPort')?.value);
+  const hint = $('dupPortHint');
+  if (!hint) return;
+  if (!port || port < 1024 || port > 65535) {
+    hint.textContent = t('modal.dupPortInvalid');
+    hint.style.display = 'block';
+    return;
+  }
+  // Check if port is already used by another project
+  const used = _status?.projects?.some(p => parseInt(p.http_port) === port || parseInt(p.longpolling_port) === port);
+  if (used) {
+    hint.textContent = t('modal.dupPortUsed');
+    hint.style.display = 'block';
+  } else {
+    hint.textContent = '';
+    hint.style.display = 'none';
+  }
+}
+
+function _renderDupProgress() {
+  $('dupSteps').innerHTML = DUP_STEPS.map(s =>
+    `<div class="dup-step" id="dup-${s.id}">
+      <span class="dup-step-icon">&#9711;</span>
+      <span class="dup-step-label">${t(s.key)}</span>
+    </div>`
+  ).join('');
+}
+
+function _updateDupStep(stepId, done) {
+  const el = $('dup-' + stepId);
+  if (!el) return;
+  const icon = el.querySelector('.dup-step-icon');
+  if (done) {
+    icon.innerHTML = '&#10003;';
+    el.classList.add('done');
+    el.classList.remove('active');
+  } else {
+    icon.innerHTML = '<span class="spinner-sm"></span>';
+    el.classList.add('active');
+  }
 }
 
 async function confirmDuplicate() {
   const newName = ($('dupNewName')?.value || '').trim();
-  if (!newName) { alert(t('toast.enterName')); return; }
+  if (!newName) { showToastMessage(t('toast.enterName'), 'error'); return; }
   if (!isValidProjectName(newName)) { showToastMessage(t('toast.invalidName'), 'error'); return; }
+
+  // Check name uniqueness
+  const nameExists = _status?.projects?.some(p => p.name === newName);
+  if (nameExists) { showToastMessage(t('toast.projectExists'), 'error'); return; }
+
+  // Check port uniqueness
+  const port = parseInt($('dupNewPort')?.value);
+  const portUsed = _status?.projects?.some(p => parseInt(p.http_port) === port || parseInt(p.longpolling_port) === port);
+  if (portUsed) { showToastMessage(t('modal.dupPortUsed'), 'error'); return; }
+
+  // Switch to progress view
+  $('dupForm').style.display = 'none';
+  $('dupProgress').style.display = '';
+  _renderDupProgress();
+
+  // Listen for progress events
+  const progressHandler = (data) => _updateDupStep(data.step, data.done);
+  window.electronAPI.onEvent('duplicate-progress', progressHandler);
+
   const data = getFormData();
   const res = await api('duplicate_project', {
     base_dir: data.base_dir,
     projects_dir: data.projects_dir,
     project_name: _dupSource,
-    new_name: $('dupNewName').value,
+    new_name: newName,
     new_http_port: $('dupNewPort').value
   });
-  hideModal('modalDuplicate');
-  await refreshStatus();
-  alert(res.ok ? '\u2705 ' + t('toast.duplicated') + '\n' + res.msg : '\u274C ' + tMsg(res.msg));
+
+  window.electronAPI.removeAllListeners('duplicate-progress');
+
+  if (res.ok) {
+    // Brief pause so user sees all checkmarks
+    await new Promise(r => setTimeout(r, 600));
+    hideModal('modalDuplicate');
+    await refreshStatus();
+    showToastMessage(t('toast.duplicated'), 'success');
+    showPanel('dashboard', document.querySelectorAll('.nav-tab')[0]);
+  } else {
+    // Show error, go back to form
+    $('dupForm').style.display = '';
+    $('dupProgress').style.display = 'none';
+    showToastMessage(t('toast.failed', { msg: tMsg(res.msg) }), 'error');
+  }
 }
 
 // ---------------------------------------------------------------------------

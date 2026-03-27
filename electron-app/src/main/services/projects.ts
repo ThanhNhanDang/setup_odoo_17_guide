@@ -193,13 +193,21 @@ export async function deleteProject(
   return { ok: false, msg: 'DELETE_LOCKED' };
 }
 
+/** Progress callback for duplicate steps */
+type DuplicateProgress = (step: string, done: boolean) => void;
+
 export async function duplicateProject(
   baseDir: string,
   projectsDir: string,
   projectName: string,
   newName: string,
   newHttpPort: string,
+  onProgress?: DuplicateProgress,
 ): Promise<ProjectResult> {
+  if (!isValidName(newName)) {
+    return { ok: false, msg: 'INVALID_NAME' };
+  }
+
   const src = path.join(projectsDir, projectName);
   const dst = path.join(projectsDir, newName);
 
@@ -210,27 +218,46 @@ export async function duplicateProject(
     return { ok: false, msg: 'PROJECT_EXISTS' };
   }
 
+  const emit = (step: string, done: boolean) => { if (onProgress) onProgress(step, done); };
+
   try {
+    // Step 1: Create project folder
+    emit('create_folder', false);
     fs.mkdirSync(dst, { recursive: true });
+    fs.mkdirSync(path.join(dst, '.vscode'), { recursive: true });
+    emit('create_folder', true);
 
-    // Copy all files except the junction link
-    for (const item of fs.readdirSync(src)) {
-      const srcItem = path.join(src, item);
-      const dstItem = path.join(dst, item);
-      const stat = fs.lstatSync(srcItem);
-
-      if (item === 'odoo' && stat.isDirectory()) {
-        // Recreate junction link
-        await runCmd(`cmd /c mklink /J "${dstItem}" "${path.join(baseDir, 'odoo')}"`);
-      } else if (stat.isDirectory()) {
-        fs.cpSync(srcItem, dstItem, { recursive: true });
-      } else {
-        fs.copyFileSync(srcItem, dstItem);
-      }
+    // Step 2: Create junction link to shared Odoo source
+    emit('junction_link', false);
+    const odooSrc = path.join(src, 'odoo');
+    if (fs.existsSync(odooSrc)) {
+      // Resolve the real target of the source junction
+      const realTarget = fs.realpathSync(odooSrc);
+      await runCmd(`cmd /c mklink /J "${path.join(dst, 'odoo')}" "${realTarget}"`);
     }
+    emit('junction_link', true);
 
-    // Update ports in config
-    const conf = path.join(dst, 'odoo.conf');
+    // Step 3: Copy addons (custom modules)
+    emit('copy_addons', false);
+    const addonsDir = path.join(src, 'addons');
+    if (fs.existsSync(addonsDir)) {
+      fs.cpSync(addonsDir, path.join(dst, 'addons'), { recursive: true });
+    } else {
+      fs.mkdirSync(path.join(dst, 'addons'), { recursive: true });
+    }
+    emit('copy_addons', true);
+
+    // Step 4: Copy .vscode config
+    emit('copy_vscode', false);
+    const vscodeSrc = path.join(src, '.vscode');
+    if (fs.existsSync(vscodeSrc)) {
+      fs.cpSync(vscodeSrc, path.join(dst, '.vscode'), { recursive: true });
+    }
+    emit('copy_vscode', true);
+
+    // Step 5: Copy odoo.conf + update ports, domain, dbfilter
+    emit('update_config', false);
+    const conf = path.join(src, 'odoo.conf');
     if (fs.existsSync(conf)) {
       const content = fs.readFileSync(conf, 'utf8');
       let ini = parseIni(content);
@@ -240,9 +267,24 @@ export async function duplicateProject(
         if (!isNaN(lpPort)) {
           ini = iniSet(ini, 'options', 'longpolling_port', String(lpPort + 3));
         }
-        fs.writeFileSync(conf, stringifyIni(ini), 'utf8');
+        // Update domain and dbfilter for new project
+        const { projectToDomain } = require('../utils/hosts');
+        const newDomain = projectToDomain(newName);
+        ini = iniSet(ini, 'options', 'project_domain', newDomain);
+        ini = iniSet(ini, 'options', 'dbfilter', `^${newName}.*$`);
+        fs.writeFileSync(path.join(dst, 'odoo.conf'), stringifyIni(ini), 'utf8');
       }
     }
+    emit('update_config', true);
+
+    // Step 6: Setup domain in hosts file
+    emit('setup_domain', false);
+    const { projectToDomain, addHostEntry } = require('../utils/hosts');
+    const newDomain = projectToDomain(newName);
+    addHostEntry(newDomain);
+    emit('setup_domain', true);
+
+    // Note: data/ folder is NOT copied — user creates fresh DB or restores backup
 
     return { ok: true, msg: dst };
   } catch (e) {

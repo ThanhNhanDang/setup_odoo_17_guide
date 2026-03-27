@@ -1176,6 +1176,14 @@ select.detail-input{cursor:pointer}
 }
 .update-toast-pct .update-toast-spinner.hidden{display:none}
 
+/* ===== Duplicate Progress Steps ===== */
+.dup-steps{display:flex;flex-direction:column;gap:8px;padding:8px 0}
+.dup-step{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:6px;color:var(--text-tertiary);font-size:0.85rem;transition:all 0.2s}
+.dup-step-icon{width:20px;text-align:center;font-size:0.9rem}
+.dup-step.active{color:var(--text-primary);background:var(--bg-overlay)}
+.dup-step.done{color:var(--success)}
+.dup-step.done .dup-step-icon{color:var(--success);font-weight:700}
+
 /* ===== Small inline spinner for buttons ===== */
 .spinner-sm{
   display:inline-block;width:12px;height:12px;

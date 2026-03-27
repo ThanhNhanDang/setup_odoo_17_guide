@@ -262,7 +262,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const projectName = data?.project_name || '';
     const newName = data?.new_name || '';
     const newHttpPort = data?.new_http_port || '8070';
-    return duplicateProject(baseDir, projectsDir, projectName, newName, newHttpPort);
+    const onProgress = (step: string, done: boolean) => {
+      mainWindow.webContents.send('duplicate-progress', { step, done });
+    };
+    return duplicateProject(baseDir, projectsDir, projectName, newName, newHttpPort, onProgress);
   });
 
   // --- Start Odoo ---
