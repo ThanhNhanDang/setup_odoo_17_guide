@@ -85,6 +85,8 @@
     "deleteProject": "Delete Project",
     "deleteWarning": "This will permanently delete the project folder.",
     "deleteConfirm": "Type <strong>{name}</strong> to confirm:",
+    "deleteConfirmPrefix": "Type",
+    "deleteConfirmSuffix": "to confirm:",
     "deleteTypeName": "Type project name",
     "dropDb": "Also drop project databases from PostgreSQL",
     "duplicateProject": "Duplicate Project",

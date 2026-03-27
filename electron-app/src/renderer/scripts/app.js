@@ -988,13 +988,14 @@ async function saveConfig() {
 let _deletingProject = '';
 function deleteProject(name) {
   _deletingProject = name;
-  $('deleteConfirmText').innerHTML = t('modal.deleteConfirm', { name: escHtml(name) });
+  $('deleteConfirmText').innerHTML = t('modal.deleteConfirmPrefix') + ' <strong style="user-select:all">' + escHtml(name) + '</strong> ' + t('modal.deleteConfirmSuffix');
   $('deleteConfirmInput').value = '';
+  $('deleteDropDb').checked = false;
   showModal('modalDelete');
 }
 
 async function confirmDelete() {
-  if ($('deleteConfirmInput').value !== _deletingProject) { alert(t('toast.nameNoMatch')); return; }
+  if ($('deleteConfirmInput').value.trim() !== _deletingProject) { alert(t('toast.nameNoMatch')); return; }
   const data = getFormData();
   const dropDb = $('deleteDropDb')?.checked ? 'true' : 'false';
   const res = await api('delete_project', {

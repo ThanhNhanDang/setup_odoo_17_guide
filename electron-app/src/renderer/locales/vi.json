@@ -85,6 +85,8 @@
     "deleteProject": "Xoá dự án",
     "deleteWarning": "Thao tác này sẽ xoá vĩnh viễn thư mục dự án.",
     "deleteConfirm": "Nhập <strong>{name}</strong> để xác nhận:",
+    "deleteConfirmPrefix": "Nhập",
+    "deleteConfirmSuffix": "để xác nhận:",
     "deleteTypeName": "Nhập tên dự án",
     "dropDb": "Xoá luôn database trong PostgreSQL",
     "duplicateProject": "Nhân bản dự án",
