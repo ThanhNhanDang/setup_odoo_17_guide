@@ -346,7 +346,7 @@ function renderProjects(s) {
         <div><span class="name">${escHtml(p.name)}</span>
           <span class="tag tag-port" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port)}')" style="cursor:pointer" title="Open in browser">:${escHtml(p.http_port)}</span>
           ${_pendingProjects.has(p.name)
-            ? `<span class="tag tag-pending"><span class="spinner-sm"></span> ${escHtml(_pendingProjects.get(p.name) === 'starting' ? t('project.starting') : t('project.stopping'))}</span>`
+            ? `<span class="tag tag-pending"><span class="spinner-sm"></span></span>`
             : p.is_running
               ? `<span class="tag tag-running">${t('project.runningTag')}</span>`
               : `<span class="tag tag-stopped">${t('project.stoppedTag')}</span>`}
@@ -788,10 +788,11 @@ function setProjectPending(name, action) {
 function _applyPendingButtons(name) {
   const action = _pendingProjects.get(name);
   if (!action) return;
-  const label = action === 'starting' ? t('project.starting') : t('project.stopping');
   document.querySelectorAll(`[data-project-action="${name}"]`).forEach(btn => {
+    // Lock current width before changing content
+    btn.style.minWidth = btn.offsetWidth + 'px';
     btn.disabled = true;
-    btn.innerHTML = `<span class="spinner-sm"></span> ${escHtml(label)}`;
+    btn.innerHTML = `<span class="spinner-sm"></span>`;
     btn.className = btn.className.replace(/btn-danger|btn-success/g, 'btn-outline');
   });
 }
@@ -806,11 +807,9 @@ function renderActionBtn(p, size, extraOnclick) {
   const name = escAttr(p.name);
   const extra = extraOnclick ? ';' + extraOnclick : '';
   const pending = _pendingProjects.get(p.name);
-  if (pending === 'starting') {
-    return `<button class="btn btn-outline ${cls}" data-project-action="${name}" disabled><span class="spinner-sm"></span> ${escHtml(t('project.starting'))}</button>`;
-  }
-  if (pending === 'stopping') {
-    return `<button class="btn btn-outline ${cls}" data-project-action="${name}" disabled><span class="spinner-sm"></span> ${escHtml(t('project.stopping'))}</button>`;
+  if (pending) {
+    // Spinner only, no text — btn-pending class keeps consistent size
+    return `<button class="btn btn-outline btn-pending ${cls}" data-project-action="${name}" disabled><span class="spinner-sm"></span></button>`;
   }
   if (p.is_running) {
     return `<button class="btn btn-danger ${cls}" data-project-action="${name}" onclick="stopOdoo('${name}')${extra}">${t('project.stop')}</button>`;
@@ -884,15 +883,28 @@ function toggleOdoo(name, isRunning) {
 
 async function openVSCode(projPath) {
   const btn = event?.target?.closest?.('button');
-  if (btn) { btn.disabled = true; btn.innerHTML = `<span class="spinner-sm"></span> ${t('project.vsCode')}`; }
+  if (btn) { _setBtnPending(btn); }
   await api('open_vscode', { path: projPath });
-  if (btn) { setTimeout(() => { btn.disabled = false; btn.textContent = t('project.vsCode'); }, 1000); }
+  if (btn) { setTimeout(() => _resetBtn(btn, t('project.vsCode'), 'btn-vscode'), 1000); }
 }
 async function openExplorer(projPath) {
   const btn = event?.target?.closest?.('button');
-  if (btn) { btn.disabled = true; btn.innerHTML = `<span class="spinner-sm"></span> ${t('project.explorer')}`; }
+  if (btn) { _setBtnPending(btn); }
   await api('open_explorer', { path: projPath });
-  if (btn) { setTimeout(() => { btn.disabled = false; btn.textContent = t('project.explorer'); }, 1000); }
+  if (btn) { setTimeout(() => _resetBtn(btn, t('project.explorer'), 'btn-outline'), 1000); }
+}
+
+/** Set any button to pending: lock width, show spinner only */
+function _setBtnPending(btn) {
+  btn.style.minWidth = btn.offsetWidth + 'px';
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-sm"></span>';
+}
+/** Reset button after pending */
+function _resetBtn(btn, text, cls) {
+  btn.disabled = false;
+  btn.style.minWidth = '';
+  btn.textContent = text;
 }
 async function openBrowser(port) { await api('open_browser', { url: `http://localhost:${port}` }); }
 async function openProjectUrl(domain, port) {
@@ -1218,7 +1230,7 @@ function renderKanban(projects) {
         <div class="kanban-card-tags">
           <span class="kanban-tag kanban-tag-version" style="background:${getVersionColor(p.odoo_version)};color:#fff">v${escHtml(p.odoo_version || '17')}</span>
           ${_pendingProjects.has(p.name)
-            ? `<span class="kanban-tag kanban-tag-pending"><span class="spinner-sm"></span> ${escHtml(_pendingProjects.get(p.name) === 'starting' ? t('project.starting') : t('project.stopping'))}</span>`
+            ? `<span class="kanban-tag kanban-tag-pending"><span class="spinner-sm"></span></span>`
             : p.is_running
               ? `<span class="kanban-tag kanban-tag-running">${t('project.runningTag')}</span>`
               : `<span class="kanban-tag kanban-tag-stopped">${t('project.stoppedTag')}</span>`}

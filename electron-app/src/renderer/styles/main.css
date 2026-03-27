@@ -1198,6 +1198,7 @@ select.detail-input{cursor:pointer}
   border:2px solid var(--text-tertiary);border-top-color:var(--accent);
   border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;
 }
+.btn-pending{display:inline-flex!important;align-items:center;justify-content:center}
 
 /* ===== Message Toast (bottom-right) ===== */
 .msg-toast{
