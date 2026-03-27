@@ -194,8 +194,12 @@ export async function stepInstallPostgres(
     return { ok: true, msg: `Already installed (PG ${pgVer})` };
   }
   if (pgOnPort && pgMode !== 'docker') {
+    if (parseInt(pgOnPort.version) < parseInt(pgVer)) {
+      logger.log(`  > WARNING: PG ${pgOnPort.version} on port ${dbPort} is older than recommended PG ${pgVer} for ${vCfg.label}.`);
+      logger.log(`  > Using existing PG ${pgOnPort.version}. Odoo should still work, but upgrading is recommended.`);
+    }
     logger.log(`PostgreSQL ${pgOnPort.version} is configured on port ${dbPort}. Using existing installation.`);
-    return { ok: true, msg: `Already installed (PG ${pgOnPort.version} on port ${dbPort})` };
+    return { ok: true, msg: `Using PG ${pgOnPort.version} on port ${dbPort}` };
   }
   if (dockerOnPort && pgMode !== 'native') {
     logger.log(`PostgreSQL running in Docker on port ${dbPort}: ${dockerOnPort.name}`);

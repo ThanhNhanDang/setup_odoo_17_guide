@@ -437,6 +437,10 @@
       <p style="color:#f85149;margin-bottom:12px">This will permanently delete the project folder.</p>
       <p style="margin-bottom:8px">Type <strong id="deleteTargetName" style="color:#e6edf3"></strong> to confirm:</p>
       <input id="deleteConfirmInput" placeholder="Type project name">
+      <label style="display:flex;align-items:center;gap:8px;margin:12px 0;cursor:pointer;font-size:0.85rem">
+        <input type="checkbox" id="deleteDropDb">
+        <span>Also drop project databases from PostgreSQL</span>
+      </label>
       <div class="btn-row">
         <button class="btn btn-outline btn-sm" onclick="hideModal('modalDelete')">Cancel</button>
         <button class="btn btn-danger btn-sm" onclick="confirmDelete()">Delete</button>

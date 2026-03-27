@@ -203,7 +203,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   ipcMain.handle('delete_project', async (_event, data: Record<string, string>) => {
     const projectsDir = data?.projects_dir || DEFAULT_PROJECTS_DIR;
     const projectName = data?.project_name || '';
-    return deleteProject(projectsDir, projectName);
+    const dropDatabases = data?.drop_databases === 'true';
+    return deleteProject(projectsDir, projectName, dropDatabases);
   });
 
   // --- Duplicate Project ---

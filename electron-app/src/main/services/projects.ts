@@ -39,15 +39,79 @@ export function saveProjectConfig(projectsDir: string, projectName: string, cont
   return { ok: true, msg: 'Saved' };
 }
 
-export function deleteProject(projectsDir: string, projectName: string): ProjectResult {
+export async function deleteProject(
+  projectsDir: string,
+  projectName: string,
+  dropDatabases: boolean = false,
+): Promise<ProjectResult> {
   const proj = path.join(projectsDir, projectName);
   const conf = path.join(proj, 'odoo.conf');
   if (!fs.existsSync(proj) || !fs.statSync(proj).isDirectory() || !fs.existsSync(conf)) {
     return { ok: false, msg: 'Project not found' };
   }
+
+  // Drop databases matching dbfilter if requested
+  const droppedDbs: string[] = [];
+  if (dropDatabases) {
+    try {
+      const iniContent = fs.readFileSync(conf, 'utf8');
+      const ini = parseIni(iniContent);
+      const dbPort = ini.options?.db_port || '5434';
+      const dbUser = ini.options?.db_user || 'odoo';
+      const dbPassword = ini.options?.db_password || 'odoo';
+      const dbHost = ini.options?.db_host || 'localhost';
+      const dbfilter = ini.options?.dbfilter || '';
+
+      // Find psql binary
+      const { findPostgresForPort, findPostgresBin } = require('./detection');
+      const pgInstance = findPostgresForPort(dbPort);
+      const pgBin = pgInstance?.binPath || findPostgresBin();
+
+      if (pgBin) {
+        const psqlExe = path.join(pgBin, 'psql.exe');
+        const env = { ...process.env, PGPASSWORD: dbPassword };
+
+        // List databases owned by the project's db_user
+        const { output: dbList } = await runCmd(
+          `"${psqlExe}" -h ${dbHost} -p ${dbPort} -U ${dbUser} -tAc "SELECT datname FROM pg_database WHERE datistemplate=false AND datname != 'postgres'"`,
+          undefined, env,
+        );
+
+        const databases = dbList.trim().split('\n').map((d: string) => d.trim()).filter(Boolean);
+
+        // Filter by dbfilter if set, otherwise drop all DBs matching project name pattern
+        let filterRegex: RegExp | null = null;
+        if (dbfilter) {
+          try { filterRegex = new RegExp(dbfilter); } catch { /* invalid regex */ }
+        }
+
+        for (const db of databases) {
+          const shouldDrop = filterRegex
+            ? filterRegex.test(db)
+            : db.startsWith(projectName.replace(/-/g, '_'));
+
+          if (shouldDrop) {
+            // Use postgres superuser to drop (db_user may not have permission)
+            const envSuper = { ...process.env, PGPASSWORD: 'postgres' };
+            const { code } = await runCmd(
+              `"${psqlExe}" -h ${dbHost} -p ${dbPort} -U postgres -c "DROP DATABASE IF EXISTS \\"${db}\\";"`,
+              undefined, envSuper,
+            );
+            if (code === 0) droppedDbs.push(db);
+          }
+        }
+      }
+    } catch {
+      // DB cleanup failed — continue with folder deletion
+    }
+  }
+
   try {
     fs.rmSync(proj, { recursive: true, force: true });
-    return { ok: true, msg: 'Deleted' };
+    const dbMsg = droppedDbs.length > 0
+      ? `Deleted (dropped ${droppedDbs.length} DB: ${droppedDbs.join(', ')})`
+      : 'Deleted';
+    return { ok: true, msg: dbMsg };
   } catch (e) {
     return { ok: false, msg: String(e) };
   }

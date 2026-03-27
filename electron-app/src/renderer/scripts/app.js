@@ -782,10 +782,15 @@ function deleteProject(name) {
 async function confirmDelete() {
   if ($('deleteConfirmInput').value !== _deletingProject) { alert('Name does not match!'); return; }
   const data = getFormData();
-  const res = await api('delete_project', { projects_dir: data.projects_dir, project_name: _deletingProject });
+  const dropDb = $('deleteDropDb')?.checked ? 'true' : 'false';
+  const res = await api('delete_project', {
+    projects_dir: data.projects_dir,
+    project_name: _deletingProject,
+    drop_databases: dropDb,
+  });
   hideModal('modalDelete');
   refreshStatus();
-  alert(res.ok ? '\u2705 Deleted!' : '\u274C ' + res.msg);
+  alert(res.ok ? '\u2705 ' + res.msg : '\u274C ' + res.msg);
 }
 
 let _dupSource = '';
