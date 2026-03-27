@@ -49,7 +49,8 @@
     "venv": "Virtual Env", "venvDesc": "Python packages",
     "pip": "Pip Requirements", "pipDesc": "Odoo dependencies",
     "complete": "Installation complete!", "allInstalled": "All components installed!",
-    "partialFail": "Some steps failed. Check the log."
+    "partialFail": "Some steps failed. Check the log.",
+    "installedCount": "{installed}/{total} components installed"
   },
   "project": {
     "start": "Start", "stop": "Stop", "starting": "Starting...", "stopping": "Stopping...",
