@@ -64,14 +64,14 @@
 <div class="modal-overlay" id="settingsModal">
   <div class="modal" style="max-width:720px">
     <div class="modal-header">
-      <h3>Settings</h3>
+      <h3 data-i18n="settings.title">Settings</h3>
       <button class="btn-close-modal" onclick="$('settingsModal').classList.remove('visible')">&times;</button>
     </div>
     <div class="modal-body">
 
     <!-- Appearance -->
     <div class="form-section">
-      <h3>Appearance</h3>
+      <h3 data-i18n="settings.appearance">Appearance</h3>
 
       <!-- Theme Presets -->
       <label style="font-size:0.75rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;display:block">Theme Preset</label>
@@ -179,7 +179,7 @@
 
     <!-- Odoo Version -->
     <div class="form-section">
-      <h3>Odoo Version</h3>
+      <h3 data-i18n="settings.odooVersion">Odoo Version</h3>
       <div class="form-grid">
         <div class="form-group">
           <label>Version</label>
@@ -194,22 +194,22 @@
 
     <!-- Directories -->
     <div class="form-section">
-      <h3>Directories</h3>
+      <h3 data-i18n="settings.directories">Directories</h3>
       <div class="form-grid">
-        <div class="form-group"><label>Base Directory</label><input id="baseDir" value=""></div>
-        <div class="form-group"><label>Projects Directory</label><input id="projectsDir" value=""></div>
+        <div class="form-group"><label data-i18n="settings.baseDir">Base Directory</label><input id="baseDir" value=""></div>
+        <div class="form-group"><label data-i18n="settings.projectsDir">Projects Directory</label><input id="projectsDir" value=""></div>
       </div>
     </div>
 
     <!-- Database -->
     <div class="form-section">
-      <h3>Database</h3>
+      <h3 data-i18n="settings.database">Database</h3>
       <div class="form-grid">
-        <div class="form-group"><label>DB Host</label><input id="dbHost" value="localhost"></div>
-        <div class="form-group"><label>DB Port</label><input id="dbPort" value="5434" type="number"></div>
-        <div class="form-group"><label>DB User</label><input id="dbUser" value="odoo"></div>
-        <div class="form-group"><label>DB Password</label><input id="dbPassword" value="odoo"></div>
-        <div class="form-group"><label>PG Super Password</label><input id="pgSuperPassword" value="postgres"></div>
+        <div class="form-group"><label data-i18n="settings.dbHost">DB Host</label><input id="dbHost" value="localhost"></div>
+        <div class="form-group"><label data-i18n="settings.dbPort">DB Port</label><input id="dbPort" value="5434" type="number"></div>
+        <div class="form-group"><label data-i18n="settings.dbUser">DB User</label><input id="dbUser" value="odoo"></div>
+        <div class="form-group"><label data-i18n="settings.dbPassword">DB Password</label><input id="dbPassword" value="odoo"></div>
+        <div class="form-group"><label data-i18n="settings.pgSuperPassword">PG Super Password</label><input id="pgSuperPassword" value="postgres"></div>
         <div class="form-group" id="pgModeGroup" style="display:none">
           <label>PostgreSQL Mode</label>
           <select id="pgMode">
@@ -223,11 +223,11 @@
 
     <!-- Default Project Config -->
     <div class="form-section">
-      <h3>Default Project Config</h3>
+      <h3 data-i18n="settings.defaultProjectConfig">Default Project Config</h3>
       <div class="form-grid">
-        <div class="form-group"><label>HTTP Port</label><input id="httpPort" value="8069" type="number"></div>
-        <div class="form-group"><label>Project Name</label><input id="projectName" value="my_project"></div>
-        <div class="form-group"><label>Admin Password (Master)</label><input id="adminPasswd" value="odoo" type="password"></div>
+        <div class="form-group"><label data-i18n="settings.httpPort">HTTP Port</label><input id="httpPort" value="8069" type="number"></div>
+        <div class="form-group"><label data-i18n="settings.projectName">Project Name</label><input id="projectName" value="my_project"></div>
+        <div class="form-group"><label data-i18n="settings.adminPassword">Admin Password (Master)</label><input id="adminPasswd" value="odoo" type="password"></div>
       </div>
     </div>
 
@@ -236,26 +236,26 @@
       <h3 onclick="toggleAdvanced('advInstall')"><span class="arrow" id="arrowAdvInstall">&#9654;</span> Advanced Odoo Config</h3>
       <div class="collapsible" id="advInstall">
         <div class="form-grid">
-          <div class="form-group full"><label>Addons Path</label><input id="addonsPath" value="./addons,./odoo/addons"></div>
-          <div class="form-group"><label>Longpolling Port</label><input id="longpollingPort" placeholder="auto = http_port + 3"></div>
-          <div class="form-group"><label>Log Level</label><select id="logLevel"><option value="error" selected>error</option><option value="warn">warn</option><option value="info">info</option><option value="debug">debug</option></select></div>
-          <div class="form-group"><label>Workers</label><input id="workers" value="0" type="number"></div>
-          <div class="form-group"><label>List DB</label><select id="listDb"><option value="True" selected>True</option><option value="False">False</option></select></div>
-          <div class="form-group"><label>DB Filter</label><input id="dbfilter" placeholder="e.g. ^mydb.*$"></div>
-          <div class="form-group"><label>Proxy Mode</label><select id="proxyMode"><option value="True" selected>True</option><option value="False">False</option></select></div>
-          <div class="form-group full"><label>Server Wide Modules</label><input id="serverWideModules" value="base,web"></div>
-          <div class="form-group full"><label>Data Dir (filestore)</label><input id="dataDir" placeholder="Leave empty for Odoo default"></div>
-          <div class="form-group"><label>Memory Hard Limit</label><input id="memHard" value="10737418240"></div>
-          <div class="form-group"><label>Memory Soft Limit</label><input id="memSoft" value="10737418240"></div>
+          <div class="form-group full"><label data-i18n="settings.addonsPath">Addons Path</label><input id="addonsPath" value="./addons,./odoo/addons"></div>
+          <div class="form-group"><label data-i18n="settings.longpollingPort">Longpolling Port</label><input id="longpollingPort" data-i18n-placeholder="settings.longpollingAuto" placeholder="auto = http_port + 3"></div>
+          <div class="form-group"><label data-i18n="settings.logLevel">Log Level</label><select id="logLevel"><option value="error" selected>error</option><option value="warn">warn</option><option value="info">info</option><option value="debug">debug</option></select></div>
+          <div class="form-group"><label data-i18n="settings.workers">Workers</label><input id="workers" value="0" type="number"></div>
+          <div class="form-group"><label data-i18n="settings.listDb">List DB</label><select id="listDb"><option value="True" selected>True</option><option value="False">False</option></select></div>
+          <div class="form-group"><label data-i18n="settings.dbFilter">DB Filter</label><input id="dbfilter" placeholder="e.g. ^mydb.*$"></div>
+          <div class="form-group"><label data-i18n="settings.proxyMode">Proxy Mode</label><select id="proxyMode"><option value="True" selected>True</option><option value="False">False</option></select></div>
+          <div class="form-group full"><label data-i18n="settings.serverWideModules">Server Wide Modules</label><input id="serverWideModules" value="base,web"></div>
+          <div class="form-group full"><label data-i18n="settings.dataDir">Data Dir (filestore)</label><input id="dataDir" data-i18n-placeholder="settings.dataDirPlaceholder" placeholder="Leave empty for Odoo default"></div>
+          <div class="form-group"><label data-i18n="settings.memHard">Memory Hard Limit</label><input id="memHard" value="10737418240"></div>
+          <div class="form-group"><label data-i18n="settings.memSoft">Memory Soft Limit</label><input id="memSoft" value="10737418240"></div>
         </div>
       </div>
     </div>
     <!-- About / Version -->
     <div class="form-section">
-      <h3>About</h3>
+      <h3 data-i18n="settings.about">About</h3>
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <span style="font-size:0.9rem">Current version: <strong id="settingsVersion">v1.0.0</strong></span>
-        <button class="btn btn-outline btn-xs" onclick="checkForUpdate()">Check for Updates</button>
+        <span style="font-size:0.9rem"><span data-i18n="settings.currentVersion">Current version:</span> <strong id="settingsVersion">v1.0.0</strong></span>
+        <button class="btn btn-outline btn-xs" onclick="checkForUpdate()" data-i18n="settings.checkUpdates">Check for Updates</button>
       </div>
     </div>
     </div><!-- /modal-body -->
@@ -437,41 +437,41 @@
 <div class="modal-overlay" id="modalNewProject">
   <div class="modal" style="max-width:600px">
     <div class="modal-header">
-      <h3>Create New Project</h3>
+      <h3 data-i18n="modal.newProject">Create New Project</h3>
       <button class="btn-close-modal" onclick="hideModal('modalNewProject')">&#10005;</button>
     </div>
     <div class="modal-body">
     <div class="form-grid">
       <div class="form-group">
-        <label>Odoo Version</label>
+        <label data-i18n="settings.odooVersion">Odoo Version</label>
         <select id="newProjVersion">
           <option value="15">Odoo 15</option>
           <option value="17" selected>Odoo 17</option>
           <option value="19">Odoo 19</option>
         </select>
       </div>
-      <div class="form-group"><label>Project Name</label><input id="newProjName" placeholder="e.g. ecommerce" oninput="autoGenerateDomain()"></div>
-      <div class="form-group"><label>HTTP Port</label><input id="newProjPort" value="8070" type="number"></div>
-      <div class="form-group" style="grid-column:1/-1"><label>Domain (auto-generated)</label><input id="newProjDomain" placeholder="auto: project-name.odoo.local" readonly></div>
-      <div class="form-group"><label>DB Host</label><input id="newProjDbHost" value="localhost"></div>
-      <div class="form-group"><label>DB Port</label><input id="newProjDbPort" value="5434" type="number"></div>
-      <div class="form-group"><label>DB User</label><input id="newProjDbUser" value="odoo"></div>
-      <div class="form-group"><label>DB Password</label><input id="newProjDbPass" value="odoo"></div>
+      <div class="form-group"><label data-i18n="settings.projectName">Project Name</label><input id="newProjName" placeholder="e.g. ecommerce" oninput="autoGenerateDomain()"></div>
+      <div class="form-group"><label data-i18n="settings.httpPort">HTTP Port</label><input id="newProjPort" value="8070" type="number"></div>
+      <div class="form-group" style="grid-column:1/-1"><label data-i18n="modal.projectDomain">Domain (auto-generated)</label><input id="newProjDomain" data-i18n-placeholder="modal.domainPlaceholder" placeholder="auto: project-name.odoo.local" readonly></div>
+      <div class="form-group"><label data-i18n="settings.dbHost">DB Host</label><input id="newProjDbHost" value="localhost"></div>
+      <div class="form-group"><label data-i18n="settings.dbPort">DB Port</label><input id="newProjDbPort" value="5434" type="number"></div>
+      <div class="form-group"><label data-i18n="settings.dbUser">DB User</label><input id="newProjDbUser" value="odoo"></div>
+      <div class="form-group"><label data-i18n="settings.dbPassword">DB Password</label><input id="newProjDbPass" value="odoo"></div>
     </div>
     <div class="form-section" style="margin-top:12px;margin-bottom:0">
-      <h3 onclick="toggleAdvanced('advNew')" style="margin-bottom:0"><span class="arrow" id="arrowAdvNew">&#9654;</span> Advanced Config</h3>
+      <h3 onclick="toggleAdvanced('advNew')" style="margin-bottom:0"><span class="arrow" id="arrowAdvNew">&#9654;</span> <span data-i18n="modal.advancedConfig">Advanced Config</span></h3>
       <div class="collapsible" id="advNew">
         <div class="form-grid" style="margin-top:10px">
-          <div class="form-group"><label>Log Level</label><select id="newLogLevel"><option value="error" selected>error</option><option value="warn">warn</option><option value="info">info</option><option value="debug">debug</option></select></div>
-          <div class="form-group"><label>Workers</label><input id="newWorkers" value="0" type="number"></div>
-          <div class="form-group"><label>DB Filter</label><input id="newDbfilter" placeholder="e.g. ^mydb.*$"></div>
-          <div class="form-group"><label>Proxy Mode</label><select id="newProxyMode"><option value="True" selected>True</option><option value="False">False</option></select></div>
+          <div class="form-group"><label data-i18n="settings.logLevel">Log Level</label><select id="newLogLevel"><option value="error" selected>error</option><option value="warn">warn</option><option value="info">info</option><option value="debug">debug</option></select></div>
+          <div class="form-group"><label data-i18n="settings.workers">Workers</label><input id="newWorkers" value="0" type="number"></div>
+          <div class="form-group"><label data-i18n="settings.dbFilter">DB Filter</label><input id="newDbfilter" placeholder="e.g. ^mydb.*$"></div>
+          <div class="form-group"><label data-i18n="settings.proxyMode">Proxy Mode</label><select id="newProxyMode"><option value="True" selected>True</option><option value="False">False</option></select></div>
         </div>
       </div>
     </div>
     <div class="btn-row" style="justify-content:flex-end">
-      <button class="btn btn-outline btn-sm" onclick="hideModal('modalNewProject')">Cancel</button>
-      <button class="btn btn-primary btn-sm" onclick="createProject()">Create Project</button>
+      <button class="btn btn-outline btn-sm" onclick="hideModal('modalNewProject')" data-i18n="project.cancel">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="createProject()" data-i18n="project.create">Create Project</button>
     </div>
     </div><!-- /modal-body -->
   </div>
@@ -495,20 +495,20 @@
 <div class="modal-overlay" id="modalDelete">
   <div class="modal">
     <div class="modal-header">
-      <h3>Delete Project</h3>
+      <h3 data-i18n="modal.deleteProject">Delete Project</h3>
       <button class="btn-close-modal" onclick="hideModal('modalDelete')">&#10005;</button>
     </div>
     <div class="modal-body">
-      <p style="color:#f85149;margin-bottom:12px">This will permanently delete the project folder.</p>
-      <p style="margin-bottom:8px">Type <strong id="deleteTargetName" style="color:#e6edf3"></strong> to confirm:</p>
-      <input id="deleteConfirmInput" placeholder="Type project name">
+      <p style="color:#f85149;margin-bottom:12px" data-i18n="modal.deleteWarning">This will permanently delete the project folder.</p>
+      <p style="margin-bottom:8px" data-i18n-html="modal.deleteConfirm">Type <strong id="deleteTargetName" style="color:#e6edf3"></strong> to confirm:</p>
+      <input id="deleteConfirmInput" data-i18n-placeholder="modal.deleteTypeName" placeholder="Type project name">
       <label style="display:flex;align-items:center;gap:8px;margin:12px 0;cursor:pointer;font-size:0.85rem">
         <input type="checkbox" id="deleteDropDb">
-        <span>Also drop project databases from PostgreSQL</span>
+        <span data-i18n="modal.dropDb">Also drop project databases from PostgreSQL</span>
       </label>
       <div class="btn-row">
-        <button class="btn btn-outline btn-sm" onclick="hideModal('modalDelete')">Cancel</button>
-        <button class="btn btn-danger btn-sm" onclick="confirmDelete()">Delete</button>
+        <button class="btn btn-outline btn-sm" onclick="hideModal('modalDelete')" data-i18n="project.cancel">Cancel</button>
+        <button class="btn btn-danger btn-sm" onclick="confirmDelete()" data-i18n="project.delete">Delete</button>
       </div>
     </div>
   </div>
@@ -516,17 +516,17 @@
 <div class="modal-overlay" id="modalDuplicate">
   <div class="modal">
     <div class="modal-header">
-      <h3>Duplicate Project - <span id="dupSourceName"></span></h3>
+      <h3><span data-i18n="modal.duplicateProject">Duplicate Project</span> - <span id="dupSourceName"></span></h3>
       <button class="btn-close-modal" onclick="hideModal('modalDuplicate')">&#10005;</button>
     </div>
     <div class="modal-body">
       <div class="form-grid" style="margin-bottom:12px">
-        <div class="form-group"><label>New Project Name</label><input id="dupNewName" placeholder="e.g. my_project_copy"></div>
-        <div class="form-group"><label>New HTTP Port</label><input id="dupNewPort" value="8071" type="number"></div>
+        <div class="form-group"><label data-i18n="modal.newName">New Project Name</label><input id="dupNewName" data-i18n-placeholder="modal.newNamePlaceholder" placeholder="e.g. my_project_copy"></div>
+        <div class="form-group"><label data-i18n="modal.newHttpPort">New HTTP Port</label><input id="dupNewPort" value="8071" type="number"></div>
       </div>
       <div class="btn-row">
-        <button class="btn btn-outline btn-sm" onclick="hideModal('modalDuplicate')">Cancel</button>
-        <button class="btn btn-primary btn-sm" onclick="confirmDuplicate()">Duplicate</button>
+        <button class="btn btn-outline btn-sm" onclick="hideModal('modalDuplicate')" data-i18n="project.cancel">Cancel</button>
+        <button class="btn btn-primary btn-sm" onclick="confirmDuplicate()" data-i18n="project.duplicate">Duplicate</button>
       </div>
     </div>
   </div>

@@ -32,8 +32,7 @@ function getTourSteps() {
 // Keep backward compat — TOUR_STEPS as getter
 Object.defineProperty(window, 'TOUR_STEPS', { get: getTourSteps });
 
-// eslint-disable-next-line no-unused-vars
-const DOCS_ENTRIES = [
+function _getDocsEntries() { return [
   {
     id: 'first-install', category: _t('td.cat.start', 'Getting Started'),
     title: _t('td.doc.firstInstall.title', 'First-Time Setup'), icon: 'rocket',
@@ -89,10 +88,28 @@ const DOCS_ENTRIES = [
     videoUrl: null,
     body: _t('td.doc.video.body', '<p>Video coming soon!</p>'),
   },
-];
+  {
+    id: 'create-restore-db', category: _t('td.cat.project', 'Project Management'),
+    title: _t('td.doc.createDb.title', 'Create & Restore Database'), icon: 'database',
+    description: _t('td.doc.createDb.desc', 'Create a new database or restore from a backup file.'),
+    body: _t('td.doc.createDb.body', '<h4>Create Database</h4><ol><li>Start Odoo and open the browser</li><li>Go to <code>/web/database/manager</code></li><li>Click <strong>"Create Database"</strong></li><li>Enter: Master Password (admin_passwd in odoo.conf), Database Name (must match dbfilter pattern), Email, Password</li><li>Click <strong>"Create Database"</strong> — wait 1-3 minutes</li></ol><h4>Restore Database</h4><ol><li>Go to <code>/web/database/manager</code></li><li>Click <strong>"Restore Database"</strong></li><li>Enter Master Password</li><li>Upload your <code>.zip</code> backup file</li><li>Enter a name for the restored database</li><li>Choose "This database was moved" or "This database is a copy"</li><li>Click <strong>"Continue"</strong></li></ol><p><strong>Tips:</strong></p><ul><li>Database name should start with project name (e.g., <code>shop_main</code>) to match dbfilter</li><li>Backup files include filestore — large DBs may take several minutes</li><li>Master password is <code>admin_passwd</code> in odoo.conf (default: <code>odoo</code>)</li></ul>'),
+  },
+  {
+    id: 'vscode-dev', category: _t('td.cat.config', 'Configuration'),
+    title: _t('td.doc.vscodeDev.title', 'Developing with VS Code'), icon: 'code',
+    description: _t('td.doc.vscodeDev.desc', 'VS Code setup for Odoo development — extensions, shortcuts, and workflow.'),
+    body: _t('td.doc.vscodeDev.body', '<h4>Opening a Project</h4><ol><li>Click <strong>"VS Code"</strong> on any project card</li><li>VS Code opens with the project folder as workspace</li><li>Python interpreter is auto-configured to the venv</li></ol><h4>Recommended Extensions</h4><ul><li><strong>Python</strong> (Microsoft) — IntelliSense, debugging</li><li><strong>Odoo</strong> (Odoo S.A.) — Odoo-specific snippets</li><li><strong>XML Tools</strong> — for Odoo XML views</li></ul><h4>Debugging (F5)</h4><ul><li>Press <kbd>F5</kbd> to start Odoo in debug mode</li><li>Set breakpoints by clicking left of line numbers</li><li>Logs appear in the integrated terminal</li><li>Use <kbd>F10</kbd> (step over), <kbd>F11</kbd> (step into), <kbd>Shift+F5</kbd> (stop)</li></ul><h4>Hot Reload</h4><p>With <code>--dev xml</code> (already in launch.json), Odoo auto-reloads XML changes. For Python changes, restart with <kbd>Shift+F5</kbd> then <kbd>F5</kbd>.</p>'),
+  },
+  {
+    id: 'claude-code', category: _t('td.cat.config', 'Configuration'),
+    title: _t('td.doc.claudeCode.title', 'Using Claude Code for Odoo'), icon: 'code',
+    description: _t('td.doc.claudeCode.desc', 'AI-powered coding assistant for Odoo module development.'),
+    body: _t('td.doc.claudeCode.body', '<h4>What is Claude Code?</h4><p>Claude Code is an AI coding assistant that runs in your terminal. It can read your Odoo project files, generate modules, fix bugs, and explain code.</p><h4>Setup</h4><ol><li>Install: <code>npm install -g @anthropic-ai/claude-code</code></li><li>Open terminal in your project folder</li><li>Run: <code>claude</code></li></ol><h4>Common Tasks</h4><ul><li><strong>"Create a new Odoo module called inventory_report"</strong> — generates __manifest__.py, models, views, security</li><li><strong>"Fix this error: [paste error]"</strong> — analyzes and fixes bugs</li><li><strong>"Add a computed field total_price to sale.order.line"</strong> — modifies existing models</li><li><strong>"Write unit tests for my custom module"</strong> — generates test files</li><li><strong>"Explain what this XML view does"</strong> — explains Odoo views</li></ul><h4>Tips</h4><ul><li>Add a <code>CLAUDE.md</code> file in your project with Odoo conventions</li><li>Use <code>/commit</code> to auto-commit changes</li><li>Claude reads <code>odoo.conf</code> to understand your setup</li></ul>'),
+  },
+]; }
+Object.defineProperty(window, 'DOCS_ENTRIES', { get: _getDocsEntries });
 
-// eslint-disable-next-line no-unused-vars
-const TROUBLESHOOT_ENTRIES = [
+function _getTroubleshootEntries() { return [
   { id: 'port-in-use', title: _t('td.ts.port.title', 'Port already in use'), tags: ['port', 'address', 'bind', '8069'], symptom: _t('td.ts.port.symptom', 'Error: "Address already in use" or Odoo won\'t start.'), cause: _t('td.ts.port.cause', 'Another Odoo instance or service is using the same HTTP port.'), solution: _t('td.ts.port.solution', 'Change the HTTP port in project detail, or stop the other process.') },
   { id: 'pg-connection-refused', title: _t('td.ts.pgConn.title', 'PostgreSQL connection refused'), tags: ['postgres', 'connection', 'refused', '5432'], symptom: _t('td.ts.pgConn.symptom', 'Odoo fails to start with "connection refused" to PostgreSQL.'), cause: _t('td.ts.pgConn.cause', 'PostgreSQL service is not running, or running on a different port.'), solution: _t('td.ts.pgConn.solution', 'The app auto-starts PostgreSQL. Check db_port in odoo.conf matches the PostgreSQL port.') },
   { id: 'python-not-found', title: _t('td.ts.python.title', 'Python not found after install'), tags: ['python', 'not found', 'install'], symptom: _t('td.ts.python.symptom', 'Python step fails or shows "Install may need admin rights".'), cause: _t('td.ts.python.cause', 'Python installer needs Administrator privileges.'), solution: _t('td.ts.python.solution', 'Run the app as Administrator.') },
@@ -111,4 +128,5 @@ const TROUBLESHOOT_ENTRIES = [
   { id: 'disk-space', title: _t('td.ts.disk.title', 'Not enough disk space'), tags: ['disk', 'space', 'full'], symptom: _t('td.ts.disk.symptom', 'Installation fails partway or Odoo crashes.'), cause: _t('td.ts.disk.cause', 'Full install needs ~5GB.'), solution: _t('td.ts.disk.solution', 'Free disk space. Change Base Directory to a drive with more space.') },
   { id: 'multiple-pg-conflict', title: _t('td.ts.pgConflict.title', 'Multiple PostgreSQL versions conflict'), tags: ['postgres', 'multiple', 'conflict'], symptom: _t('td.ts.pgConflict.symptom', 'Wrong PostgreSQL version used or DB creation fails.'), cause: _t('td.ts.pgConflict.cause', 'Multiple PG versions on different ports.'), solution: _t('td.ts.pgConflict.solution', 'Check db_port in odoo.conf matches the correct PG version.') },
   { id: 'first-start-slow', title: _t('td.ts.firstStart.title', 'First Odoo start takes very long'), tags: ['first', 'start', 'slow'], symptom: _t('td.ts.firstStart.symptom', 'First start loads for 1-5 minutes.'), cause: _t('td.ts.firstStart.cause', 'Odoo initializes database schema on first start.'), solution: _t('td.ts.firstStart.solution', 'Wait 1-5 minutes. Subsequent starts are faster (~10-30s).') },
-];
+]; }
+Object.defineProperty(window, 'TROUBLESHOOT_ENTRIES', { get: _getTroubleshootEntries });

@@ -96,7 +96,5 @@ async function setLanguage(lang) {
   // Force re-render dynamic panels
   if (typeof _helpRendered !== 'undefined') _helpRendered = false;
   if (typeof refreshStatus === 'function') refreshStatus();
-  if (typeof renderHelpPanel === 'function' && document.getElementById('panel-help')?.classList.contains('active')) {
-    renderHelpPanel();
-  }
+  if (typeof renderHelpPanel === 'function') renderHelpPanel();
 }
