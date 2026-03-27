@@ -111,15 +111,48 @@ export async function deleteProject(
     }
   }
 
+  // Stop Odoo if running on this project's port
   try {
-    fs.rmSync(proj, { recursive: true, force: true });
-    const dbMsg = droppedDbs.length > 0
-      ? `Deleted (dropped ${droppedDbs.length} DB: ${droppedDbs.join(', ')})`
-      : 'Deleted';
-    return { ok: true, msg: dbMsg };
-  } catch (e) {
-    return { ok: false, msg: String(e) };
+    const iniContent = fs.readFileSync(conf, 'utf8');
+    const ini = parseIni(iniContent);
+    const httpPort = ini.options?.http_port || '8069';
+    const { output } = await runCmd(`netstat -ano | findstr ":${httpPort}.*LISTENING"`);
+    const lines = output.trim().split('\n').filter(Boolean);
+    for (const line of lines) {
+      const parts = line.trim().split(/\s+/);
+      const pid = parts[parts.length - 1];
+      if (pid && pid !== '0') {
+        await runCmd(`taskkill /F /PID ${pid}`);
+      }
+    }
+  } catch { /* ignore */ }
+
+  // Close VS Code windows that have this project open
+  try {
+    const projNorm = proj.replace(/\\/g, '\\\\').replace(/\//g, '\\\\');
+    // Kill code.exe processes whose command line contains this project path
+    await runCmd(`powershell -Command "Get-Process code -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match '${projectName}' } | Stop-Process -Force -ErrorAction SilentlyContinue"`);
+    // Small delay for file locks to release
+    await new Promise(r => setTimeout(r, 1000));
+  } catch { /* ignore */ }
+
+  // Retry delete up to 3 times (file locks may take a moment to release)
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      fs.rmSync(proj, { recursive: true, force: true });
+      const dbMsg = droppedDbs.length > 0
+        ? `Deleted (dropped ${droppedDbs.length} DB: ${droppedDbs.join(', ')})`
+        : 'Deleted';
+      return { ok: true, msg: dbMsg };
+    } catch (e) {
+      if (attempt < 2) {
+        await new Promise(r => setTimeout(r, 2000));
+      } else {
+        return { ok: false, msg: `Cannot delete — files may be locked by VS Code or Odoo. Close them first. (${e})` };
+      }
+    }
   }
+  return { ok: false, msg: 'Delete failed after retries.' };
 }
 
 export async function duplicateProject(
