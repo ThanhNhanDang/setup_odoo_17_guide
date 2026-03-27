@@ -213,6 +213,23 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const projectsDir = data?.projects_dir || DEFAULT_PROJECTS_DIR;
     const projectName = data?.project_name || '';
     const dropDatabases = data?.drop_databases === 'true';
+
+    // Close any log watchers for this project's files before deleting
+    const projPath = path.join(projectsDir, projectName);
+    for (const [logPath, entry] of logWatchers) {
+      if (logPath.startsWith(projPath)) {
+        if (entry.watcher) entry.watcher.close();
+        clearInterval(entry.pollTimer);
+        logWatchers.delete(logPath);
+      }
+    }
+    // Close log viewer window for this project
+    if (logWindows.has(projectName)) {
+      const win = logWindows.get(projectName)!;
+      if (!win.isDestroyed()) win.destroy();
+      logWindows.delete(projectName);
+    }
+
     const onProgress = (step: string, done: boolean) => {
       mainWindow.webContents.send('delete-progress', { step, done });
     };
