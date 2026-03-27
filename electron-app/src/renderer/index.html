@@ -480,7 +480,7 @@
     <div class="modal-footer">
       <div class="btn-row" style="flex:1;justify-content:flex-end">
         <button class="btn btn-outline btn-sm" onclick="hideModal('modalNewProject')" data-i18n="project.cancel">Cancel</button>
-        <button class="btn btn-primary btn-sm" onclick="createProject()" data-i18n="project.create">Create Project</button>
+        <button class="btn btn-primary btn-sm" id="btnCreateProject" onclick="createProject(event)" data-i18n="project.create">Create Project</button>
       </div>
     </div>
   </div>
@@ -521,7 +521,7 @@
     <div class="modal-footer">
       <div class="btn-row" style="flex:1;justify-content:flex-end">
         <button class="btn btn-outline btn-sm" onclick="hideModal('modalDelete')" data-i18n="project.cancel">Cancel</button>
-        <button class="btn btn-danger btn-sm" onclick="confirmDelete()" data-i18n="project.delete">Delete</button>
+        <button class="btn btn-danger btn-sm" id="btnConfirmDelete" onclick="confirmDelete(event)" data-i18n="project.delete">Delete</button>
       </div>
     </div>
   </div>
@@ -549,7 +549,7 @@
     <div class="modal-footer" id="dupFooter">
       <div class="btn-row" style="flex:1;justify-content:flex-end">
         <button class="btn btn-outline btn-sm" onclick="hideModal('modalDuplicate')" data-i18n="project.cancel">Cancel</button>
-        <button class="btn btn-primary btn-sm" id="btnDuplicate" onclick="confirmDuplicate()" data-i18n="project.duplicate">Duplicate</button>
+        <button class="btn btn-primary btn-sm" id="btnDuplicate" onclick="confirmDuplicate(event)" data-i18n="project.duplicate">Duplicate</button>
       </div>
     </div>
   </div>

@@ -738,7 +738,7 @@ const DELETE_STEPS = [
   { id: 'delete_files', key: 'modal.delStepDeleteFiles' },
 ];
 
-function _renderProgressSteps(containerId, steps) {
+function _renderProgressSteps(containerId, steps, modalId) {
   const el = $(containerId);
   if (!el) return;
   el.innerHTML = steps.map(s =>
@@ -746,8 +746,15 @@ function _renderProgressSteps(containerId, steps) {
       <span class="dup-step-icon">&#9711;</span>
       <span class="dup-step-label">${t(s.key)}</span>
     </div>`
-  ).join('');
+  ).join('') + `<div class="progress-close" id="prog-close-${containerId}" style="display:none;margin-top:12px;text-align:right">
+    <button class="btn btn-outline btn-sm" onclick="hideModal('${modalId}')">${t('help.close')}</button>
+  </div>`;
   el.style.display = '';
+}
+
+function _showProgressCloseBtn(containerId) {
+  const btn = $('prog-close-' + containerId);
+  if (btn) btn.style.display = '';
 }
 
 function _updateProgressStep(stepId, done) {
@@ -767,7 +774,7 @@ function _updateProgressStep(stepId, done) {
 // ---------------------------------------------------------------------------
 // Create Project
 // ---------------------------------------------------------------------------
-async function createProject() {
+async function createProject(e) {
   try {
     const name = ($('newProjName')?.value || '').trim();
     if (!name) { alert(t('toast.enterName')); return; }
@@ -798,12 +805,16 @@ async function createProject() {
     data.proxy_mode = $('newProxyMode')?.value || 'True';
     data.project_domain = $('newProjDomain')?.value || '';
 
+    // Button pending then switch to progress
+    const btn = (e || event)?.target?.closest?.('button');
+    if (btn) _setBtnPending(btn);
+
     // Show progress in modal
     const formEls = $('modalNewProject').querySelector('.modal-body');
     const footerEl = $('modalNewProject').querySelector('.modal-footer');
     formEls.innerHTML = '<div id="createProgressSteps"></div>';
     if (footerEl) footerEl.style.display = 'none';
-    _renderProgressSteps('createProgressSteps', CREATE_STEPS);
+    _renderProgressSteps('createProgressSteps', CREATE_STEPS, 'modalNewProject');
 
     const handler = (d) => _updateProgressStep(d.step, d.done);
     window.electronAPI.onEvent('create-progress', handler);
@@ -943,31 +954,11 @@ function toggleOdoo(name, isRunning) {
   else startOdoo(name);
 }
 
-let _openingVSCode = false;
 async function openVSCode(projPath, e) {
-  if (_openingVSCode) return;
-  _openingVSCode = true;
-  const btn = (e || event)?.target?.closest?.('button');
-  if (btn) _setBtnPending(btn);
-  try {
-    await api('open_vscode', { path: projPath });
-  } finally {
-    if (btn) setTimeout(() => _resetBtn(btn, t('project.vsCode'), 'btn-vscode'), 1000);
-    setTimeout(() => { _openingVSCode = false; }, 2000);
-  }
+  await withBtnPending(e, 'vscode', t('project.vsCode'), () => api('open_vscode', { path: projPath }));
 }
-let _openingExplorer = false;
 async function openExplorer(projPath, e) {
-  if (_openingExplorer) return;
-  _openingExplorer = true;
-  const btn = (e || event)?.target?.closest?.('button');
-  if (btn) _setBtnPending(btn);
-  try {
-    await api('open_explorer', { path: projPath });
-  } finally {
-    if (btn) setTimeout(() => _resetBtn(btn, t('project.explorer'), 'btn-outline'), 1000);
-    setTimeout(() => { _openingExplorer = false; }, 2000);
-  }
+  await withBtnPending(e, 'explorer', t('project.explorer'), () => api('open_explorer', { path: projPath }));
 }
 
 /** Set any button to pending: lock width, show spinner only */
@@ -982,11 +973,30 @@ function _resetBtn(btn, text, cls) {
   btn.style.minWidth = '';
   btn.textContent = text;
 }
-async function openLogWindow(projectName, logPath) {
-  const btn = event?.target?.closest?.('button');
+
+/**
+ * Reusable hook: run an async action with button pending state + double-click guard.
+ * @param {Event|null} e - click event (to find button)
+ * @param {string} guardKey - unique key for double-click guard
+ * @param {string} label - button text to restore after done
+ * @param {Function} asyncFn - async function to run
+ * @param {number} cooldown - ms to keep guard after done (default 2000)
+ */
+const _actionGuards = {};
+async function withBtnPending(e, guardKey, label, asyncFn, cooldown) {
+  if (_actionGuards[guardKey]) return;
+  _actionGuards[guardKey] = true;
+  const btn = (e || event)?.target?.closest?.('button');
   if (btn) _setBtnPending(btn);
-  await api('open-log-window', { projectName, logPath });
-  if (btn) setTimeout(() => _resetBtn(btn, t('project.log'), 'btn-outline'), 800);
+  try {
+    await asyncFn();
+  } finally {
+    if (btn) setTimeout(() => _resetBtn(btn, label, ''), 800);
+    setTimeout(() => { _actionGuards[guardKey] = false; }, cooldown || 2000);
+  }
+}
+async function openLogWindow(projectName, logPath, e) {
+  await withBtnPending(e, 'log-' + projectName, t('project.log'), () => api('open-log-window', { projectName, logPath }));
 }
 async function openBrowser(port) { await api('open_browser', { url: `http://localhost:${port}` }); }
 async function openProjectUrl(domain, port) {
@@ -1052,8 +1062,10 @@ function deleteProject(name) {
   showModal('modalDelete');
 }
 
-async function confirmDelete() {
+async function confirmDelete(e) {
   if ($('deleteConfirmInput').value.trim() !== _deletingProject) { alert(t('toast.nameNoMatch')); return; }
+  const btn = (e || event)?.target?.closest?.('button');
+  if (btn) _setBtnPending(btn);
   const data = getFormData();
   const dropDb = $('deleteDropDb')?.checked ? 'true' : 'false';
 
@@ -1063,7 +1075,7 @@ async function confirmDelete() {
   bodyEl.innerHTML = '<div id="deleteProgressSteps"></div>';
   if (footerEl) footerEl.style.display = 'none';
   const steps = dropDb === 'true' ? DELETE_STEPS : DELETE_STEPS.filter(s => s.id !== 'drop_databases');
-  _renderProgressSteps('deleteProgressSteps', steps);
+  _renderProgressSteps('deleteProgressSteps', steps, 'modalDelete');
 
   const handler = (d) => _updateProgressStep(d.step, d.done);
   window.electronAPI.onEvent('delete-progress', handler);
@@ -1178,29 +1190,14 @@ function validateDupPort() {
 }
 
 function _renderDupProgress() {
-  $('dupSteps').innerHTML = DUP_STEPS.map(s =>
-    `<div class="dup-step" id="dup-${s.id}">
-      <span class="dup-step-icon">&#9711;</span>
-      <span class="dup-step-label">${t(s.key)}</span>
-    </div>`
-  ).join('');
+  _renderProgressSteps('dupSteps', DUP_STEPS, 'modalDuplicate');
 }
 
 function _updateDupStep(stepId, done) {
-  const el = $('dup-' + stepId);
-  if (!el) return;
-  const icon = el.querySelector('.dup-step-icon');
-  if (done) {
-    icon.innerHTML = '&#10003;';
-    el.classList.add('done');
-    el.classList.remove('active');
-  } else {
-    icon.innerHTML = '<span class="spinner-sm"></span>';
-    el.classList.add('active');
-  }
+  _updateProgressStep(stepId, done);
 }
 
-async function confirmDuplicate() {
+async function confirmDuplicate(e) {
   const newName = ($('dupNewName')?.value || '').trim();
   if (!newName) { showToastMessage(t('toast.enterName'), 'error'); return; }
   if (!isValidProjectName(newName)) { showToastMessage(t('toast.invalidName'), 'error'); return; }
@@ -1213,6 +1210,10 @@ async function confirmDuplicate() {
   const port = parseInt($('dupNewPort')?.value);
   const portUsed = _status?.projects?.some(p => parseInt(p.http_port) === port || parseInt(p.longpolling_port) === port);
   if (portUsed) { showToastMessage(t('modal.dupPortUsed'), 'error'); return; }
+
+  // Button pending then switch to progress
+  const btn = (e || event)?.target?.closest?.('button');
+  if (btn) _setBtnPending(btn);
 
   // Switch to progress view
   $('dupForm').style.display = 'none';
@@ -1345,7 +1346,7 @@ function renderKanban(projects) {
               : `<span class="kanban-tag kanban-tag-stopped">${t('project.stoppedTag')}</span>`}
           ${p.custom_modules > 0 ? `<span class="kanban-tag kanban-tag-modules">${p.custom_modules} modules</span>` : ''}
         </div>
-        <button class="kanban-log-btn" onclick="openLogWindow('${escAttr(p.name)}','${escAttr(p.logfile || (p.path + '\\\\odoo.log'))}')" title="${t('project.log')}">
+        <button class="kanban-log-btn" onclick="openLogWindow('${escAttr(p.name)}','${escAttr(p.logfile || (p.path + '\\\\odoo.log'))}',event)" title="${t('project.log')}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
         </button>
       </div>
