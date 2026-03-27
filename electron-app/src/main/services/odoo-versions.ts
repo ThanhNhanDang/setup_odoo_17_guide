@@ -22,34 +22,10 @@ export interface OdooVersionConfig {
   readonly extraPipPackages: readonly string[];  // extra pip packages beyond requirements.txt
 }
 
-// Common extra packages shared across all versions
-// NOTE: cryptography + pyOpenSSL must be upgraded together to avoid
-// "X509_V_FLAG_NOTIFY_POLICY" AttributeError from version mismatch.
-const COMMON_EXTRA_PACKAGES: readonly string[] = [
-  'cryptography>=42.0',
-  'pyOpenSSL>=24.0',
-  'debugpy',
-  'openpyxl',
-  'numpy',
-  'pandas',
-  'python-docx',
-  'python-pptx',
-  'python-barcode',
-  'reportlab_qrcode',
-  'pdf2image',
-  'genshi',
-  'py3o.template',
-  'pyodbc',
-  'sqlparse',
-  'python-socketio',
-  'python-engineio',
-  'bidict',
-  'typing_extensions',
-  'google-api-python-client',
-  'httpagentparser',
-  'paho-mqtt',
-  'unoconv',
-];
+// Extra packages beyond requirements.txt — disabled for now pending
+// cryptography/pyOpenSSL version compatibility testing.
+// TODO: re-enable after validating against each Odoo version's venv.
+const COMMON_EXTRA_PACKAGES: readonly string[] = [];
 
 export const ODOO_VERSIONS: Readonly<Record<OdooVersionKey, OdooVersionConfig>> = {
   '15': {

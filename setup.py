@@ -33,15 +33,7 @@ POSTGRES_URL = "https://get.enterprisedb.com/postgresql/postgresql-16.6-1-window
 ODOO_GIT_URL = "https://github.com/odoo/odoo.git"
 ODOO_BRANCH = "17.0"
 
-EXTRA_PIP_PACKAGES = [
-    "cryptography>=42.0", "pyOpenSSL>=24.0",
-    "debugpy", "openpyxl", "numpy", "pandas",
-    "python-docx", "python-pptx", "python-barcode", "reportlab_qrcode",
-    "pdf2image", "genshi", "py3o.template", "pyodbc", "sqlparse",
-    "python-socketio", "python-engineio", "bidict", "typing_extensions",
-    "google-api-python-client", "httpagentparser", "paho-mqtt", "unoconv",
-    "PyPDF2>=3.0",
-]
+EXTRA_PIP_PACKAGES = []
 
 PROJECT_DEFAULTS = {
     "addons_path": "./addons,./odoo/addons",
