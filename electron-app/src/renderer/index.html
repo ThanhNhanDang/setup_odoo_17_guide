@@ -199,6 +199,7 @@
       <div class="form-grid">
         <div class="form-group"><label data-i18n="settings.baseDir">Base Directory</label><input id="baseDir" value=""></div>
         <div class="form-group"><label data-i18n="settings.projectsDir">Projects Directory</label><input id="projectsDir" value=""></div>
+        <div class="form-group"><label data-i18n="settings.odooSourceDir">Odoo Source Folder</label><input id="odooSourceDir" value="odoo" data-i18n-placeholder="settings.odooSourceDirPlaceholder" placeholder="default: odoo"></div>
       </div>
     </div>
 
@@ -260,6 +261,11 @@
       </div>
     </div>
     </div><!-- /modal-body -->
+    <div class="modal-footer">
+      <span class="save-status" id="settingsSaveStatus">&#10003; <span data-i18n="settings.saved">Saved</span></span>
+      <div style="flex:1"></div>
+      <button class="btn btn-outline btn-sm" onclick="$('settingsModal').classList.remove('visible')" data-i18n="help.close">Close</button>
+    </div>
   </div>
 </div>
 
@@ -470,11 +476,13 @@
         </div>
       </div>
     </div>
-    <div class="btn-row" style="justify-content:flex-end">
-      <button class="btn btn-outline btn-sm" onclick="hideModal('modalNewProject')" data-i18n="project.cancel">Cancel</button>
-      <button class="btn btn-primary btn-sm" onclick="createProject()" data-i18n="project.create">Create Project</button>
-    </div>
     </div><!-- /modal-body -->
+    <div class="modal-footer">
+      <div class="btn-row" style="flex:1;justify-content:flex-end">
+        <button class="btn btn-outline btn-sm" onclick="hideModal('modalNewProject')" data-i18n="project.cancel">Cancel</button>
+        <button class="btn btn-primary btn-sm" onclick="createProject()" data-i18n="project.create">Create Project</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -486,9 +494,11 @@
     </div>
     <div class="modal-body">
       <textarea id="modalConfigContent"></textarea>
-      <div class="btn-row">
-        <button class="btn btn-outline btn-sm" onclick="hideModal('modalConfig')">Cancel</button>
-        <button class="btn btn-primary btn-sm" onclick="saveConfig()">Save</button>
+    </div>
+    <div class="modal-footer">
+      <div class="btn-row" style="flex:1;justify-content:flex-end">
+        <button class="btn btn-outline btn-sm" onclick="hideModal('modalConfig')" data-i18n="project.cancel">Cancel</button>
+        <button class="btn btn-primary btn-sm" onclick="saveConfig()" data-i18n="project.save">Save</button>
       </div>
     </div>
   </div>
@@ -503,11 +513,13 @@
       <p style="color:#f85149;margin-bottom:12px" data-i18n="modal.deleteWarning">This will permanently delete the project folder.</p>
       <p style="margin-bottom:8px" id="deleteConfirmText">Type <strong id="deleteTargetName" style="color:#e6edf3"></strong> to confirm:</p>
       <input id="deleteConfirmInput" data-i18n-placeholder="modal.deleteTypeName" placeholder="Type project name">
-      <label style="display:flex;align-items:center;gap:8px;margin:12px 0;cursor:pointer;font-size:0.85rem">
+      <label style="display:flex;align-items:center;gap:8px;margin:12px 0 0;cursor:pointer;font-size:0.85rem">
         <input type="checkbox" id="deleteDropDb">
         <span data-i18n="modal.dropDb">Also drop project databases from PostgreSQL</span>
       </label>
-      <div class="btn-row">
+    </div>
+    <div class="modal-footer">
+      <div class="btn-row" style="flex:1;justify-content:flex-end">
         <button class="btn btn-outline btn-sm" onclick="hideModal('modalDelete')" data-i18n="project.cancel">Cancel</button>
         <button class="btn btn-danger btn-sm" onclick="confirmDelete()" data-i18n="project.delete">Delete</button>
       </div>
@@ -527,15 +539,17 @@
           <div class="form-group"><label data-i18n="modal.newName">New Project Name</label><input id="dupNewName" data-i18n-placeholder="modal.newNamePlaceholder" placeholder="e.g. my_project_copy" oninput="validateProjectNameInput(this);autoDupDomain()"><span class="input-hint" style="display:none"></span></div>
           <div class="form-group"><label data-i18n="modal.newHttpPort">New HTTP Port</label><input id="dupNewPort" value="8071" type="number" oninput="validateDupPort()"><span class="input-hint" id="dupPortHint" style="display:none"></span></div>
         </div>
-        <p style="font-size:0.75rem;color:var(--text-tertiary);margin:0 0 12px" data-i18n="modal.dupNote">Database will not be copied. Create a new database or restore from backup after duplication.</p>
-        <div class="btn-row">
-          <button class="btn btn-outline btn-sm" onclick="hideModal('modalDuplicate')" data-i18n="project.cancel">Cancel</button>
-          <button class="btn btn-primary btn-sm" id="btnDuplicate" onclick="confirmDuplicate()" data-i18n="project.duplicate">Duplicate</button>
-        </div>
+        <p style="font-size:0.75rem;color:var(--text-tertiary);margin:0" data-i18n="modal.dupNote">Database will not be copied. Create a new database or restore from backup after duplication.</p>
       </div>
       <!-- Progress (shown during duplicating) -->
       <div id="dupProgress" style="display:none">
         <div class="dup-steps" id="dupSteps"></div>
+      </div>
+    </div>
+    <div class="modal-footer" id="dupFooter">
+      <div class="btn-row" style="flex:1;justify-content:flex-end">
+        <button class="btn btn-outline btn-sm" onclick="hideModal('modalDuplicate')" data-i18n="project.cancel">Cancel</button>
+        <button class="btn btn-primary btn-sm" id="btnDuplicate" onclick="confirmDuplicate()" data-i18n="project.duplicate">Duplicate</button>
       </div>
     </div>
   </div>

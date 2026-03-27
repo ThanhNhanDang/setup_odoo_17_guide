@@ -100,7 +100,7 @@ function checkPort(port: number, host: string = 'localhost', timeout: number = 1
 // Parse project config (odoo.conf)
 // ---------------------------------------------------------------------------
 
-export async function parseProjectConfig(projectPath: string, baseDir: string = DEFAULT_BASE_DIR): Promise<ProjectInfo> {
+export async function parseProjectConfig(projectPath: string, baseDir: string = DEFAULT_BASE_DIR, odooSourceDir: string = 'odoo'): Promise<ProjectInfo> {
   const confFile = path.join(projectPath, 'odoo.conf');
   const info: {
     name: string;
@@ -234,7 +234,7 @@ export async function parseProjectConfig(projectPath: string, baseDir: string = 
 
   // Build start command
   const venvPy = path.join(baseDir, 'venv', 'Scripts', 'python.exe');
-  const odooBin = path.join(baseDir, 'odoo', 'odoo-bin');
+  const odooBin = path.join(baseDir, odooSourceDir, 'odoo-bin');
   info.start_command = `"${venvPy}" "${odooBin}" -c "${confFile}"`;
 
   // Read domain from comment line in odoo.conf
@@ -258,7 +258,7 @@ export async function parseProjectConfig(projectPath: string, baseDir: string = 
 let _statusCache: { result: StatusResult; timestamp: number } | null = null;
 const CACHE_TTL = 5000; // 5 seconds
 
-export async function detectStatus(baseDir: string, projectsDir: string): Promise<StatusResult> {
+export async function detectStatus(baseDir: string, projectsDir: string, odooSourceDir: string = 'odoo'): Promise<StatusResult> {
   // Return cache if fresh
   if (_statusCache && Date.now() - _statusCache.timestamp < CACHE_TTL) {
     return _statusCache.result;
@@ -267,7 +267,7 @@ export async function detectStatus(baseDir: string, projectsDir: string): Promis
   // Fast: file-only checks (no external processes)
   const py311 = findPython311();
   const pgBin = findPostgresBin();
-  const odooCloned = fs.existsSync(path.join(baseDir, 'odoo', 'odoo-bin'));
+  const odooCloned = fs.existsSync(path.join(baseDir, odooSourceDir, 'odoo-bin'));
   const venvCreated = fs.existsSync(path.join(baseDir, 'venv', 'Scripts', 'python.exe'));
   const reqInstalled = fs.existsSync(path.join(baseDir, 'venv', 'Lib', 'site-packages', 'lxml'));
   const nginx = isNginxInstalled(baseDir);
@@ -300,7 +300,7 @@ export async function detectStatus(baseDir: string, projectsDir: string): Promis
       const dirPath = path.join(projectsDir, entry);
       try {
         if (fs.statSync(dirPath).isDirectory() && fs.existsSync(path.join(dirPath, 'odoo.conf'))) {
-          projectPromises.push(parseProjectConfig(dirPath, baseDir).catch(() => null));
+          projectPromises.push(parseProjectConfig(dirPath, baseDir, odooSourceDir).catch(() => null));
         }
       } catch { /* skip */ }
     }

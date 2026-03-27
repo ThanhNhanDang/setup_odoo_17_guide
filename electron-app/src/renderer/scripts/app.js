@@ -134,6 +134,7 @@ function getFormData() {
     odoo_version: $('odooVersion')?.value || '17',
     base_dir: $('baseDir').value,
     projects_dir: $('projectsDir').value,
+    odoo_source_dir: $('odooSourceDir')?.value || 'odoo',
     project_name: $('projectName').value,
     http_port: $('httpPort').value,
     db_host: $('dbHost').value,
@@ -161,7 +162,7 @@ function getFormData() {
 // Settings Persistence — save form fields to disk so they survive app restart
 // ---------------------------------------------------------------------------
 const SETTINGS_FIELD_IDS = [
-  'odooVersion', 'baseDir', 'projectsDir', 'projectName',
+  'odooVersion', 'baseDir', 'projectsDir', 'odooSourceDir', 'projectName',
   'httpPort', 'dbHost', 'dbPort', 'dbUser', 'dbPassword', 'pgSuperPassword', 'pgMode',
   'addonsPath', 'adminPasswd', 'longpollingPort', 'logLevel', 'workers',
   'listDb', 'dbfilter', 'proxyMode', 'serverWideModules', 'dataDir', 'memHard', 'memSoft',
@@ -174,7 +175,18 @@ function saveSettingsToDisk() {
     const el = $(id);
     if (el) settings[id] = el.value;
   }
-  api('save-settings', settings).catch(() => {});
+  api('save-settings', settings).then(() => {
+    showSettingsSaveStatus();
+  }).catch(() => {});
+}
+
+let _saveStatusTimer = null;
+function showSettingsSaveStatus() {
+  const el = $('settingsSaveStatus');
+  if (!el) return;
+  el.classList.add('visible');
+  clearTimeout(_saveStatusTimer);
+  _saveStatusTimer = setTimeout(() => el.classList.remove('visible'), 2000);
 }
 
 async function loadSettingsFromDisk() {

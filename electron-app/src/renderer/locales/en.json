@@ -22,6 +22,8 @@
     "serverWideModules": "Server Wide Modules",
     "dataDir": "Data Dir (filestore)", "dataDirPlaceholder": "Leave empty for Odoo default",
     "memHard": "Memory Hard Limit", "memSoft": "Memory Soft Limit",
+    "odooSourceDir": "Odoo Source Folder", "odooSourceDirPlaceholder": "default: odoo",
+    "saved": "Saved",
     "about": "About", "currentVersion": "Current version:", "checkUpdates": "Check for Updates",
     "language": "Language"
   },

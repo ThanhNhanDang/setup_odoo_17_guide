@@ -22,6 +22,8 @@
     "serverWideModules": "서버 와이드 모듈",
     "dataDir": "데이터 디렉토리 (파일스토어)", "dataDirPlaceholder": "Odoo 기본값을 사용하려면 비워두세요",
     "memHard": "메모리 하드 제한", "memSoft": "메모리 소프트 제한",
+    "odooSourceDir": "Odoo 소스 폴더", "odooSourceDirPlaceholder": "기본값: odoo",
+    "saved": "저장됨",
     "about": "정보", "currentVersion": "현재 버전:", "checkUpdates": "업데이트 확인",
     "language": "언어"
   },

@@ -85,7 +85,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   ipcMain.handle('status', async (_event, data: Record<string, string>) => {
     const baseDir = data?.base_dir || DEFAULT_BASE_DIR;
     const projectsDir = data?.projects_dir || DEFAULT_PROJECTS_DIR;
-    return safe(() => detectStatus(baseDir, projectsDir));
+    const odooSourceDir = data?.odoo_source_dir || 'odoo';
+    return safe(() => detectStatus(baseDir, projectsDir, odooSourceDir));
   });
 
   // --- Log ---
@@ -222,7 +223,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     try {
       const templatesDir = getTemplatesDir();
       const venvPython = path.join(baseDir, 'venv', 'Scripts', 'python.exe').replace(/\\/g, '\\\\');
-      const odooBin = path.join(baseDir, 'odoo', 'odoo-bin').replace(/\\/g, '\\\\');
+      const odooSourceDir2 = data?.odoo_source_dir || 'odoo';
+      const odooBin = path.join(baseDir, odooSourceDir2, 'odoo-bin').replace(/\\/g, '\\\\');
 
       // Reset launch.json
       const vscodePath = path.join(proj, '.vscode');
@@ -278,7 +280,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const projPath = path.join(projectsDir, projectName);
     const conf = path.join(projPath, 'odoo.conf');
     const venvPy = path.join(baseDir, 'venv', 'Scripts', 'python.exe');
-    const odooBin = path.join(baseDir, 'odoo', 'odoo-bin');
+    const odooSourceDir = data?.odoo_source_dir || 'odoo';
+    const odooBin = path.join(baseDir, odooSourceDir, 'odoo-bin');
     const logFile = path.join(projPath, 'odoo.log').replace(/\\/g, '/');
     const cmd = `"${venvPy}" "${odooBin}" -c "${conf}" --logfile "${logFile}"`;
 

@@ -355,17 +355,17 @@ export async function stepCreatePgUser(
   }
 }
 
-export async function stepCloneOdoo(baseDir: string, logger: LoggerService, odooVersion: string = DEFAULT_ODOO_VERSION): Promise<StepResult> {
+export async function stepCloneOdoo(baseDir: string, logger: LoggerService, odooVersion: string = DEFAULT_ODOO_VERSION, odooSourceDir: string = 'odoo'): Promise<StepResult> {
   const vCfg = getVersionConfig(odooVersion);
   fs.mkdirSync(baseDir, { recursive: true });
-  const odooBin = path.join(baseDir, 'odoo', 'odoo-bin');
+  const odooBin = path.join(baseDir, odooSourceDir, 'odoo-bin');
   if (fs.existsSync(odooBin)) {
     logger.log('Odoo source already cloned.');
     return { ok: true, msg: 'Already cloned' };
   }
-  logger.log(`Cloning ${vCfg.label} (branch ${vCfg.branch}, shallow clone)...`);
+  logger.log(`Cloning ${vCfg.label} (branch ${vCfg.branch}, shallow clone) into ${odooSourceDir}/...`);
   const code = await runCmdStreaming(
-    `git clone --progress --branch ${vCfg.branch} --single-branch --depth 1 ${ODOO_GIT_URL}`,
+    `git clone --progress --branch ${vCfg.branch} --single-branch --depth 1 ${ODOO_GIT_URL} "${odooSourceDir}"`,
     logger,
     {
       cwd: baseDir,
@@ -428,10 +428,10 @@ export async function stepCreateVenv(baseDir: string, logger: LoggerService, odo
   return { ok: false, msg: `Failed to create venv (exit code: ${code}). Check ${vCfg.pythonVersion} installation.` };
 }
 
-export async function stepInstallRequirements(baseDir: string, logger: LoggerService, odooVersion: string = DEFAULT_ODOO_VERSION): Promise<StepResult> {
+export async function stepInstallRequirements(baseDir: string, logger: LoggerService, odooVersion: string = DEFAULT_ODOO_VERSION, odooSourceDir: string = 'odoo'): Promise<StepResult> {
   const vCfg = getVersionConfig(odooVersion);
   const pipExe = path.join(baseDir, 'venv', 'Scripts', 'pip.exe');
-  const reqFile = path.join(baseDir, 'odoo', 'requirements.txt');
+  const reqFile = path.join(baseDir, odooSourceDir, 'requirements.txt');
   if (!fs.existsSync(pipExe)) {
     return { ok: false, msg: 'Venv not found.' };
   }
@@ -544,9 +544,10 @@ export async function stepCreateProject(
   fs.mkdirSync(path.join(proj, 'addons'), { recursive: true });
   fs.mkdirSync(path.join(proj, '.vscode'), { recursive: true });
 
-  // Junction link
+  // Junction link — use custom Odoo source dir name if set
+  const odooSourceDir = opts.odoo_source_dir || 'odoo';
   const odooLink = path.join(proj, 'odoo');
-  const odooSource = path.join(baseDir, 'odoo');
+  const odooSource = path.join(baseDir, odooSourceDir);
   if (!fs.existsSync(odooLink)) {
     await runCmd(`cmd /c mklink /J "${odooLink}" "${odooSource}"`);
     if (!fs.existsSync(odooLink)) {
@@ -601,7 +602,7 @@ export async function stepCreateProject(
 
   // launch.json from template
   const venvPython = path.join(baseDir, 'venv', 'Scripts', 'python.exe').replace(/\\/g, '\\\\');
-  const odooBin = path.join(baseDir, 'odoo', 'odoo-bin').replace(/\\/g, '\\\\');
+  const odooBin = path.join(baseDir, odooSourceDir, 'odoo-bin').replace(/\\/g, '\\\\');
   let launchContent = fs.readFileSync(path.join(templatesDir, 'launch.json'), 'utf8');
   launchContent = launchContent.replace(/\{python_path\}/g, venvPython);
   launchContent = launchContent.replace(/\{odoo_bin_path\}/g, odooBin);
@@ -709,6 +710,7 @@ export async function stepFullInstall(
   const dbPassword = opts.db_password || 'odoo';
   const pgSuperPassword = opts.pg_super_password || 'postgres';
   const pgMode = opts.pg_mode || 'auto';
+  const odooSourceDir = opts.odoo_source_dir || 'odoo';
   const results: FullInstallResult[] = [];
 
   // ── Start all independent downloads/installs at once ──
@@ -729,7 +731,7 @@ export async function stepFullInstall(
   const clonePromise = gitPromise.then(gitResult => {
     results.push(gitResult);
     logger.updateTask({ status: 'running', step: `Cloning ${vCfg.label}...`, progress: 20 });
-    return runNamedStep(`Cloning ${vCfg.label}...`, 'clone_odoo', () => stepCloneOdoo(baseDir, logger, odooVersion), logger, lock);
+    return runNamedStep(`Cloning ${vCfg.label}...`, 'clone_odoo', () => stepCloneOdoo(baseDir, logger, odooVersion, odooSourceDir), logger, lock);
   });
 
   // ── Chain: Python done → Venv → Pip Install ──
@@ -743,7 +745,7 @@ export async function stepFullInstall(
     const cloneResult = await clonePromise;
     results.push(cloneResult);
     logger.updateTask({ status: 'running', step: 'Installing pip requirements...', progress: 50 });
-    return runNamedStep('Installing requirements...', 'install_requirements', () => stepInstallRequirements(baseDir, logger, odooVersion), logger, lock);
+    return runNamedStep('Installing requirements...', 'install_requirements', () => stepInstallRequirements(baseDir, logger, odooVersion, odooSourceDir), logger, lock);
   });
 
   // ── Chain: PG done → Create DB User ──

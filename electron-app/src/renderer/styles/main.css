@@ -1009,6 +1009,14 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .modal-body{
   padding:24px;overflow-y:auto;flex:1;min-height:0;
 }
+.modal-footer{
+  padding:16px 24px;flex-shrink:0;
+  border-top:1px solid var(--border-muted);
+  display:flex;align-items:center;gap:8px;
+}
+.modal-footer .btn-row{margin-top:0;flex:1}
+.modal-footer .save-status{font-size:0.75rem;color:var(--success);opacity:0;transition:opacity 0.3s}
+.modal-footer .save-status.visible{opacity:1}
 .modal textarea{
   width:100%;min-height:400px;background:var(--bg-canvas);border:1px solid var(--border-default);
   border-radius:6px;padding:12px;font-family:'Cascadia Code',Consolas,monospace;

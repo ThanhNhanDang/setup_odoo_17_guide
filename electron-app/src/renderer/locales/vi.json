@@ -22,6 +22,8 @@
     "serverWideModules": "Server Wide Modules",
     "dataDir": "Thư mục dữ liệu (filestore)", "dataDirPlaceholder": "Để trống để dùng mặc định Odoo",
     "memHard": "Giới hạn bộ nhớ (hard)", "memSoft": "Giới hạn bộ nhớ (soft)",
+    "odooSourceDir": "Thư mục mã nguồn Odoo", "odooSourceDirPlaceholder": "mặc định: odoo",
+    "saved": "Đã lưu",
     "about": "Thông tin", "currentVersion": "Phiên bản hiện tại:", "checkUpdates": "Kiểm tra cập nhật",
     "language": "Ngôn ngữ"
   },
