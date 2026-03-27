@@ -240,6 +240,14 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         fs.writeFileSync(path.join(vscodePath, 'settings.json'), settingsContent, 'utf8');
       }
 
+      // Fix logfile in odoo.conf (set to False so VS Code F5 shows logs in terminal)
+      const confPath = path.join(proj, 'odoo.conf');
+      if (fs.existsSync(confPath)) {
+        let confContent = fs.readFileSync(confPath, 'utf8');
+        confContent = confContent.replace(/^logfile\s*=\s*.+$/m, 'logfile = False');
+        fs.writeFileSync(confPath, confContent, 'utf8');
+      }
+
       logger.log(`Templates reset for project '${projectName}'.`);
       return { ok: true, msg: 'Templates reset' };
     } catch (e) {
