@@ -117,6 +117,7 @@
     "duplicated": "Duplicated!", "deleted": "Deleted!",
     "saved": "Saved!",
     "noProjects": "No projects found.",
+    "deleteLocked": "Cannot delete — files may be locked. Close VS Code and Odoo, then try again.",
     "readConfigFail": "Failed to read config: {msg}",
     "saveFail": "Save failed: {msg}",
     "uploadIconFail": "Failed to upload icon: {msg}",

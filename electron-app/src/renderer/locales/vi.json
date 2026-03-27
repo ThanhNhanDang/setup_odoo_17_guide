@@ -116,6 +116,7 @@
     "duplicated": "Đã nhân bản!", "deleted": "Đã xoá!",
     "saved": "Đã lưu!",
     "noProjects": "Không tìm thấy dự án.",
+    "deleteLocked": "Không thể xoá — file đang bị khoá. Đóng VS Code và Odoo rồi thử lại.",
     "readConfigFail": "Không đọc được cấu hình: {msg}",
     "saveFail": "Lưu thất bại: {msg}",
     "uploadIconFail": "Không tải được icon: {msg}",

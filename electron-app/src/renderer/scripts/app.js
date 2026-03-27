@@ -879,7 +879,12 @@ async function confirmDelete() {
   });
   hideModal('modalDelete');
   refreshStatus();
-  alert(res.ok ? '\u2705 ' + res.msg : '\u274C ' + res.msg);
+  if (res.ok) {
+    alert('\u2705 ' + t('toast.deleted'));
+  } else {
+    const msg = res.msg === 'DELETE_LOCKED' ? t('toast.deleteLocked') : res.msg;
+    alert('\u274C ' + msg);
+  }
 }
 
 async function resetTemplates(name, version) {

@@ -170,7 +170,7 @@ export async function deleteProject(
         await runCmd(`cmd /c rd /s /q "${proj}"`);
         await new Promise(r => setTimeout(r, 2000));
       } else {
-        return { ok: false, msg: `Cannot delete — files may be locked. Close VS Code and Odoo, then try again. (${e})` };
+        return { ok: false, msg: 'DELETE_LOCKED' };
       }
     }
   }
