@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, Menu, nativeImage } from 'electron';
+import { app, BrowserWindow, dialog, Menu, Tray, nativeImage } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { execSync } from 'child_process';
@@ -31,6 +31,8 @@ function ensureAdmin(): void {
 }
 
 let mainWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
+let isQuitting = false;
 
 function getIconPath(): string {
   // Check for user-custom icon first
@@ -99,8 +101,55 @@ function createWindow(): void {
     setTimeout(() => updater.checkForUpdates(), 3000);
   });
 
+  // Minimize to tray instead of closing
+  mainWindow.on('close', (e) => {
+    if (!isQuitting) {
+      e.preventDefault();
+      mainWindow!.hide();
+    }
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+}
+
+function createTray(): void {
+  const iconPath = getIconPath();
+  const icon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
+  tray = new Tray(icon);
+  tray.setToolTip('Odoo Installer');
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Show',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          if (mainWindow.isMinimized()) mainWindow.restore();
+          mainWindow.focus();
+        }
+      },
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+
+  tray.setContextMenu(contextMenu);
+
+  // Click tray icon → show window
+  tray.on('click', () => {
+    if (mainWindow) {
+      mainWindow.show();
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
   });
 }
 
@@ -132,6 +181,7 @@ if (!gotTheLock) {
 } else {
   app.on('second-instance', () => {
     if (mainWindow) {
+      mainWindow.show();
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
     }
@@ -139,11 +189,13 @@ if (!gotTheLock) {
 
   app.whenReady().then(() => {
     ensureAdmin();
+    createTray();
     createWindow();
   });
 
   // Cleanup partial downloads on quit
   app.on('before-quit', () => {
+    isQuitting = true;
     const { DEFAULT_BASE_DIR } = require('./services/config');
     const partialFiles = [
       'vscode-installer.exe', 'git-installer.exe',
@@ -164,6 +216,6 @@ if (!gotTheLock) {
   });
 
   app.on('window-all-closed', () => {
-    app.quit();
+    // Don't quit — app stays in tray
   });
 }
