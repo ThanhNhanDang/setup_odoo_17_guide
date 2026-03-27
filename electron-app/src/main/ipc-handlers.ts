@@ -447,6 +447,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       // Start/reload Nginx for HTTPS proxy
       try {
         const { generateNginxConfig, startNginx, isNginxInstalled } = require('./utils/nginx');
+        const { addHostEntry } = require('./utils/hosts');
         if (isNginxInstalled(baseDir)) {
           const { detectStatus } = require('./services/status');
           const status = await detectStatus(baseDir, projectsDir);
@@ -464,6 +465,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
             const httpPort = data?.http_port || '8069';
             const lpPort = String(parseInt(httpPort, 10) + 3);
             nginxProjects.push({ domain: projectDomain, port: httpPort, longpollingPort: lpPort });
+          }
+          // Ensure all project domains are in hosts file
+          for (const np of nginxProjects) {
+            if (np.domain) addHostEntry(np.domain);
           }
           if (nginxProjects.length > 0) {
             await generateNginxConfig(baseDir, nginxProjects, logger);
