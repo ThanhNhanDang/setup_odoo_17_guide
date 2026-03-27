@@ -119,7 +119,6 @@ body{display:flex;flex-direction:column}
 <div class="controls">
   <button onclick="clearLog()">Clear</button>
   <button onclick="toggleAutoScroll()" id="btnAutoScroll" class="toggle-btn active">&#8595; Auto-scroll</button>
-  <button onclick="toggleWrap()" id="btnWrap" class="toggle-btn active">&#8629; Word wrap</button>
   <span class="spacer"></span>
   <span class="line-count" id="lineCount">0 lines</span>
 </div>
@@ -178,15 +177,6 @@ function toggleAutoScroll() {
   const btn = document.getElementById('btnAutoScroll');
   btn.classList.toggle('active', autoScroll);
   btn.innerHTML = (autoScroll ? '&#8595; ' : '&#8644; ') + 'Auto-scroll';
-}
-
-function toggleWrap() {
-  const box = document.getElementById('logBox');
-  const isWrapped = box.style.whiteSpace !== 'pre';
-  box.style.whiteSpace = isWrapped ? 'pre' : '';
-  const btn = document.getElementById('btnWrap');
-  btn.classList.toggle('active', !isWrapped);
-  btn.innerHTML = '&#8629; Word wrap';
 }
 
 function togglePin() {
