@@ -870,8 +870,18 @@ function toggleOdoo(name, isRunning) {
   else startOdoo(name);
 }
 
-async function openVSCode(path) { await api('open_vscode', { path }); }
-async function openExplorer(path) { await api('open_explorer', { path }); }
+async function openVSCode(projPath) {
+  const btn = event?.target?.closest?.('button');
+  if (btn) { btn.disabled = true; btn.innerHTML = `<span class="spinner-sm"></span> ${t('project.vsCode')}`; }
+  await api('open_vscode', { path: projPath });
+  if (btn) { setTimeout(() => { btn.disabled = false; btn.textContent = t('project.vsCode'); }, 1000); }
+}
+async function openExplorer(projPath) {
+  const btn = event?.target?.closest?.('button');
+  if (btn) { btn.disabled = true; btn.innerHTML = `<span class="spinner-sm"></span> ${t('project.explorer')}`; }
+  await api('open_explorer', { path: projPath });
+  if (btn) { setTimeout(() => { btn.disabled = false; btn.textContent = t('project.explorer'); }, 1000); }
+}
 async function openBrowser(port) { await api('open_browser', { url: `http://localhost:${port}` }); }
 async function openProjectUrl(domain, port) {
   if (domain && _status?.nginx) {
