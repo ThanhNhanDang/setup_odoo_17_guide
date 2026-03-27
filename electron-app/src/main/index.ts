@@ -51,8 +51,11 @@ function getIconPath(): string {
 }
 
 function createWindow(): void {
-  // Remove default menu bar entirely (File, Edit, View, Window, Help)
-  Menu.setApplicationMenu(null);
+  // Use a minimal menu with Edit role so keyboard shortcuts (Ctrl+C/V/X/A, typing in inputs) work on Windows frameless windows.
+  // Setting null would disable all accelerators and break text input in some cases.
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    { role: 'editMenu' },
+  ]));
 
   mainWindow = new BrowserWindow({
     width: 1200,

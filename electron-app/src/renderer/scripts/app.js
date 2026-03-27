@@ -112,6 +112,57 @@ function getFormData() {
 }
 
 // ---------------------------------------------------------------------------
+// Settings Persistence — save form fields to disk so they survive app restart
+// ---------------------------------------------------------------------------
+const SETTINGS_FIELD_IDS = [
+  'odooVersion', 'baseDir', 'projectsDir', 'projectName',
+  'httpPort', 'dbHost', 'dbPort', 'dbUser', 'dbPassword', 'pgSuperPassword', 'pgMode',
+  'addonsPath', 'adminPasswd', 'longpollingPort', 'logLevel', 'workers',
+  'listDb', 'dbfilter', 'proxyMode', 'serverWideModules', 'dataDir', 'memHard', 'memSoft',
+];
+
+function saveSettingsToDisk() {
+  if (!window.electronAPI) return;
+  const settings = {};
+  for (const id of SETTINGS_FIELD_IDS) {
+    const el = $(id);
+    if (el) settings[id] = el.value;
+  }
+  api('save-settings', settings).catch(() => {});
+}
+
+async function loadSettingsFromDisk() {
+  if (!window.electronAPI) return;
+  try {
+    const res = await api('load-settings');
+    if (!res?.settings) return;
+    const s = res.settings;
+    for (const id of SETTINGS_FIELD_IDS) {
+      if (s[id] !== undefined && s[id] !== '' && $(id)) {
+        $(id).value = s[id];
+      }
+    }
+  } catch { /* first launch — no saved settings */ }
+}
+
+// Auto-save when any settings field changes
+(function() {
+  let debounce = null;
+  function onSettingChange() {
+    clearTimeout(debounce);
+    debounce = setTimeout(saveSettingsToDisk, 500);
+  }
+  // Attach after DOM is ready (script is at end of body, so DOM is ready)
+  for (const id of SETTINGS_FIELD_IDS) {
+    const el = $(id);
+    if (el) {
+      el.addEventListener('input', onSettingChange);
+      el.addEventListener('change', onSettingChange);
+    }
+  }
+})();
+
+// ---------------------------------------------------------------------------
 // Version change handlers
 // ---------------------------------------------------------------------------
 async function onVersionChange(version) {
@@ -120,6 +171,7 @@ async function onVersionChange(version) {
     const paths = await api('default-paths', { odoo_version: version });
     if ($('baseDir')) $('baseDir').value = paths.base_dir || '';
     if ($('projectsDir')) $('projectsDir').value = paths.projects_dir || '';
+    saveSettingsToDisk();
   } catch { /* ignore */ }
   // Sync install panel version selector
   if ($('installVersion')) $('installVersion').value = version;
@@ -1667,7 +1719,30 @@ function renderHelpPanel() {
   if (_helpRendered) return;
   _helpRendered = true;
   renderDocs();
+  renderTourSteps();
   renderTroubleshooting();
+}
+
+function renderTourSteps() {
+  const container = $('helpTour');
+  if (!container || typeof TOUR_STEPS === 'undefined') return;
+  container.innerHTML = `
+    <p class="desc" style="margin-bottom:14px">Click any step to highlight it on the app. Or click "Start Full Tour" to run all steps.</p>
+    <div style="margin-bottom:12px">
+      <button class="btn btn-primary btn-sm" onclick="startTour()">Start Full Tour</button>
+    </div>
+    ${TOUR_STEPS.map((step, i) => `
+      <div class="tour-step-item" onclick="startTourAtStep(${i})" style="display:flex;align-items:center;gap:12px;padding:10px 14px;margin-bottom:6px;background:var(--bg-surface);border:1px solid var(--border-muted);border-radius:8px;cursor:pointer;transition:border-color 0.15s"
+        onmouseenter="this.style.borderColor='var(--accent)'" onmouseleave="this.style.borderColor='var(--border-muted)'">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-size:0.78rem;font-weight:600;flex-shrink:0">${i + 1}</span>
+        <div>
+          <div style="font-size:0.88rem;font-weight:600;color:var(--text-primary)">${escHtml(step.title)}</div>
+          <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:2px">${escHtml(step.text).substring(0, 100)}${step.text.length > 100 ? '...' : ''}</div>
+        </div>
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="2" width="16" height="16" style="margin-left:auto;flex-shrink:0"><polyline points="9,18 15,12 9,6"/></svg>
+      </div>
+    `).join('')}
+  `;
 }
 
 function renderDocs(filter) {
@@ -1788,6 +1863,7 @@ function showHelpTab(tab, el) {
   document.querySelectorAll('.help-tab').forEach(t => t.classList.remove('active'));
   if (el) el.classList.add('active');
   $('helpDocs').style.display = tab === 'docs' ? '' : 'none';
+  $('helpTour').style.display = tab === 'tour' ? '' : 'none';
   $('helpTroubleshoot').style.display = tab === 'troubleshoot' ? '' : 'none';
 }
 
@@ -1801,7 +1877,7 @@ function filterHelpContent() {
 // Auto-refresh status every 10 seconds (real-time running/stopped sync)
 setInterval(() => refreshStatus(), 10000);
 
-// Load app version + default paths
+// Load app version + saved settings + default paths
 if (window.electronAPI) {
   api('app-version').then(v => {
     const ver = 'v' + v;
@@ -1809,9 +1885,12 @@ if (window.electronAPI) {
     if (el) el.textContent = ver;
     if ($('settingsVersion')) $('settingsVersion').textContent = ver;
   });
-  api('default-paths').then(paths => {
-    if ($('baseDir') && !$('baseDir').value) $('baseDir').value = paths.base_dir || '';
-    if ($('projectsDir') && !$('projectsDir').value) $('projectsDir').value = paths.projects_dir || '';
+  // Restore saved settings first, then fill empty fields with defaults
+  loadSettingsFromDisk().then(() => {
+    api('default-paths', { odoo_version: $('odooVersion')?.value || '17' }).then(paths => {
+      if ($('baseDir') && !$('baseDir').value) $('baseDir').value = paths.base_dir || '';
+      if ($('projectsDir') && !$('projectsDir').value) $('projectsDir').value = paths.projects_dir || '';
+    });
   });
 }
 

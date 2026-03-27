@@ -8,10 +8,15 @@ let _tourStep = 0;
 let _tourEls = {};      // overlay + tooltip DOM elements
 let _tourPrevHighlight = null;
 
-function startTour() {
+function startTourAtStep(index) {
+  if (_tourActive) endTour();
+  startTour(index);
+}
+
+function startTour(startIndex) {
   if (_tourActive) return;
   _tourActive = true;
-  _tourStep = 0;
+  _tourStep = startIndex || 0;
 
   // Create overlay panels (top, bottom, left, right)
   const container = document.createElement('div');
@@ -56,7 +61,7 @@ function startTour() {
   window.addEventListener('keydown', _tourKeyHandler);
   window.addEventListener('resize', _tourResizeHandler);
 
-  goToTourStep(0);
+  goToTourStep(_tourStep);
 }
 
 function endTour() {
