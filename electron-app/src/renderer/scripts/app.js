@@ -6,6 +6,24 @@
 const $ = id => document.getElementById(id);
 let _status = null;
 
+// Language dropdown
+function toggleLangDropdown() {
+  const menu = $('langMenu');
+  menu.classList.toggle('visible');
+  // Highlight current language
+  const lang = getCurrentLanguage();
+  menu.querySelectorAll('.lang-option').forEach(el => {
+    el.classList.toggle('active', el.getAttribute('onclick')?.includes("'" + lang + "'"));
+  });
+}
+function closeLangDropdown() {
+  $('langMenu')?.classList.remove('visible');
+}
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#langDropdown')) closeLangDropdown();
+});
+
 // Initialize i18n before rendering anything
 initI18n(getCurrentLanguage()).then(() => {
   applyTranslations();
@@ -744,7 +762,6 @@ async function startOdoo(name) {
       showToastMessage(t('toast.odooRunning'), 'success');
       // Optimistic: mark as running in local state
       if (proj) proj.is_running = true;
-      openProjectUrl(domain, port);
     } else {
       showToastMessage(t('toast.odooNotResponding'), 'error');
     }

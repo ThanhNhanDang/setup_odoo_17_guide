@@ -784,6 +784,22 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .topnav .nav-spacer{flex:1}
 .topnav .nav-version{font-size:0.75rem;color:var(--text-tertiary);padding:0 8px}
 
+/* Language Dropdown */
+.lang-dropdown{position:relative;display:inline-flex}
+.lang-menu{
+  display:none;position:absolute;top:100%;right:0;margin-top:4px;
+  background:var(--bg-surface);border:1px solid var(--border-default);border-radius:8px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.3);z-index:200;min-width:130px;
+  overflow:hidden;
+}
+.lang-menu.visible{display:block}
+.lang-option{
+  padding:8px 16px;font-size:0.82rem;color:var(--text-primary);cursor:pointer;
+  transition:background 0.12s;
+}
+.lang-option:hover{background:var(--bg-overlay)}
+.lang-option.active{color:var(--accent);font-weight:600}
+
 /* Theme Toggle */
 .theme-toggle{
   width:36px;height:36px;border-radius:6px;border:1px solid var(--border-muted);
