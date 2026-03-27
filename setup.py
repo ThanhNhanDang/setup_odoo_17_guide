@@ -993,6 +993,9 @@ async function refreshStatus(){
   }
   // Projects list
   renderProjects(s);
+  // Auto-update port fields for new project
+  const nextPort=getNextAvailablePort();
+  if($('newProjPort'))$('newProjPort').value=nextPort;
 }
 
 function renderProjects(s){
@@ -1033,6 +1036,21 @@ function renderProjects(s){
       </div>
     </div>`;
   }).join('');
+}
+
+function getNextAvailablePort(){
+  if(!_status||!_status.projects||_status.projects.length===0) return 8069;
+  const usedSet=new Set();
+  _status.projects.forEach(p=>{
+    const hp=parseInt(p.http_port)||0;
+    const lp=parseInt(p.longpolling_port)||0;
+    if(hp>0) usedSet.add(hp);
+    if(lp>0) usedSet.add(lp);
+  });
+  if(usedSet.size===0) return 8069;
+  let port=Math.min(...usedSet);
+  while(usedSet.has(port)||usedSet.has(port+3)){port++}
+  return port;
 }
 
 function copyCmd(el){
@@ -1127,7 +1145,7 @@ async function confirmDelete(){
 let _dupSource='';
 function duplicateProject(name,port){
   _dupSource=name;$('dupSourceName').textContent=name;
-  $('dupNewName').value=name+'_copy';$('dupNewPort').value=String(Number(port)+1);
+  $('dupNewName').value=name+'_copy';$('dupNewPort').value=getNextAvailablePort();
   showModal('modalDuplicate');
 }
 async function confirmDuplicate(){
