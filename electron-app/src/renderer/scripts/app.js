@@ -809,6 +809,28 @@ async function resetTemplates(name, version) {
   }
 }
 
+async function resetAllTemplates() {
+  if (!_status || !_status.projects || _status.projects.length === 0) {
+    showToastMessage('No projects found.', 'error');
+    return;
+  }
+  const names = _status.projects.map(p => p.name).join(', ');
+  if (!confirm(`Reset launch.json & settings.json for ALL ${_status.projects.length} projects?\n\n${names}`)) return;
+
+  const data = getFormData();
+  let ok = 0, fail = 0;
+  for (const p of _status.projects) {
+    const res = await api('reset_templates', {
+      base_dir: data.base_dir,
+      projects_dir: data.projects_dir,
+      project_name: p.name,
+      odoo_version: p.odoo_version || '17',
+    });
+    if (res.ok) ok++; else fail++;
+  }
+  showToastMessage(`Reset done: ${ok} OK, ${fail} failed.`, fail > 0 ? 'error' : 'success');
+}
+
 let _dupSource = '';
 function duplicateProject(name, port) {
   _dupSource = name;
