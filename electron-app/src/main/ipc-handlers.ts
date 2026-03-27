@@ -567,12 +567,27 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   });
 
   // --- Watch project log file (realtime tail) ---
-  const logWatchers = new Map<string, fs.FSWatcher>();
+  // Supports multiple windows watching the same log file
+  const logWatchers = new Map<string, { watcher: fs.FSWatcher; subscribers: Set<BrowserWindow> }>();
 
-  ipcMain.handle('watch-log', async (_event, data: { logPath: string }) => {
+  function broadcastLogLines(logPath: string, lines: string[]): void {
+    const entry = logWatchers.get(logPath);
+    if (!entry) return;
+    const payload = { logPath, lines };
+    for (const win of entry.subscribers) {
+      if (!win.isDestroyed()) {
+        win.webContents.send('project-log', payload);
+      }
+    }
+    // Also always send to main window (for detail modal)
+    if (!mainWindow.isDestroyed() && !entry.subscribers.has(mainWindow)) {
+      mainWindow.webContents.send('project-log', payload);
+    }
+  }
+
+  ipcMain.handle('watch-log', async (event, data: { logPath: string }) => {
     const logPath = data?.logPath;
     if (!logPath || !fs.existsSync(logPath)) return { ok: false, lines: [] };
-    // Security: only allow .log files
     if (!logPath.endsWith('.log')) return { ok: false, lines: [] };
 
     // Read last 1000 lines
@@ -580,42 +595,111 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const allLines = content.split('\n');
     const last1000 = allLines.slice(-1000);
 
-    // Stop existing watcher for this path
+    const callerWindow = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+
+    // If watcher already exists, just add subscriber
     if (logWatchers.has(logPath)) {
-      logWatchers.get(logPath)!.close();
-      logWatchers.delete(logPath);
+      logWatchers.get(logPath)!.subscribers.add(callerWindow);
+      return { ok: true, lines: last1000 };
     }
 
-    // Watch for changes
+    // Create new watcher
     let lastSize = fs.statSync(logPath).size;
+    const subscribers = new Set<BrowserWindow>([callerWindow]);
     const watcher = fs.watch(logPath, () => {
       try {
         const newSize = fs.statSync(logPath).size;
         if (newSize <= lastSize) { lastSize = newSize; return; }
-        // Read only new bytes
         const stream = fs.createReadStream(logPath, { start: lastSize, encoding: 'utf8' });
         let newData = '';
         stream.on('data', (chunk) => { newData += String(chunk); });
         stream.on('end', () => {
           lastSize = newSize;
           const newLines = newData.split('\n').filter(Boolean);
-          if (newLines.length > 0 && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('project-log', { logPath, lines: newLines });
-          }
+          if (newLines.length > 0) broadcastLogLines(logPath, newLines);
         });
       } catch { /* ignore */ }
     });
 
-    logWatchers.set(logPath, watcher);
+    logWatchers.set(logPath, { watcher, subscribers });
     return { ok: true, lines: last1000 };
   });
 
-  ipcMain.handle('unwatch-log', async (_event, data: { logPath: string }) => {
+  ipcMain.handle('unwatch-log', async (event, data: { logPath: string }) => {
     const logPath = data?.logPath;
-    if (logPath && logWatchers.has(logPath)) {
-      logWatchers.get(logPath)!.close();
+    if (!logPath || !logWatchers.has(logPath)) return { ok: true };
+    const entry = logWatchers.get(logPath)!;
+    const callerWindow = BrowserWindow.fromWebContents(event.sender);
+    if (callerWindow) entry.subscribers.delete(callerWindow);
+    // Close watcher only when no more subscribers
+    if (entry.subscribers.size === 0) {
+      entry.watcher.close();
       logWatchers.delete(logPath);
     }
+    return { ok: true };
+  });
+
+  // --- Separate Log Viewer Windows ---
+  const LOG_WINDOW_COLORS = [
+    '#f0883e', '#7c3aed', '#00e5ff', '#c77dba', '#3fb950',
+    '#58a6ff', '#d29922', '#f85149', '#56d364', '#bc8cff',
+  ];
+  const logWindows = new Map<string, BrowserWindow>();
+  let logColorIndex = 0;
+
+  ipcMain.handle('open-log-window', async (_event, data: { projectName: string; logPath: string }) => {
+    const { projectName, logPath } = data;
+    const windowKey = projectName;
+
+    // If window already open for this project, focus it
+    if (logWindows.has(windowKey)) {
+      const existing = logWindows.get(windowKey)!;
+      if (!existing.isDestroyed()) {
+        existing.focus();
+        return { ok: true, msg: 'focused' };
+      }
+      logWindows.delete(windowKey);
+    }
+
+    // Pick next color
+    const color = LOG_WINDOW_COLORS[logColorIndex % LOG_WINDOW_COLORS.length];
+    logColorIndex++;
+
+    const logViewerPath = path.join(__dirname, '..', '..', 'src', 'renderer', 'log-viewer.html');
+    const queryParams = `?project=${encodeURIComponent(projectName)}&logPath=${encodeURIComponent(logPath)}&color=${encodeURIComponent(color)}`;
+
+    const logWin = new BrowserWindow({
+      width: 800,
+      height: 500,
+      minWidth: 500,
+      minHeight: 300,
+      frame: false,
+      title: `${projectName} — Log`,
+      backgroundColor: '#0d1117',
+      alwaysOnTop: false,
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: false,
+        preload: path.join(__dirname, '..', 'preload', 'index.js'),
+      },
+    });
+
+    logWin.loadFile(logViewerPath, { search: queryParams });
+
+    logWindows.set(windowKey, logWin);
+
+    logWin.on('closed', () => {
+      logWindows.delete(windowKey);
+    });
+
+    return { ok: true, msg: 'opened', color };
+  });
+
+  // Pin/unpin log window (always on top)
+  ipcMain.handle('log-window-pin', async (event, data: { pinned: boolean }) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) win.setAlwaysOnTop(data.pinned);
     return { ok: true };
   });
 

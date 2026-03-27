@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en" data-mode="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Odoo Log</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0d1117;--bg-surface:#161b22;--text:#e6edf3;--text-dim:#8b949e;
+  --border:#30363d;--header-bg:var(--accent-color,#f0883e);
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+
+/* Custom titlebar */
+.titlebar{
+  display:flex;align-items:center;justify-content:space-between;
+  height:34px;background:var(--header-bg);padding:0 0 0 12px;
+  -webkit-app-region:drag;user-select:none;flex-shrink:0;
+}
+.titlebar-title{font-size:0.8rem;font-weight:600;color:#fff;opacity:0.95;display:flex;align-items:center;gap:6px}
+.titlebar-title svg{width:14px;height:14px;stroke:#fff;opacity:0.8}
+.titlebar-controls{display:flex;-webkit-app-region:no-drag;height:100%}
+.titlebar-controls button{
+  width:40px;height:100%;border:none;background:transparent;color:rgba(255,255,255,0.8);
+  font-size:0.85rem;cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
+.titlebar-controls button:hover{background:rgba(255,255,255,0.15)}
+.titlebar-controls button.close:hover{background:#e81123;color:#fff}
+
+/* Status bar */
+.status-bar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:6px 12px;background:var(--bg-surface);border-bottom:1px solid var(--border);
+  font-size:0.7rem;color:var(--text-dim);flex-shrink:0;
+}
+.status-dot{width:8px;height:8px;border-radius:50%;margin-right:6px;display:inline-block}
+.status-dot.watching{background:#3fb950}
+.status-dot.idle{background:#8b949e}
+
+/* Log content */
+.log-container{
+  flex:1;overflow-y:auto;padding:8px 12px;font-family:'Cascadia Code',Consolas,'Courier New',monospace;
+  font-size:0.75rem;line-height:1.6;min-height:0;
+}
+.log-container::-webkit-scrollbar{width:8px}
+.log-container::-webkit-scrollbar-track{background:var(--bg)}
+.log-container::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.log-container::-webkit-scrollbar-thumb:hover{background:#484f58}
+
+.line{white-space:pre-wrap;word-break:break-all}
+.line:last-child{color:var(--text)}
+.line{color:var(--text-dim)}
+
+/* Log level coloring */
+.line-error{color:#f85149}
+.line-warning{color:#d29922}
+.line-info{color:#58a6ff}
+
+.empty-state{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100%;color:var(--text-dim);gap:8px;
+}
+.empty-state svg{width:32px;height:32px;opacity:0.4}
+
+/* Controls */
+.controls{
+  display:flex;align-items:center;gap:6px;padding:6px 12px;
+  background:var(--bg-surface);border-top:1px solid var(--border);flex-shrink:0;
+}
+.controls button{
+  padding:3px 8px;border-radius:4px;border:1px solid var(--border);
+  background:transparent;color:var(--text-dim);font-size:0.7rem;cursor:pointer;
+}
+.controls button:hover{background:var(--border);color:var(--text)}
+.controls .spacer{flex:1}
+.controls .line-count{font-size:0.7rem;color:var(--text-dim)}
+
+/* Layout */
+body{display:flex;flex-direction:column}
+</style>
+</head>
+<body>
+<div class="titlebar">
+  <span class="titlebar-title">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+    <span id="windowTitle">Odoo Log</span>
+  </span>
+  <div class="titlebar-controls">
+    <button onclick="togglePin()" id="btnPin" title="Always on top">&#128204;</button>
+    <button class="close" onclick="window.close()" title="Close">&#10005;</button>
+  </div>
+</div>
+<div class="status-bar">
+  <div><span class="status-dot idle" id="statusDot"></span><span id="statusText">Waiting...</span></div>
+  <div id="logPath" style="opacity:0.6;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+</div>
+<div class="log-container" id="logBox"></div>
+<div class="controls">
+  <button onclick="clearLog()">Clear</button>
+  <button onclick="toggleAutoScroll()" id="btnAutoScroll">Auto-scroll: ON</button>
+  <button onclick="toggleWrap()" id="btnWrap">Wrap: ON</button>
+  <span class="spacer"></span>
+  <span class="line-count" id="lineCount">0 lines</span>
+</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const projectName = params.get('project') || 'Unknown';
+const logFilePath = params.get('logPath') || '';
+const accentColor = params.get('color') || '#f0883e';
+
+// Apply accent color to header
+document.documentElement.style.setProperty('--accent-color', accentColor);
+document.getElementById('windowTitle').textContent = `${projectName} — Log`;
+document.title = `${projectName} — Odoo Log`;
+document.getElementById('logPath').textContent = logFilePath;
+
+let autoScroll = true;
+let lineCount = 0;
+let pinned = false;
+
+function getLineClass(text) {
+  if (/\bERROR\b|Traceback|Exception/i.test(text)) return 'line-error';
+  if (/\bWARNING\b/i.test(text)) return 'line-warning';
+  if (/\bINFO\b/i.test(text)) return 'line-info';
+  return '';
+}
+
+function appendLines(lines) {
+  const box = document.getElementById('logBox');
+  const fragment = document.createDocumentFragment();
+  for (const line of lines) {
+    const div = document.createElement('div');
+    div.className = 'line ' + getLineClass(line);
+    div.textContent = line;
+    fragment.appendChild(div);
+    lineCount++;
+  }
+  box.appendChild(fragment);
+  // Trim to 5000 lines max
+  while (box.childElementCount > 5000) {
+    box.removeChild(box.firstChild);
+    lineCount--;
+  }
+  document.getElementById('lineCount').textContent = lineCount + ' lines';
+  if (autoScroll) box.scrollTop = box.scrollHeight;
+}
+
+function clearLog() {
+  document.getElementById('logBox').innerHTML = '';
+  lineCount = 0;
+  document.getElementById('lineCount').textContent = '0 lines';
+}
+
+function toggleAutoScroll() {
+  autoScroll = !autoScroll;
+  document.getElementById('btnAutoScroll').textContent = 'Auto-scroll: ' + (autoScroll ? 'ON' : 'OFF');
+}
+
+function toggleWrap() {
+  const box = document.getElementById('logBox');
+  const nowrap = box.style.whiteSpace === 'pre';
+  box.style.whiteSpace = nowrap ? '' : 'pre';
+  document.getElementById('btnWrap').textContent = 'Wrap: ' + (nowrap ? 'ON' : 'OFF');
+}
+
+function togglePin() {
+  pinned = !pinned;
+  window.electronAPI.invoke('log-window-pin', { pinned });
+  document.getElementById('btnPin').style.opacity = pinned ? '1' : '0.5';
+}
+
+// IPC: receive log lines from main process
+if (window.electronAPI) {
+  // Initial load
+  window.electronAPI.invoke('watch-log', { logPath: logFilePath }).then(res => {
+    if (res?.ok && res.lines?.length) {
+      appendLines(res.lines);
+      document.getElementById('statusDot').className = 'status-dot watching';
+      document.getElementById('statusText').textContent = 'Watching...';
+    } else {
+      document.getElementById('logBox').innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg><div>No log file yet. Start Odoo to generate logs.</div></div>';
+    }
+  });
+
+  // Realtime updates
+  window.electronAPI.onEvent('project-log', (data) => {
+    if (data.logPath === logFilePath && data.lines?.length) {
+      document.getElementById('statusDot').className = 'status-dot watching';
+      document.getElementById('statusText').textContent = 'Watching...';
+      appendLines(data.lines);
+    }
+  });
+}
+
+// Cleanup on close
+window.addEventListener('beforeunload', () => {
+  if (window.electronAPI) {
+    window.electronAPI.invoke('unwatch-log', { logPath: logFilePath });
+  }
+});
+</script>
+</body>
+</html>
