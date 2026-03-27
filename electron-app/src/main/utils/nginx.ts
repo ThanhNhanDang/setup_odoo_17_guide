@@ -201,12 +201,17 @@ events {
 http {
     sendfile on;
     keepalive_timeout 65;
-    client_max_body_size 200m;
+    client_max_body_size 0;
 
-    # Upstream timeout for Odoo
-    proxy_connect_timeout 600;
-    proxy_send_timeout 600;
-    proxy_read_timeout 600;
+    # Upstream timeout for Odoo (large DB backup/restore)
+    proxy_connect_timeout 7200;
+    proxy_send_timeout 7200;
+    proxy_read_timeout 7200;
+    send_timeout 7200;
+
+    # Buffering for large uploads
+    proxy_request_buffering off;
+    proxy_buffering off;
 
     map $http_upgrade $connection_upgrade {
         default upgrade;
@@ -233,6 +238,8 @@ http {
         ssl_certificate_key "${keyFile}";
         ssl_protocols TLSv1.2 TLSv1.3;
 
+        client_max_body_size 0;
+
         location / {
             proxy_pass http://127.0.0.1:${p.port};
             proxy_set_header Host $host;
@@ -240,6 +247,8 @@ http {
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
             proxy_redirect off;
+            proxy_read_timeout 7200;
+            proxy_send_timeout 7200;
         }
 
         location /longpolling/ {
@@ -269,12 +278,16 @@ http {
         listen 80;
         server_name ${p.domain};
         ${hasSsl ? 'return 301 https://$host$request_uri;' : `
+        client_max_body_size 0;
+
         location / {
             proxy_pass http://127.0.0.1:${p.port};
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_read_timeout 7200;
+            proxy_send_timeout 7200;
         }`}
     }
 
