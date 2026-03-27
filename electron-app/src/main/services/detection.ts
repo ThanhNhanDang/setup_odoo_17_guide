@@ -110,6 +110,21 @@ export function findPython(candidates: readonly string[]): string | null {
 }
 
 /**
+ * Find Python via py launcher for a specific version prefix (e.g. '3.11').
+ * Returns the python.exe path if found, null otherwise.
+ */
+export function findPythonViaLauncher(versionPrefix: string): string | null {
+  try {
+    const result = require('child_process').execSync(
+      `py -${versionPrefix} -c "import sys; print(sys.executable)"`,
+      { encoding: 'utf8', timeout: 5000, windowsHide: true }
+    ).trim();
+    if (result && fs.existsSync(result)) return result;
+  } catch { /* py launcher not available */ }
+  return null;
+}
+
+/**
  * Find Python 3.11 installation path (backward compat wrapper).
  * Checks: LOCALAPPDATA, C:\Python311, C:\Program Files\Python311
  */
@@ -120,7 +135,7 @@ export function findPython311(): string | null {
     'C:\\Python311\\python.exe',
     'C:\\Program Files\\Python311\\python.exe',
   ];
-  return findPython(candidates);
+  return findPython(candidates) || findPythonViaLauncher('3.11');
 }
 
 /**

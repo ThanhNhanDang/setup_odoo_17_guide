@@ -104,8 +104,13 @@ export function getPythonCandidates(version: string): readonly string[] {
   const config = getVersionConfig(version);
   const localAppData = process.env.LOCALAPPDATA || '';
   return [
+    // Per-user install (InstallAllUsers=0)
     `${localAppData}\\Programs\\Python\\${config.pythonDirName}\\python.exe`,
-    `C:\\${config.pythonDirName}\\python.exe`,
+    // System-wide install (InstallAllUsers=1)
+    `C:\\Program Files\\Python${config.pythonVersionPrefix.replace('.', '')}\\python.exe`,
     `C:\\Program Files\\${config.pythonDirName}\\python.exe`,
+    `C:\\${config.pythonDirName}\\python.exe`,
+    // Common alternative paths
+    `C:\\Python${config.pythonVersionPrefix.replace('.', '')}\\python.exe`,
   ];
 }

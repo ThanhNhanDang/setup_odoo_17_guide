@@ -9,7 +9,7 @@ import {
   getTemplatesDir,
 } from './config';
 import { getVersionConfig, getPythonCandidates, DEFAULT_ODOO_VERSION } from './odoo-versions';
-import { findPython, findPostgresBin, findDocker, findDockerPostgres, findVSCode, findGit } from './detection';
+import { findPython, findPythonViaLauncher, findPostgresBin, findDocker, findDockerPostgres, findVSCode, findGit } from './detection';
 import { runCmd, runCmdStreaming } from '../utils/shell';
 import { downloadFile } from '../utils/download';
 import { installNginx, isNginxInstalled } from '../utils/nginx';
@@ -127,14 +127,43 @@ export async function stepInstallPython(baseDir: string, logger: LoggerService, 
   } catch (e) {
     return { ok: false, msg: `Download failed: ${e}` };
   }
-  logger.log(`Installing ${vCfg.pythonVersion} (silent)...`);
-  await runCmd(`"${installer}" /quiet InstallAllUsers=0 PrependPath=0 Include_launcher=1 Include_pip=1`);
+  logger.log(`Installing ${vCfg.pythonVersion} (silent, InstallAllUsers=1)...`);
+  const { code: pyCode, output: pyOut } = await runCmd(
+    `"${installer}" /quiet InstallAllUsers=1 PrependPath=0 Include_launcher=1 Include_pip=1`
+  );
+  logger.log(`  > Installer exit code: ${pyCode}`);
+  if (pyOut.trim()) logger.log(`  > Installer output: ${pyOut.trim()}`);
   await new Promise(resolve => setTimeout(resolve, 5000));
   if (findPython(candidates)) {
     logger.log(`${vCfg.pythonVersion} installed!`);
     return { ok: true, msg: 'Installed' };
   }
-  return { ok: false, msg: 'Install may need admin rights. Run as Administrator.' };
+  // Try finding via py launcher (works regardless of install location)
+  const pyLauncherVersion = `-${vCfg.pythonVersionPrefix}`;
+  const { code: pyLCode, output: pyLOut } = await runCmd(`py ${pyLauncherVersion} -c "import sys; print(sys.executable)"`);
+  if (pyLCode === 0 && pyLOut.trim()) {
+    logger.log(`${vCfg.pythonVersion} found via py launcher: ${pyLOut.trim()}`);
+    return { ok: true, msg: 'Installed' };
+  }
+  // Retry per-user install if system-wide failed
+  logger.log('System-wide install not detected. Trying per-user install...');
+  const { code: pyCode2, output: pyOut2 } = await runCmd(
+    `"${installer}" /quiet InstallAllUsers=0 PrependPath=0 Include_launcher=1 Include_pip=1`
+  );
+  logger.log(`  > Per-user installer exit code: ${pyCode2}`);
+  if (pyOut2.trim()) logger.log(`  > Per-user output: ${pyOut2.trim()}`);
+  await new Promise(resolve => setTimeout(resolve, 5000));
+  if (findPython(candidates)) {
+    logger.log(`${vCfg.pythonVersion} installed (per-user)!`);
+    return { ok: true, msg: 'Installed' };
+  }
+  // Final check via py launcher
+  const { code: pyL2, output: pyL2Out } = await runCmd(`py ${pyLauncherVersion} -c "import sys; print(sys.executable)"`);
+  if (pyL2 === 0 && pyL2Out.trim()) {
+    logger.log(`${vCfg.pythonVersion} found via py launcher: ${pyL2Out.trim()}`);
+    return { ok: true, msg: 'Installed' };
+  }
+  return { ok: false, msg: `Failed to install ${vCfg.pythonVersion}. Check log for details.` };
 }
 
 export async function stepInstallPostgres(
@@ -352,7 +381,7 @@ export async function stepCreateVenv(baseDir: string, logger: LoggerService, odo
   const candidates = getPythonCandidates(odooVersion);
   const venvDir = path.join(baseDir, 'venv');
   const venvPython = path.join(venvDir, 'Scripts', 'python.exe');
-  const pythonPath = findPython(candidates);
+  let pythonPath = findPython(candidates) || findPythonViaLauncher(vCfg.pythonVersionPrefix);
   logger.log(`  > ${vCfg.pythonVersion} path: ${pythonPath || 'NOT FOUND'}`);
   if (!pythonPath) {
     return { ok: false, msg: `${vCfg.pythonVersion} not found. Install Python first.` };
