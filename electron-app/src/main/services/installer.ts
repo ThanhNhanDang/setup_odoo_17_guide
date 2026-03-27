@@ -179,18 +179,33 @@ export async function stepInstallPostgres(
   const vCfg = getVersionConfig(odooVersion);
   const pgVer = vCfg.postgresVersion;
 
-  // Check existing installations
-  const hasNative = findPostgresBin() !== null;
-  const dockerPg = findDockerPostgres();
-  const hasDocker = dockerPg.length > 0;
+  // Check if the required PG version is already installed
+  const requiredBinDir = `C:\\Program Files\\PostgreSQL\\${pgVer}\\bin`;
+  const hasRequiredVersion = fs.existsSync(path.join(requiredBinDir, 'psql.exe'));
 
-  if (hasNative && pgMode !== 'docker') {
-    logger.log('PostgreSQL already installed locally.');
-    return { ok: true, msg: 'Already installed (local)' };
+  // Check if ANY PG is listening on the target port (native or docker)
+  const { findPostgresForPort } = require('./detection');
+  const pgOnPort = findPostgresForPort(dbPort);
+  const dockerPg = findDockerPostgres();
+  const dockerOnPort = dockerPg.find((c: any) => c.port === dbPort);
+
+  if (hasRequiredVersion && pgMode !== 'docker') {
+    logger.log(`PostgreSQL ${pgVer} already installed at ${requiredBinDir}.`);
+    return { ok: true, msg: `Already installed (PG ${pgVer})` };
   }
-  if (hasDocker && pgMode !== 'native') {
-    logger.log(`PostgreSQL running in Docker: ${dockerPg.map(c => c.name).join(', ')}`);
-    return { ok: true, msg: 'Already running (Docker)' };
+  if (pgOnPort && pgMode !== 'docker') {
+    logger.log(`PostgreSQL ${pgOnPort.version} is configured on port ${dbPort}. Using existing installation.`);
+    return { ok: true, msg: `Already installed (PG ${pgOnPort.version} on port ${dbPort})` };
+  }
+  if (dockerOnPort && pgMode !== 'native') {
+    logger.log(`PostgreSQL running in Docker on port ${dbPort}: ${dockerOnPort.name}`);
+    return { ok: true, msg: `Already running (Docker: ${dockerOnPort.name})` };
+  }
+
+  // If other PG versions exist but not on the right port, log and continue install
+  const anyNative = findPostgresBin();
+  if (anyNative) {
+    logger.log(`  > Found PostgreSQL at ${anyNative}, but not version ${pgVer} or not on port ${dbPort}. Installing PG ${pgVer}...`);
   }
 
   // Install based on mode
