@@ -650,6 +650,32 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
+  // --- User Settings Persistence ---
+  const settingsFile = path.join(app.getPath('userData'), 'user-settings.json');
+
+  ipcMain.handle('load-settings', async () => {
+    try {
+      if (fs.existsSync(settingsFile)) {
+        const raw = fs.readFileSync(settingsFile, 'utf8');
+        return { ok: true, settings: JSON.parse(raw) };
+      }
+    } catch {
+      // corrupted file — ignore
+    }
+    return { ok: true, settings: {} };
+  });
+
+  ipcMain.handle('save-settings', async (_event, data: Record<string, string>) => {
+    try {
+      const dir = path.dirname(settingsFile);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(settingsFile, JSON.stringify(data, null, 2), 'utf8');
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, msg: String(e) };
+    }
+  });
+
   // --- Reset icon to default ---
   ipcMain.handle('reset-icon', async () => {
     const customDir = path.join(app.getPath('userData'), 'custom-icon');

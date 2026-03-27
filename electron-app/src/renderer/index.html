@@ -3,9 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-src https://www.youtube.com https://www.youtube-nocookie.com">
 <title>Odoo Installer</title>
 <link rel="stylesheet" href="styles/main.css">
+<link rel="stylesheet" href="styles/tour.css">
+<link rel="stylesheet" href="styles/docs.css">
 </head>
 <body>
 
@@ -32,6 +34,10 @@
   <button class="nav-tab" onclick="showPanel('install',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
     Full Install
+  </button>
+  <button class="nav-tab" onclick="showPanel('help',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    Help
   </button>
   <div class="nav-spacer"></div>
   <button class="theme-toggle" id="themeToggle" onclick="toggleMode()" title="Toggle Dark / Light">
@@ -377,7 +383,28 @@
     <div class="log-box" id="log" style="max-height:calc(100vh - 220px)"></div>
   </div>
 
+  <!-- HELP -->
+  <div class="panel" id="panel-help">
+    <div class="help-header">
+      <h2>Help & Documentation</h2>
+      <p class="desc">Guides, tutorials, and troubleshooting</p>
+      <div class="help-actions">
+        <input type="text" id="helpSearch" placeholder="Search docs & troubleshooting..." oninput="filterHelpContent()">
+        <button class="btn btn-primary btn-sm" onclick="startTour()">Start Guided Tour</button>
+      </div>
+    </div>
+    <div class="help-tabs">
+      <button class="help-tab active" id="helpTabDocs" onclick="showHelpTab('docs',this)">Documentation</button>
+      <button class="help-tab" id="helpTabTroubleshoot" onclick="showHelpTab('troubleshoot',this)">Troubleshooting</button>
+    </div>
+    <div class="help-content" id="helpDocs"></div>
+    <div class="help-content" id="helpTroubleshoot" style="display:none"></div>
+  </div>
+
 </div>
+
+<!-- Floating help button -->
+<button class="tour-fab" id="tourFab" onclick="startTour()" title="Start Guided Tour">?</button>
 
 <!-- Modals -->
 <!-- New Project Modal -->
@@ -519,6 +546,8 @@
   </div>
 </div>
 
+<script src="scripts/docs-data.js"></script>
+<script src="scripts/tour.js"></script>
 <script src="scripts/app.js"></script>
 </body>
 </html>

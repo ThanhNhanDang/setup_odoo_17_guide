@@ -11,7 +11,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'window-minimize', 'window-maximize', 'window-close', 'window-is-maximized',
       'update-check', 'update-download', 'update-install', 'update-info', 'update-reset-interval',
       'app-version', 'default-paths', 'odoo-versions', 'pick-icon', 'get-icon', 'reset-icon',
-      'watch-log', 'unwatch-log',
+      'watch-log', 'unwatch-log', 'load-settings', 'save-settings',
     ];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, data);
