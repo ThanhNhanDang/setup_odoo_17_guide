@@ -831,17 +831,18 @@ async function createProject(e) {
       window.electronAPI.removeAllListeners('create-progress');
     }
 
-    await new Promise(r => setTimeout(r, 400));
     // Restore form for next use
     if (modal._origBody) { bodyEl.innerHTML = modal._origBody; modal._origBody = null; }
     if (modal._origFooter && footerEl) { footerEl.innerHTML = modal._origFooter; footerEl.style.display = ''; modal._origFooter = null; }
-    hideModal('modalNewProject');
+
     if (res.ok) {
+      await new Promise(r => setTimeout(r, 400));
+      hideModal('modalNewProject');
       await refreshStatus();
       showToastMessage(t('toast.projectCreated'), 'success');
       showPanel('dashboard', document.querySelectorAll('.nav-tab')[0]);
     } else {
-      refreshStatus();
+      // Keep modal open so user can fix the issue
       showToastMessage(t('toast.failed', { msg: tMsg(res.msg || '') }), 'error');
     }
   } catch (e) {
