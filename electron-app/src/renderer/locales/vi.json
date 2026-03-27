@@ -61,6 +61,7 @@
     "create": "Tạo dự án", "cancel": "Huỷ", "save": "Lưu",
     "saveRestart": "Lưu & Khởi động lại", "resetTemplates": "Đặt lại Template",
     "addFolder": "Thêm thư mục", "clickCopy": "nhấn để sao chép", "copied": "đã sao chép!",
+    "log": "Log",
     "odooLog": "Log Odoo (thời gian thực)", "loadingLog": "Đang tải log...",
     "runningTag": "đang chạy", "stoppedTag": "đã dừng",
     "openBrowser": "Mở trình duyệt",

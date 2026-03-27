@@ -61,6 +61,7 @@
     "create": "Create Project", "cancel": "Cancel", "save": "Save",
     "saveRestart": "Save & Restart", "resetTemplates": "Reset Templates",
     "addFolder": "Add Folder", "clickCopy": "click to copy", "copied": "copied!",
+    "log": "Log",
     "odooLog": "Odoo Log (realtime)", "loadingLog": "Loading log...",
     "runningTag": "running", "stoppedTag": "stopped",
     "openBrowser": "Open Browser",

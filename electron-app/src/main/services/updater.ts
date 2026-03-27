@@ -108,12 +108,35 @@ export class UpdaterService {
     }
   }
 
-  /** Check for updates */
-  checkForUpdates(): void {
+  /** Check for updates (returns result for manual checks) */
+  async checkForUpdates(): Promise<void> {
     console.log('[updater] Starting update check (packaged: ' + app.isPackaged + ')');
-    autoUpdater.checkForUpdates().catch((err) => {
+    try {
+      const result = await autoUpdater.checkForUpdates();
+      // electron-updater may not fire events if result is cached
+      // Force-send the status to renderer for manual checks
+      if (result?.updateInfo) {
+        const currentVersion = app.getVersion();
+        const latestVersion = result.updateInfo.version;
+        if (latestVersion && latestVersion !== currentVersion) {
+          this.updateAvailable = true;
+          this.updateInfo = result.updateInfo;
+          this.sendToRenderer('update-status', {
+            status: 'available',
+            version: latestVersion,
+            releaseDate: result.updateInfo.releaseDate,
+            releaseNotes: typeof result.updateInfo.releaseNotes === 'string'
+              ? result.updateInfo.releaseNotes
+              : '',
+          });
+        } else {
+          this.sendToRenderer('update-status', { status: 'up-to-date' });
+        }
+      }
+    } catch (err: any) {
       console.error('[updater] Check failed:', err.message);
-    });
+      this.sendToRenderer('update-status', { status: 'error', message: err.message });
+    }
   }
 
   /** Start periodic update checks (every 30 minutes) */

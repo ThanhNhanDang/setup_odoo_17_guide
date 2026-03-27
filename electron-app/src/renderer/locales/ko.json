@@ -61,6 +61,7 @@
     "create": "프로젝트 생성", "cancel": "취소", "save": "저장",
     "saveRestart": "저장 & 재시작", "resetTemplates": "템플릿 초기화",
     "addFolder": "폴더 추가", "clickCopy": "클릭하여 복사", "copied": "복사됨!",
+    "log": "로그",
     "odooLog": "Odoo 로그 (실시간)", "loadingLog": "로그 로딩 중...",
     "runningTag": "실행 중", "stoppedTag": "중지됨",
     "openBrowser": "브라우저 열기",
