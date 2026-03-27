@@ -961,26 +961,25 @@ async function openExplorer(projPath, e) {
   await withBtnPending(e, 'explorer', t('project.explorer'), () => api('open_explorer', { path: projPath }));
 }
 
-/** Set any button to pending: lock width, show spinner only */
+/** Set any button to pending: save original content, lock width, show spinner */
 function _setBtnPending(btn) {
+  if (!btn._origHtml) btn._origHtml = btn.innerHTML;
   btn.style.minWidth = btn.offsetWidth + 'px';
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-sm"></span>';
 }
-/** Reset button after pending */
-function _resetBtn(btn, text, cls) {
+/** Reset button after pending — restore original innerHTML */
+function _resetBtn(btn) {
   btn.disabled = false;
   btn.style.minWidth = '';
-  btn.textContent = text;
+  if (btn._origHtml) {
+    btn.innerHTML = btn._origHtml;
+    btn._origHtml = null;
+  }
 }
 
 /**
  * Reusable hook: run an async action with button pending state + double-click guard.
- * @param {Event|null} e - click event (to find button)
- * @param {string} guardKey - unique key for double-click guard
- * @param {string} label - button text to restore after done
- * @param {Function} asyncFn - async function to run
- * @param {number} cooldown - ms to keep guard after done (default 2000)
  */
 const _actionGuards = {};
 async function withBtnPending(e, guardKey, label, asyncFn, cooldown) {
@@ -991,7 +990,7 @@ async function withBtnPending(e, guardKey, label, asyncFn, cooldown) {
   try {
     await asyncFn();
   } finally {
-    if (btn) setTimeout(() => _resetBtn(btn, label, ''), 800);
+    if (btn) setTimeout(() => _resetBtn(btn), 800);
     setTimeout(() => { _actionGuards[guardKey] = false; }, cooldown || 2000);
   }
 }
