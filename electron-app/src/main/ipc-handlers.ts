@@ -268,7 +268,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const conf = path.join(projPath, 'odoo.conf');
     const venvPy = path.join(baseDir, 'venv', 'Scripts', 'python.exe');
     const odooBin = path.join(baseDir, 'odoo', 'odoo-bin');
-    const cmd = `"${venvPy}" "${odooBin}" -c "${conf}"`;
+    const logFile = path.join(projPath, 'odoo.log').replace(/\\/g, '/');
+    const cmd = `"${venvPy}" "${odooBin}" -c "${conf}" --logfile "${logFile}"`;
 
     try {
       // Read project's DB config from odoo.conf

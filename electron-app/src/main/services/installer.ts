@@ -561,8 +561,8 @@ export async function stepCreateProject(
     cfg.longpolling_port = isNaN(httpPort) ? '8072' : String(httpPort + 3);
   }
 
-  // Log file in project directory
-  cfg.logfile = path.join(proj, 'odoo.log').replace(/\\/g, '/');
+  // logfile = False in odoo.conf (log to stdout by default)
+  // Installer start_odoo passes --logfile via command line instead
 
   // data_dir inside project to prevent Odoo from creating version subdirs in addons/
   if (!cfg.data_dir) {

@@ -294,7 +294,7 @@ async function refreshStatus() {
 function renderProjects(s) {
   const list = $('projectsList');
   if (!s.projects || s.projects.length === 0) {
-    list.innerHTML = '<div class="empty"><p>No projects yet. Create one to get started.</p></div>';
+    list.innerHTML = `<div class="empty"><p>${t('dashboard.noProjects')}</p></div>`;
     return;
   }
   list.innerHTML = s.projects.map(p => {
@@ -549,9 +549,9 @@ async function checkInstallStatus() {
   const installed = allSteps.filter(id => STEP_MAP[id].check && STEP_MAP[id].check(_status)).length;
   const total = allSteps.length;
   if (installed === total) {
-    showToastMessage(`All ${total} components installed!`, 'success');
+    showToastMessage(t('install.allInstalled'), 'success');
   } else {
-    showToastMessage(`${installed}/${total} components installed`, installed > 0 ? 'info' : 'error');
+    showToastMessage(t('install.installedCount', { installed, total }), installed > 0 ? 'info' : 'error');
   }
 
   if (btn) { btn.disabled = false; btn.textContent = t('install.checkStatus'); }
@@ -857,13 +857,13 @@ async function saveConfig() {
   });
   hideModal('modalConfig');
   refreshStatus();
-  alert(res.ok ? '\u2705 Saved!' : '\u274C ' + res.msg);
+  alert(res.ok ? '\u2705 ' + t('toast.saved') : '\u274C ' + res.msg);
 }
 
 let _deletingProject = '';
 function deleteProject(name) {
   _deletingProject = name;
-  $('deleteTargetName').textContent = name;
+  $('deleteConfirmText').innerHTML = t('modal.deleteConfirm', { name });
   $('deleteConfirmInput').value = '';
   showModal('modalDelete');
 }
@@ -917,7 +917,7 @@ async function resetAllTemplates() {
     });
     if (res.ok) ok++; else fail++;
   }
-  showToastMessage(`Reset done: ${ok} OK, ${fail} failed.`, fail > 0 ? 'error' : 'success');
+  showToastMessage(t('toast.templateResetAll', { ok, fail }), fail > 0 ? 'error' : 'success');
 }
 
 let _dupSource = '';
@@ -940,7 +940,7 @@ async function confirmDuplicate() {
   });
   hideModal('modalDuplicate');
   refreshStatus();
-  alert(res.ok ? '\u2705 Duplicated!\n' + res.msg : '\u274C ' + res.msg);
+  alert(res.ok ? '\u2705 ' + t('toast.duplicated') + '\n' + res.msg : '\u274C ' + res.msg);
 }
 
 // ---------------------------------------------------------------------------

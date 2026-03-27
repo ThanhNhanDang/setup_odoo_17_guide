@@ -11,8 +11,7 @@
         "-c",
         "${{workspaceFolder}}/odoo.conf",
         "--dev",
-        "xml",
-        "--logfile="
+        "xml"
       ],
       "env": {},
       "console": "integratedTerminal",
