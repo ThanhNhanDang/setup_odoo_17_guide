@@ -516,6 +516,11 @@ export async function stepCreateProject(
   // Log file in project directory
   cfg.logfile = path.join(proj, 'odoo.log').replace(/\\/g, '/');
 
+  // data_dir inside project to prevent Odoo from creating version subdirs in addons/
+  if (!cfg.data_dir) {
+    cfg.data_dir = path.join(proj, 'data').replace(/\\/g, '/');
+  }
+
   // Tag project with Odoo version
   cfg.odoo_version = odooVersion;
 

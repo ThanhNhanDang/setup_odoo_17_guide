@@ -508,6 +508,9 @@ def step_create_project(base_dir, projects_dir, project_name, **kwargs):
             cfg["longpolling_port"] = str(int(cfg["http_port"]) + 3)
         except ValueError:
             cfg["longpolling_port"] = "8072"
+    # data_dir inside project to prevent Odoo creating version subdirs in addons/
+    if not cfg.get("data_dir"):
+        cfg["data_dir"] = str(proj / "data").replace("\\", "/")
     # odoo.conf
     conf_template = (TEMPLATES_DIR / "odoo.conf").read_text(encoding="utf-8")
     (proj / "odoo.conf").write_text(conf_template.format(**cfg), encoding="utf-8")
