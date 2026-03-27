@@ -136,6 +136,26 @@ export async function deleteProject(
     await new Promise(r => setTimeout(r, 1000));
   } catch { /* ignore */ }
 
+  // Remove junction links first (Windows locks these, fs.rmSync fails on them)
+  try {
+    for (const entry of fs.readdirSync(proj)) {
+      const entryPath = path.join(proj, entry);
+      try {
+        const stat = fs.lstatSync(entryPath);
+        if (stat.isSymbolicLink() || (stat.isDirectory() && fs.realpathSync(entryPath) !== entryPath)) {
+          // Junction or symlink — remove with cmd /c rmdir (not fs.rmSync)
+          await runCmd(`cmd /c rmdir "${entryPath}"`);
+        }
+      } catch { /* skip */ }
+    }
+  } catch { /* ignore */ }
+
+  // Kill any remaining processes locking files in this folder
+  try {
+    await runCmd(`powershell -Command "Get-Process | Where-Object { $_.Modules.FileName -like '${proj.replace(/\\/g, '\\\\')}*' } | Stop-Process -Force -ErrorAction SilentlyContinue"`);
+    await new Promise(r => setTimeout(r, 1000));
+  } catch { /* ignore */ }
+
   // Retry delete up to 3 times (file locks may take a moment to release)
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
@@ -146,9 +166,11 @@ export async function deleteProject(
       return { ok: true, msg: dbMsg };
     } catch (e) {
       if (attempt < 2) {
+        // Force unlock with rd /s /q as fallback
+        await runCmd(`cmd /c rd /s /q "${proj}"`);
         await new Promise(r => setTimeout(r, 2000));
       } else {
-        return { ok: false, msg: `Cannot delete — files may be locked by VS Code or Odoo. Close them first. (${e})` };
+        return { ok: false, msg: `Cannot delete — files may be locked. Close VS Code and Odoo, then try again. (${e})` };
       }
     }
   }
