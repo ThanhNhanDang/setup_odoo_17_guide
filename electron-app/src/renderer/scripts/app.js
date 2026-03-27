@@ -282,12 +282,12 @@ async function refreshStatus() {
     </div>`).join('');
 
   if (s.docker_postgres && s.docker_postgres.length > 0) {
-    $('statusGrid').innerHTML += s.docker_postgres.map(c => `
+    $('statusGrid').insertAdjacentHTML('beforeend', s.docker_postgres.map(c => `
       <div class="status-card" style="border-color:#1a3a1a">
         <div class="status-icon ok">PG</div>
         <div class="status-info"><div class="label">${escHtml(c.name)}</div>
         <div class="detail">${escHtml(c.image)} | port:${escHtml(c.port)} | ${escHtml(c.status)}</div></div>
-      </div>`).join('');
+      </div>`).join(''));
   }
 
   // Native PG detail
@@ -416,7 +416,7 @@ if (window.electronAPI) {
     // Log tab
     const el = $('log');
     if (el) {
-      el.innerHTML += `<div class="line">${escHtml(line)}</div>`;
+      el.insertAdjacentHTML('beforeend', `<div class="line">${escHtml(line)}</div>`);
       el.scrollTop = el.scrollHeight;
     }
     // Install inline log
@@ -599,7 +599,7 @@ function appendInstallLog(line) {
   const wrap = $('installLog');
   if (!logEl || !wrap) return;
   wrap.style.display = 'block';
-  logEl.innerHTML += `<div class="line">${escHtml(line)}</div>`;
+  logEl.insertAdjacentHTML('beforeend', `<div class="line">${escHtml(line)}</div>`);
   logEl.scrollTop = logEl.scrollHeight;
 }
 
@@ -820,59 +820,63 @@ function renderActionBtn(p, size, extraOnclick) {
 async function startOdoo(name) {
   if (_pendingProjects.has(name)) return;
   setProjectPending(name, 'starting');
-
-  const proj = _status?.projects?.find(p => p.name === name);
-  const data = getFormData();
-  data.project_name = name;
-  // Use project's own version, not the settings version
-  if (proj?.odoo_version) data.odoo_version = proj.odoo_version;
-  showToastMessage(t('toast.odooStarting'), 'info');
-  const res = await api('start_odoo', data);
-  if (res.ok) {
-    showToastMessage(t('toast.odooWaiting'), 'info');
-    // Poll until running or timeout (30s)
-    let running = false;
-    for (let i = 0; i < 15; i++) {
-      await new Promise(r => setTimeout(r, 2000));
-      await refreshStatus();
-      const proj = _status?.projects?.find(p => p.name === name);
-      if (proj?.is_running) { running = true; break; }
-    }
-    if (running) {
-      showToastMessage(t('toast.odooRunning'), 'success');
+  try {
+    const proj = _status?.projects?.find(p => p.name === name);
+    const data = getFormData();
+    data.project_name = name;
+    // Use project's own version, not the settings version
+    if (proj?.odoo_version) data.odoo_version = proj.odoo_version;
+    showToastMessage(t('toast.odooStarting'), 'info');
+    const res = await api('start_odoo', data);
+    if (res.ok) {
+      showToastMessage(t('toast.odooWaiting'), 'info');
+      // Poll until running or timeout (30s)
+      let running = false;
+      for (let i = 0; i < 15; i++) {
+        await new Promise(r => setTimeout(r, 2000));
+        await refreshStatus();
+        const proj = _status?.projects?.find(p => p.name === name);
+        if (proj?.is_running) { running = true; break; }
+      }
+      if (running) {
+        showToastMessage(t('toast.odooRunning'), 'success');
+      } else {
+        showToastMessage(t('toast.odooNotResponding'), 'error');
+      }
     } else {
-      showToastMessage(t('toast.odooNotResponding'), 'error');
+      showToastMessage(t('toast.failed', { msg: res.msg }), 'error');
     }
-  } else {
-    showToastMessage(t('toast.failed', { msg: res.msg }), 'error');
+  } finally {
+    clearProjectPending(name);
+    if (_status) { renderProjects(_status); renderDashboard(_status); }
+    await refreshStatus();
   }
-  clearProjectPending(name);
-  // Render immediately with current state
-  if (_status) { renderProjects(_status); renderDashboard(_status); }
-  await refreshStatus();
 }
 
 async function stopOdoo(name) {
   if (_pendingProjects.has(name)) return;
   setProjectPending(name, 'stopping');
-
-  const port = _status?.projects?.find(p => p.name === name)?.http_port || '8069';
-  showToastMessage(t('toast.odooStopping'), 'info');
-  const res = await api('stop_odoo', { http_port: port });
-  if (res.ok) {
-    showToastMessage(t('toast.odooStopped'), 'success');
-    // Optimistic: mark as stopped in local state immediately
-    const proj = _status?.projects?.find(p => p.name === name);
-    if (proj) proj.is_running = false;
-  } else {
-    showToastMessage(t('toast.failed', { msg: res.msg }), 'error');
+  try {
+    const port = _status?.projects?.find(p => p.name === name)?.http_port || '8069';
+    showToastMessage(t('toast.odooStopping'), 'info');
+    const res = await api('stop_odoo', { http_port: port });
+    if (res.ok) {
+      showToastMessage(t('toast.odooStopped'), 'success');
+      // Optimistic: immutable state update
+      if (_status) {
+        _status = { ..._status, projects: _status.projects.map(p =>
+          p.name === name ? { ...p, is_running: false } : p
+        )};
+      }
+    } else {
+      showToastMessage(t('toast.failed', { msg: res.msg }), 'error');
+    }
+  } finally {
+    clearProjectPending(name);
+    if (_status) { renderProjects(_status); renderDashboard(_status); }
+    await new Promise(r => setTimeout(r, 1500));
+    await refreshStatus();
   }
-  clearProjectPending(name);
-  // Render immediately with optimistic state
-  if (_status) { renderProjects(_status); renderDashboard(_status); }
-  // Wait for port to fully release, then confirm with real status
-  await new Promise(r => setTimeout(r, 1500));
-  await refreshStatus();
 }
 
 function toggleOdoo(name, isRunning) {
@@ -1125,16 +1129,21 @@ async function confirmDuplicate() {
   const progressHandler = (data) => _updateDupStep(data.step, data.done);
   window.electronAPI.onEvent('duplicate-progress', progressHandler);
 
-  const data = getFormData();
-  const res = await api('duplicate_project', {
-    base_dir: data.base_dir,
-    projects_dir: data.projects_dir,
-    project_name: _dupSource,
-    new_name: newName,
-    new_http_port: $('dupNewPort').value
-  });
-
-  window.electronAPI.removeAllListeners('duplicate-progress');
+  let res;
+  try {
+    const data = getFormData();
+    res = await api('duplicate_project', {
+      base_dir: data.base_dir,
+      projects_dir: data.projects_dir,
+      project_name: _dupSource,
+      new_name: newName,
+      new_http_port: $('dupNewPort').value
+    });
+  } catch (e) {
+    res = { ok: false, msg: String(e) };
+  } finally {
+    window.electronAPI.removeAllListeners('duplicate-progress');
+  }
 
   if (res.ok) {
     // Brief pause so user sees all checkmarks
@@ -1444,9 +1453,8 @@ function _setupLogListener() {
       if (data.logPath !== _currentLogPath) return;
       const box = $('detailLogBox');
       if (!box) return;
-      for (const line of data.lines) {
-        box.innerHTML += `<div class="line">${escHtml(line)}</div>`;
-      }
+      const fragment = data.lines.map(line => `<div class="line">${escHtml(line)}</div>`).join('');
+      box.insertAdjacentHTML('beforeend', fragment);
       box.scrollTop = box.scrollHeight;
       // Keep max 1000 lines in DOM
       while (box.children.length > 1000) box.removeChild(box.firstChild);
@@ -2094,11 +2102,11 @@ function renderTroubleshooting(filter) {
       </div>
       <div class="troubleshoot-body">
         <div class="troubleshoot-label">${t('help.symptom')}</div>
-        <p>${e.symptom}</p>
+        <p>${escHtml(e.symptom)}</p>
         <div class="troubleshoot-label">${t('help.cause')}</div>
-        <p>${e.cause}</p>
+        <p>${escHtml(e.cause)}</p>
         <div class="troubleshoot-label">${t('help.solution')}</div>
-        <p>${e.solution}</p>
+        <p>${escHtml(e.solution)}</p>
       </div>
     </div>
   `).join('');
