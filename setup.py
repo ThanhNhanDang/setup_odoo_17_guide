@@ -34,6 +34,7 @@ ODOO_GIT_URL = "https://github.com/odoo/odoo.git"
 ODOO_BRANCH = "17.0"
 
 EXTRA_PIP_PACKAGES = [
+    "cryptography>=42.0", "pyOpenSSL>=24.0",
     "debugpy", "openpyxl", "numpy", "pandas",
     "python-docx", "python-pptx", "python-barcode", "reportlab_qrcode",
     "pdf2image", "genshi", "py3o.template", "pyodbc", "sqlparse",

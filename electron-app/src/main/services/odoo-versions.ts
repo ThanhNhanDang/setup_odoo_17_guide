@@ -23,7 +23,11 @@ export interface OdooVersionConfig {
 }
 
 // Common extra packages shared across all versions
+// NOTE: cryptography + pyOpenSSL must be upgraded together to avoid
+// "X509_V_FLAG_NOTIFY_POLICY" AttributeError from version mismatch.
 const COMMON_EXTRA_PACKAGES: readonly string[] = [
+  'cryptography>=42.0',
+  'pyOpenSSL>=24.0',
   'debugpy',
   'openpyxl',
   'numpy',
