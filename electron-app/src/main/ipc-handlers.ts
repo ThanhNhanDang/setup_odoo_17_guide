@@ -380,6 +380,11 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       if (pgBin) {
         logger.log(`  > Ensuring DB user '${projectDbUser}' exists on port ${projectDbPort}...`);
         const psqlExe = path.join(pgBin, 'psql.exe');
+        // Validate DB identifiers to prevent SQL injection
+        const safeId = /^[a-zA-Z0-9_]+$/;
+        if (!safeId.test(projectDbUser) || !safeId.test(projectDbPassword)) {
+          logger.log(`  > Skipping DB user creation — invalid characters in db_user or db_password`);
+        } else {
         const { output: userCheck } = await runCmd(
           `"${psqlExe}" -U postgres -p ${projectDbPort} -tAc "SELECT 1 FROM pg_roles WHERE rolname='${projectDbUser}'"`,
           undefined,
@@ -394,6 +399,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
           );
           logger.log(`  > DB user '${projectDbUser}' created.`);
         }
+        } // end safeId check
       }
 
       // Start Odoo using exec (no terminal window)
@@ -533,6 +539,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   ipcMain.handle('open_browser', async (_event, data: Record<string, string>) => {
     const url = data?.url;
     if (!url) return { ok: false, msg: 'No URL provided' };
+    if (!/^https?:\/\//.test(url)) return { ok: false, msg: 'Invalid URL scheme' };
     try {
       await shell.openExternal(url);
       return { ok: true };
@@ -559,6 +566,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   ipcMain.handle('watch-log', async (_event, data: { logPath: string }) => {
     const logPath = data?.logPath;
     if (!logPath || !fs.existsSync(logPath)) return { ok: false, lines: [] };
+    // Security: only allow .log files
+    if (!logPath.endsWith('.log')) return { ok: false, lines: [] };
 
     // Read last 1000 lines
     const content = fs.readFileSync(logPath, 'utf8');

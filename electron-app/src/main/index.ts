@@ -89,13 +89,13 @@ function createWindow(): void {
     mainWindow.webContents.openDevTools();
   }
 
-  // Register IPC handlers
+  // Register IPC handlers (once only)
   registerIpcHandlers(mainWindow);
 
-  // Auto-update: check after window is ready, then every 30 minutes
-  mainWindow.webContents.on('did-finish-load', () => {
-    const updater = new UpdaterService(mainWindow!);
-    registerUpdateHandlers(mainWindow!, updater);
+  // Auto-update (once only — not inside did-finish-load to avoid duplicate handlers)
+  const updater = new UpdaterService(mainWindow);
+  registerUpdateHandlers(mainWindow, updater);
+  mainWindow.webContents.once('did-finish-load', () => {
     setTimeout(() => {
       updater.checkForUpdates();
       updater.startPeriodicCheck();
@@ -111,6 +111,7 @@ function createWindow(): void {
   });
 
   mainWindow.on('closed', () => {
+    updater.stopPeriodicCheck();
     mainWindow = null;
   });
 }

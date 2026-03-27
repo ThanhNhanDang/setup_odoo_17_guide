@@ -18,7 +18,7 @@ interface ProjectResult {
 export function readProjectConfig(projectsDir: string, projectName: string): ProjectResult {
   const conf = path.join(projectsDir, projectName, 'odoo.conf');
   if (!fs.existsSync(conf)) {
-    return { ok: false, msg: 'Config not found' };
+    return { ok: false, msg: 'CONFIG_NOT_FOUND' };
   }
   const content = fs.readFileSync(conf, 'utf8');
   return { ok: true, msg: 'OK', content };
@@ -27,7 +27,7 @@ export function readProjectConfig(projectsDir: string, projectName: string): Pro
 export function saveProjectConfig(projectsDir: string, projectName: string, content: string): ProjectResult {
   const conf = path.join(projectsDir, projectName, 'odoo.conf');
   if (!fs.existsSync(conf)) {
-    return { ok: false, msg: 'Config not found' };
+    return { ok: false, msg: 'CONFIG_NOT_FOUND' };
   }
   // Validate INI format
   try {
@@ -39,15 +39,31 @@ export function saveProjectConfig(projectsDir: string, projectName: string, cont
   return { ok: true, msg: 'Saved' };
 }
 
+/** Validate project name — no path traversal, safe characters only */
+function isValidName(name: string): boolean {
+  return /^[a-zA-Z0-9_\-]+$/.test(name) && !name.includes('..');
+}
+
+/** Validate DB identifier — letters, numbers, underscores only */
+function isSafeDbIdentifier(val: string): boolean {
+  return /^[a-zA-Z0-9_]+$/.test(val);
+}
+
 export async function deleteProject(
   projectsDir: string,
   projectName: string,
   dropDatabases: boolean = false,
 ): Promise<ProjectResult> {
+  if (!isValidName(projectName)) {
+    return { ok: false, msg: 'INVALID_NAME' };
+  }
   const proj = path.join(projectsDir, projectName);
+  if (!path.resolve(proj).startsWith(path.resolve(projectsDir) + path.sep)) {
+    return { ok: false, msg: 'INVALID_NAME' };
+  }
   const conf = path.join(proj, 'odoo.conf');
   if (!fs.existsSync(proj) || !fs.statSync(proj).isDirectory() || !fs.existsSync(conf)) {
-    return { ok: false, msg: 'Project not found' };
+    return { ok: false, msg: 'PROJECT_NOT_FOUND' };
   }
 
   // Drop databases matching dbfilter if requested
@@ -174,7 +190,7 @@ export async function deleteProject(
       }
     }
   }
-  return { ok: false, msg: 'Delete failed after retries.' };
+  return { ok: false, msg: 'DELETE_LOCKED' };
 }
 
 export async function duplicateProject(
@@ -188,7 +204,7 @@ export async function duplicateProject(
   const dst = path.join(projectsDir, newName);
 
   if (!fs.existsSync(src) || !fs.statSync(src).isDirectory()) {
-    return { ok: false, msg: 'Source project not found' };
+    return { ok: false, msg: 'PROJECT_NOT_FOUND' };
   }
   if (fs.existsSync(dst)) {
     return { ok: false, msg: `Project '${newName}' already exists` };
