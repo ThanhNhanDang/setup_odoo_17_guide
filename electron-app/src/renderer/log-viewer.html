@@ -63,10 +63,19 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 }
 .empty-state svg{width:32px;height:32px;opacity:0.4}
 
-/* Pin button */
-.pin-btn{opacity:0.4;transition:all 0.15s}
-.pin-btn:hover{opacity:0.8}
-.pin-btn.pinned{opacity:1;background:rgba(255,255,255,0.2)}
+/* Pin button — emoji with animated arrow effect */
+.pin-btn{position:relative;transition:all 0.2s;font-size:1rem}
+.pin-btn .pin-icon{display:inline-block;transition:transform 0.3s ease}
+.pin-btn:not(.pinned){background:transparent}
+.pin-btn:not(.pinned) .pin-icon{transform:rotate(45deg) translateY(2px);opacity:0.4}
+.pin-btn:hover .pin-icon{opacity:0.8}
+.pin-btn.pinned{background:rgba(255,255,255,0.2)}
+.pin-btn.pinned .pin-icon{transform:rotate(0deg) translateY(0);opacity:1}
+/* Arrow animation on toggle */
+@keyframes pinIn{0%{transform:rotate(45deg) translateY(6px);opacity:0}100%{transform:rotate(0deg) translateY(0);opacity:1}}
+@keyframes pinOut{0%{transform:rotate(0deg) translateY(0);opacity:1}100%{transform:rotate(45deg) translateY(6px);opacity:0.4}}
+.pin-btn.animate-in .pin-icon{animation:pinIn 0.3s ease forwards}
+.pin-btn.animate-out .pin-icon{animation:pinOut 0.3s ease forwards}
 
 /* Toggle buttons */
 .toggle-btn{transition:all 0.15s}
@@ -97,7 +106,7 @@ body{display:flex;flex-direction:column}
   </span>
   <div class="titlebar-controls">
     <button onclick="togglePin()" id="btnPin" class="pin-btn" title="Always on top">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><path d="M12 2v10l3.5 3.5L17 14l-5-5V2z" transform="rotate(45 12 12)"/><line x1="5" y1="19" x2="10" y2="14"/></svg>
+      <span class="pin-icon">&#128204;</span>
     </button>
     <button class="close" onclick="window.close()" title="Close">&#10005;</button>
   </div>
@@ -184,6 +193,10 @@ function togglePin() {
   pinned = !pinned;
   window.electronAPI.invoke('log-window-pin', { pinned });
   const btn = document.getElementById('btnPin');
+  // Trigger arrow animation
+  btn.classList.remove('animate-in', 'animate-out');
+  void btn.offsetWidth; // force reflow to restart animation
+  btn.classList.add(pinned ? 'animate-in' : 'animate-out');
   btn.classList.toggle('pinned', pinned);
 }
 
