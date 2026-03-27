@@ -1346,13 +1346,17 @@ function showProjectDetail(name) {
       <span>${escHtml(p.start_command)}</span>
       <span class="copy-hint">${t('project.clickCopy')}</span>
     </div>
-    <div style="margin-bottom:16px">
+    <div>
       <div class="detail-label" style="margin-bottom:8px">${t('project.odooLog')}</div>
       <div class="log-box" id="detailLogBox" style="max-height:250px;font-size:0.72rem" data-logpath="${escAttr(p.logfile || (p.path + '\\odoo.log'))}">
         <div style="color:var(--text-tertiary);padding:8px">${t('project.loadingLog')}</div>
       </div>
     </div>
-    <div class="btn-row" style="justify-content:space-between">
+  `;
+
+  // Render footer buttons (fixed, outside scrollable body)
+  $('detailFooter').innerHTML = `
+    <div class="btn-row" style="flex:1;justify-content:space-between">
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         ${renderActionBtn(p, 'btn-sm', "hideModal('modalDetail')")}
         <button class="btn btn-vscode btn-sm" onclick="openVSCode('${escAttr(p.path)}')">${t('project.vsCode')}</button>
