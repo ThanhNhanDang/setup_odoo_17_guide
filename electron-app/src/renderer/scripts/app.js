@@ -1333,7 +1333,10 @@ function renderKanban(projects) {
     <div class="kanban-card">
       <div class="kanban-card-header">
         <span class="kanban-card-name">${escHtml(p.name)}</span>
-        <span class="kanban-card-port" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port || '8069')}')" title="Open in browser" style="cursor:pointer">:${escHtml(p.http_port || '8069')}</span>
+        <div style="display:flex;align-items:center;gap:4px">
+          <span class="kanban-card-port" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port || '8069')}')" title="Open in browser" style="cursor:pointer">:${escHtml(p.http_port || '8069')}</span>
+          <button class="kanban-icon-btn" onclick="duplicateProject('${escAttr(p.name)}','${escAttr(p.http_port)}')" title="${t('project.duplicate')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+        </div>
       </div>
       <div class="kanban-card-url" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port || '8069')}')" title="Click to open">${escHtml(getProjectUrl(p.domain, p.http_port || '8069'))}</div>
       <div class="kanban-card-body">
@@ -1352,10 +1355,10 @@ function renderKanban(projects) {
       </div>
       <div class="kanban-card-actions">
         ${renderActionBtn(p)}
-        <button class="btn btn-vscode btn-xs" onclick="openVSCode('${escAttr(p.path)}',event)">${t('project.vsCode')}</button>
-        <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}',event)">${t('project.explorer')}</button>
-        <button class="btn btn-outline btn-xs" onclick="showProjectDetail('${escAttr(p.name)}')">${t('project.detail')}</button>
-        <button class="btn btn-danger btn-xs" onclick="deleteProject('${escAttr(p.name)}')">${t('project.delete')}</button>
+        <button class="kanban-icon-btn btn-vscode" onclick="openVSCode('${escAttr(p.path)}',event)" title="${t('project.vsCode')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></button>
+        <button class="kanban-icon-btn" onclick="openExplorer('${escAttr(p.path)}',event)" title="${t('project.explorer')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></button>
+        <button class="kanban-icon-btn" onclick="showProjectDetail('${escAttr(p.name)}')" title="${t('project.detail')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></button>
+        <button class="kanban-icon-btn btn-danger-icon" onclick="deleteProject('${escAttr(p.name)}')" title="${t('project.delete')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
       </div>
     </div>
   `).join('');
