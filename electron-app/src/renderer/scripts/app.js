@@ -1209,12 +1209,15 @@ async function saveDetailAndRestart(name) {
     // Parse current config and update fields
     let content = readRes.content;
 
-    // Collect addons_path from addon rows
+    // Collect addons_path from addon rows (convert \ to / for odoo.conf)
     const addonInputs = document.querySelectorAll('#detailAddonsList .detail-addons-input');
-    const addonPaths = [...addonInputs].map(el => el.value.trim()).filter(Boolean).join(',');
+    const addonPaths = [...addonInputs].map(el => el.value.trim().replace(/\\/g, '/')).filter(Boolean).join(',');
     const addonsRegex = /^addons_path\s*=.*$/m;
     if (addonsRegex.test(content)) {
       content = content.replace(addonsRegex, `addons_path = ${addonPaths}`);
+    } else {
+      // addons_path not found in config, add it after [options]
+      content = content.replace('[options]', `[options]\naddons_path = ${addonPaths}`);
     }
 
     // Update other fields

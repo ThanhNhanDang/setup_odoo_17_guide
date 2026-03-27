@@ -484,7 +484,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       title: 'Select Addons Folder',
     });
     if (result.canceled || result.filePaths.length === 0) return { path: '' };
-    return { path: result.filePaths[0] };
+    // Convert backslashes to forward slashes for odoo.conf compatibility
+    return { path: result.filePaths[0].replace(/\\/g, '/') };
   });
 
   // --- Open VS Code ---
