@@ -19,7 +19,33 @@ export interface OdooVersionConfig {
   readonly baseDirSuffix: string;            // e.g. 'odoo_15_base'
   readonly defaultProjectsSubdir: string;    // e.g. 'odoo15'
   readonly color: string;                    // badge color
+  readonly extraPipPackages: readonly string[];  // extra pip packages beyond requirements.txt
 }
+
+// Common extra packages shared across all versions
+const COMMON_EXTRA_PACKAGES: readonly string[] = [
+  'debugpy',
+  'openpyxl',
+  'numpy',
+  'pandas',
+  'python-docx',
+  'python-pptx',
+  'python-barcode',
+  'reportlab_qrcode',
+  'pdf2image',
+  'genshi',
+  'py3o.template',
+  'pyodbc',
+  'sqlparse',
+  'python-socketio',
+  'python-engineio',
+  'bidict',
+  'typing_extensions',
+  'google-api-python-client',
+  'httpagentparser',
+  'paho-mqtt',
+  'unoconv',
+];
 
 export const ODOO_VERSIONS: Readonly<Record<OdooVersionKey, OdooVersionConfig>> = {
   '15': {
@@ -37,6 +63,7 @@ export const ODOO_VERSIONS: Readonly<Record<OdooVersionKey, OdooVersionConfig>> 
     baseDirSuffix: 'odoo_15_base',
     defaultProjectsSubdir: 'odoo15',
     color: '#3b82f6',   // blue
+    extraPipPackages: [...COMMON_EXTRA_PACKAGES, 'PyPDF2>=3.0'],
   },
   '17': {
     key: '17',
@@ -53,6 +80,7 @@ export const ODOO_VERSIONS: Readonly<Record<OdooVersionKey, OdooVersionConfig>> 
     baseDirSuffix: 'odoo_17_base',
     defaultProjectsSubdir: 'odoo17',
     color: '#f0883e',   // orange (current accent)
+    extraPipPackages: [...COMMON_EXTRA_PACKAGES, 'PyPDF2>=3.0'],
   },
   '19': {
     key: '19',
@@ -69,6 +97,7 @@ export const ODOO_VERSIONS: Readonly<Record<OdooVersionKey, OdooVersionConfig>> 
     baseDirSuffix: 'odoo_19_base',
     defaultProjectsSubdir: 'odoo19',
     color: '#22c55e',   // green
+    extraPipPackages: [...COMMON_EXTRA_PACKAGES],
   },
 };
 

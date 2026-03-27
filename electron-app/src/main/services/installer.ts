@@ -380,7 +380,8 @@ export async function stepCreateVenv(baseDir: string, logger: LoggerService, odo
   return { ok: false, msg: `Failed to create venv (exit code: ${code}). Check ${vCfg.pythonVersion} installation.` };
 }
 
-export async function stepInstallRequirements(baseDir: string, logger: LoggerService): Promise<StepResult> {
+export async function stepInstallRequirements(baseDir: string, logger: LoggerService, odooVersion: string = DEFAULT_ODOO_VERSION): Promise<StepResult> {
+  const vCfg = getVersionConfig(odooVersion);
   const pipExe = path.join(baseDir, 'venv', 'Scripts', 'pip.exe');
   const reqFile = path.join(baseDir, 'odoo', 'requirements.txt');
   if (!fs.existsSync(pipExe)) {
@@ -394,7 +395,8 @@ export async function stepInstallRequirements(baseDir: string, logger: LoggerSer
   const reqLines = fs.readFileSync(reqFile, 'utf8')
     .split('\n')
     .filter(l => l.trim() && !l.trim().startsWith('#'));
-  const totalPkgs = reqLines.length || 1;
+  const extraPkgs = vCfg.extraPipPackages;
+  const totalPkgs = (reqLines.length + extraPkgs.length) || 1;
   let installedCount = 0;
   let success = false;
 
@@ -406,7 +408,7 @@ export async function stepInstallRequirements(baseDir: string, logger: LoggerSer
         // Track "Successfully installed ..." or "Collecting ..." or "Downloading ..."
         if (line.startsWith('Collecting') || line.startsWith('Downloading') || line.match(/^Installing collected/)) {
           installedCount++;
-          const pct = Math.min(99, Math.round((installedCount / totalPkgs) * 100));
+          const pct = Math.min(80, Math.round((installedCount / totalPkgs) * 100));
           logger.emitDownloadProgress({
             step: 'install_requirements',
             percent: pct,
@@ -416,21 +418,56 @@ export async function stepInstallRequirements(baseDir: string, logger: LoggerSer
         }
         if (line.includes('Successfully installed')) {
           success = true;
-          logger.emitDownloadProgress({
-            step: 'install_requirements',
-            percent: 100,
-            downloadedMB: `${totalPkgs}`,
-            totalMB: `${totalPkgs} pkgs`,
-          });
         }
       },
     }
   );
 
-  if (code === 0 || success) {
-    return { ok: true, msg: 'Installed' };
+  if (code !== 0 && !success) {
+    return { ok: false, msg: 'Failed installing requirements.txt. Check logs.' };
   }
-  return { ok: false, msg: 'Failed. Check logs.' };
+
+  // Install extra packages for this Odoo version
+  if (extraPkgs.length > 0) {
+    logger.log(`Installing ${extraPkgs.length} extra packages for ${vCfg.label}...`);
+    const pkgList = extraPkgs.join(' ');
+    let extraSuccess = false;
+
+    const extraCode = await runCmdStreaming(
+      `"${pipExe}" install ${pkgList}`,
+      logger,
+      {
+        onData: (line) => {
+          if (line.startsWith('Collecting') || line.startsWith('Downloading') || line.match(/^Installing collected/)) {
+            installedCount++;
+            const pct = Math.min(99, Math.round((installedCount / totalPkgs) * 100));
+            logger.emitDownloadProgress({
+              step: 'install_requirements',
+              percent: pct,
+              downloadedMB: `${installedCount}`,
+              totalMB: `${totalPkgs} pkgs`,
+            });
+          }
+          if (line.includes('Successfully installed')) {
+            extraSuccess = true;
+          }
+        },
+      }
+    );
+
+    if (extraCode !== 0 && !extraSuccess) {
+      logger.log('Warning: Some extra packages failed to install. Check logs.');
+    }
+  }
+
+  logger.emitDownloadProgress({
+    step: 'install_requirements',
+    percent: 100,
+    downloadedMB: `${totalPkgs}`,
+    totalMB: `${totalPkgs} pkgs`,
+  });
+
+  return { ok: true, msg: 'Installed' };
 }
 
 export async function stepCreateProject(
@@ -650,7 +687,7 @@ export async function stepFullInstall(
     const cloneResult = await clonePromise;
     results.push(cloneResult);
     logger.updateTask({ status: 'running', step: 'Installing pip requirements...', progress: 50 });
-    return runNamedStep('Installing requirements...', 'install_requirements', () => stepInstallRequirements(baseDir, logger), logger, lock);
+    return runNamedStep('Installing requirements...', 'install_requirements', () => stepInstallRequirements(baseDir, logger, odooVersion), logger, lock);
   });
 
   // ── Chain: PG done → Create DB User ──

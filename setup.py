@@ -33,6 +33,15 @@ POSTGRES_URL = "https://get.enterprisedb.com/postgresql/postgresql-16.6-1-window
 ODOO_GIT_URL = "https://github.com/odoo/odoo.git"
 ODOO_BRANCH = "17.0"
 
+EXTRA_PIP_PACKAGES = [
+    "debugpy", "openpyxl", "numpy", "pandas",
+    "python-docx", "python-pptx", "python-barcode", "reportlab_qrcode",
+    "pdf2image", "genshi", "py3o.template", "pyodbc", "sqlparse",
+    "python-socketio", "python-engineio", "bidict", "typing_extensions",
+    "google-api-python-client", "httpagentparser", "paho-mqtt", "unoconv",
+    "PyPDF2>=3.0",
+]
+
 PROJECT_DEFAULTS = {
     "addons_path": "./addons,./odoo/addons",
     "admin_passwd": "odoo",
@@ -466,9 +475,16 @@ def step_install_requirements(base_dir):
         return {"ok": False, "msg": "requirements.txt not found."}
     log("Installing dependencies...")
     code, out = run_cmd('"{}" install -r "{}"'.format(pip_exe, req_file))
-    if code == 0 or "Successfully installed" in out:
-        return {"ok": True, "msg": "Installed"}
-    return {"ok": False, "msg": "Failed. Check logs."}
+    if code != 0 and "Successfully installed" not in out:
+        return {"ok": False, "msg": "Failed. Check logs."}
+    # Install extra packages
+    if EXTRA_PIP_PACKAGES:
+        pkg_list = " ".join(EXTRA_PIP_PACKAGES)
+        log("Installing {} extra packages...".format(len(EXTRA_PIP_PACKAGES)))
+        extra_code, extra_out = run_cmd('"{}" install {}'.format(pip_exe, pkg_list))
+        if extra_code != 0 and "Successfully installed" not in extra_out:
+            log("Warning: Some extra packages failed to install.")
+    return {"ok": True, "msg": "Installed"}
 
 
 def step_create_project(base_dir, projects_dir, project_name, **kwargs):

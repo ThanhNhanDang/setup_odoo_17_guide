@@ -148,7 +148,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       ),
       clone_odoo: () => stepCloneOdoo(baseDir, logger, odooVersion),
       create_venv: () => stepCreateVenv(baseDir, logger, odooVersion),
-      install_requirements: () => stepInstallRequirements(baseDir, logger),
+      install_requirements: () => stepInstallRequirements(baseDir, logger, odooVersion),
     };
 
     const fn = stepFns[step];
