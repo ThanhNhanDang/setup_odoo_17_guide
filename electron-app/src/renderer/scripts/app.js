@@ -1348,7 +1348,7 @@ function showProjectDetail(name) {
     </div>
     <div>
       <div class="detail-label" style="margin-bottom:8px">${t('project.odooLog')}</div>
-      <div class="log-box" id="detailLogBox" style="max-height:250px;font-size:0.72rem" data-logpath="${escAttr(p.logfile || (p.path + '\\odoo.log'))}">
+      <div class="log-box" id="detailLogBox" style="max-height:450px;font-size:0.72rem" data-logpath="${escAttr(p.logfile || (p.path + '\\odoo.log'))}">
         <div style="color:var(--text-tertiary);padding:8px">${t('project.loadingLog')}</div>
       </div>
     </div>
