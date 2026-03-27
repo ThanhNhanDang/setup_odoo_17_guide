@@ -871,6 +871,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .form-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 .form-group{display:flex;flex-direction:column;gap:4px}
 .form-group.full{grid-column:1/-1}
+.input-hint{font-size:0.7rem;color:var(--danger);margin-top:2px}
 .form-group label{font-size:0.75rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px}
 .form-group input,.form-group select{
   padding:9px 12px;border-radius:6px;border:1px solid var(--border-muted);

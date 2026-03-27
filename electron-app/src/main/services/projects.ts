@@ -39,9 +39,9 @@ export function saveProjectConfig(projectsDir: string, projectName: string, cont
   return { ok: true, msg: 'Saved' };
 }
 
-/** Validate project name — no path traversal, safe characters only */
+/** Validate project name — lowercase, start with letter/underscore, no path traversal */
 function isValidName(name: string): boolean {
-  return /^[a-zA-Z0-9_\-]+$/.test(name) && !name.includes('..');
+  return /^[a-z_][a-z0-9_\-]*$/.test(name);
 }
 
 /** Validate DB identifier — letters, numbers, underscores only */
@@ -207,7 +207,7 @@ export async function duplicateProject(
     return { ok: false, msg: 'PROJECT_NOT_FOUND' };
   }
   if (fs.existsSync(dst)) {
-    return { ok: false, msg: `Project '${newName}' already exists` };
+    return { ok: false, msg: 'PROJECT_EXISTS' };
   }
 
   try {

@@ -530,10 +530,13 @@ export async function stepCreateProject(
   const proj = path.join(projectsDir, projectName);
 
   if (!projectName.trim()) {
-    return { ok: false, msg: 'Project name is required' };
+    return { ok: false, msg: 'NAME_REQUIRED' };
+  }
+  if (!/^[a-z_][a-z0-9_\-]*$/.test(projectName)) {
+    return { ok: false, msg: 'INVALID_NAME' };
   }
   if (fs.existsSync(path.join(proj, 'odoo.conf'))) {
-    return { ok: false, msg: `Project '${projectName}' already exists` };
+    return { ok: false, msg: 'PROJECT_EXISTS' };
   }
 
   logger.log(`Creating project '${projectName}'...`);

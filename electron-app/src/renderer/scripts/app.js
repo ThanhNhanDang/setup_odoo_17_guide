@@ -10,6 +10,8 @@ let _status = null;
 const _backendMsgMap = {
   'DELETE_LOCKED': 'toast.deleteLocked',
   'INVALID_NAME': 'toast.invalidName',
+  'NAME_REQUIRED': 'toast.enterName',
+  'PROJECT_EXISTS': 'toast.projectExists',
   'PROJECT_NOT_FOUND': 'toast.projectNotFound',
   'CONFIG_NOT_FOUND': 'toast.configNotFound',
 };
@@ -640,7 +642,7 @@ async function fullInstall() {
     btn.disabled = false;
     btn.textContent = t('install.installAll');
     _fullInstallRunning = false;
-    showToastMessage(t('toast.installFail', { msg: res.msg }), 'error');
+    showToastMessage(t('toast.installFail', { msg: tMsg(res.msg) }), 'error');
   }
 }
 
@@ -685,12 +687,36 @@ async function runStep(step) {
 }
 
 // ---------------------------------------------------------------------------
+// Project Name Validation
+// ---------------------------------------------------------------------------
+/** Validate project name: lowercase, start with letter/underscore, no uppercase, no leading digit */
+function isValidProjectName(name) {
+  return /^[a-z_][a-z0-9_\-]*$/.test(name);
+}
+
+/** Show inline validation hint on project name inputs */
+function validateProjectNameInput(input) {
+  const val = input.value;
+  const hint = input.nextElementSibling;
+  if (!hint || !hint.classList.contains('input-hint')) return;
+  if (!val) { hint.textContent = ''; hint.style.display = 'none'; return; }
+  if (!isValidProjectName(val)) {
+    hint.textContent = t('toast.invalidName');
+    hint.style.display = 'block';
+  } else {
+    hint.textContent = '';
+    hint.style.display = 'none';
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Create Project
 // ---------------------------------------------------------------------------
 async function createProject() {
   try {
     const name = ($('newProjName')?.value || '').trim();
     if (!name) { alert(t('toast.enterName')); return; }
+    if (!isValidProjectName(name)) { showToastMessage(t('toast.invalidName'), 'error'); return; }
 
     // Ensure default paths are loaded
     if (!$('baseDir')?.value || !$('projectsDir')?.value) {
@@ -728,7 +754,7 @@ async function createProject() {
       // Switch to Dashboard to see new project
       showPanel('dashboard', document.querySelectorAll('.nav-tab')[0]);
     } else {
-      showToastMessage(t('toast.failed', { msg: res.msg || '' }), 'error');
+      showToastMessage(t('toast.failed', { msg: tMsg(res.msg || '') }), 'error');
     }
   } catch (e) {
     console.error('createProject error:', e);
@@ -974,6 +1000,9 @@ function duplicateProject(name, port) {
 }
 
 async function confirmDuplicate() {
+  const newName = ($('dupNewName')?.value || '').trim();
+  if (!newName) { alert(t('toast.enterName')); return; }
+  if (!isValidProjectName(newName)) { showToastMessage(t('toast.invalidName'), 'error'); return; }
   const data = getFormData();
   const res = await api('duplicate_project', {
     base_dir: data.base_dir,
@@ -984,7 +1013,7 @@ async function confirmDuplicate() {
   });
   hideModal('modalDuplicate');
   refreshStatus();
-  alert(res.ok ? '\u2705 ' + t('toast.duplicated') + '\n' + res.msg : '\u274C ' + res.msg);
+  alert(res.ok ? '\u2705 ' + t('toast.duplicated') + '\n' + res.msg : '\u274C ' + tMsg(res.msg));
 }
 
 // ---------------------------------------------------------------------------
