@@ -291,8 +291,8 @@ function renderProjects(s) {
         <div><span class="name">${escHtml(p.name)}</span>
           <span class="tag tag-port" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port)}')" style="cursor:pointer" title="Open in browser">:${escHtml(p.http_port)}</span>
           ${p.is_running
-            ? '<span class="tag tag-running">running</span>'
-            : '<span class="tag tag-stopped">stopped</span>'}
+            ? '<span class="tag tag-running">${t('project.runningTag')}</span>'
+            : '<span class="tag tag-stopped">${t('project.stoppedTag')}</span>'}
           <span class="project-url" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port)}')" title="Click to open">${escHtml(getProjectUrl(p.domain, p.http_port))}</span></div>
         <div style="font-size:0.75rem;color:var(--text-tertiary)">${escHtml(p.path)}</div>
       </div>
@@ -303,17 +303,17 @@ function renderProjects(s) {
       </div>
       <div class="cmd-box" onclick="copyCmd(this)" title="Click to copy">
         <span>${escHtml(p.start_command)}</span>
-        <span class="copy-hint">click to copy</span>
+        <span class="copy-hint">${t('project.clickCopy')}</span>
       </div>
       <div class="project-actions">
         ${p.is_running
-          ? `<button class="btn btn-danger btn-xs" data-project-action="${escAttr(p.name)}" onclick="stopOdoo('${escAttr(p.name)}')">Stop</button>`
-          : `<button class="btn btn-success btn-xs" data-project-action="${escAttr(p.name)}" onclick="startOdoo('${escAttr(p.name)}')">Start</button>`}
-        <button class="btn btn-vscode btn-xs" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
-        <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
-        <button class="btn btn-outline btn-xs" onclick="editConfig('${escAttr(p.name)}')">Edit Config</button>
-        <button class="btn btn-outline btn-xs" onclick="duplicateProject('${escAttr(p.name)}','${escAttr(p.http_port)}')">Duplicate</button>
-        <button class="btn btn-danger btn-xs" onclick="deleteProject('${escAttr(p.name)}')">Delete</button>
+          ? `<button class="btn btn-danger btn-xs" data-project-action="${escAttr(p.name)}" onclick="stopOdoo('${escAttr(p.name)}')">${t('project.stop')}</button>`
+          : `<button class="btn btn-success btn-xs" data-project-action="${escAttr(p.name)}" onclick="startOdoo('${escAttr(p.name)}')">${t('project.start')}</button>`}
+        <button class="btn btn-vscode btn-xs" onclick="openVSCode('${escAttr(p.path)}')">${t('project.vsCode')}</button>
+        <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}')">${t('project.explorer')}</button>
+        <button class="btn btn-outline btn-xs" onclick="editConfig('${escAttr(p.name)}')">${t('project.editConfig')}</button>
+        <button class="btn btn-outline btn-xs" onclick="duplicateProject('${escAttr(p.name)}','${escAttr(p.http_port)}')">${t('project.duplicate')}</button>
+        <button class="btn btn-danger btn-xs" onclick="deleteProject('${escAttr(p.name)}')">${t('project.delete')}</button>
       </div>
     </div>`;
   }).join('');
@@ -323,8 +323,8 @@ function copyCmd(el) {
   const text = el.querySelector('span').textContent;
   navigator.clipboard.writeText(text).then(() => {
     const hint = el.querySelector('.copy-hint');
-    hint.textContent = 'copied!';
-    setTimeout(() => hint.textContent = 'click to copy', 1500);
+    hint.textContent = t('project.copied');
+    setTimeout(() => hint.textContent = t('project.clickCopy'), 1500);
   });
 }
 
@@ -404,13 +404,13 @@ if (window.electronAPI) {
         }
       }
       const btn = $('btnFullInstall');
-      if (btn) { btn.disabled = false; btn.textContent = 'Install Everything'; }
+      if (btn) { btn.disabled = false; btn.textContent = t('install.installAll'); }
       _fullInstallRunning = false;
       // Downgrade full sources so refreshStatus can update
       for (const [sid, st] of _stepStates) {
         if (st.source === 'full') _stepStates.set(sid, { ...st, source: 'status' });
       }
-      showToastMessage('Installation complete!', 'success');
+      showToastMessage(t('install.complete'), 'success');
       refreshStatus();
     }
   });
@@ -499,7 +499,7 @@ function refreshInstallStatus() {
 
 async function checkInstallStatus() {
   const btn = $('btnCheckStatus');
-  if (btn) { btn.disabled = true; btn.textContent = 'Checking...'; }
+  if (btn) { btn.disabled = true; btn.textContent = t('install.checking'); }
 
   const allSteps = Object.keys(STEP_MAP);
 
@@ -536,7 +536,7 @@ async function checkInstallStatus() {
     showToastMessage(`${installed}/${total} components installed`, installed > 0 ? 'info' : 'error');
   }
 
-  if (btn) { btn.disabled = false; btn.textContent = 'Check Status'; }
+  if (btn) { btn.disabled = false; btn.textContent = t('install.checkStatus'); }
 }
 
 function appendInstallLog(line) {
@@ -578,7 +578,7 @@ async function fullInstall() {
 
   const btn = $('btnFullInstall');
   btn.disabled = true;
-  btn.textContent = 'Installing...';
+  btn.textContent = t('install.installing');
 
   // Clear log
   const logEl = $('installLogBox');
@@ -597,9 +597,9 @@ async function fullInstall() {
 
   if (!res.ok) {
     btn.disabled = false;
-    btn.textContent = 'Install Everything';
+    btn.textContent = t('install.installAll');
     _fullInstallRunning = false;
-    showToastMessage('Install failed: ' + res.msg, 'error');
+    showToastMessage(t('toast.installFail', { msg: res.msg }), 'error');
   }
 }
 
@@ -621,11 +621,11 @@ async function runStep(step) {
     const res = await api('run_step', { ...getFormData(), step });
     const state = res.ok ? 'done' : 'error';
     _stepStates.set(step, { state, source: 'user' });
-    updateStepCard(step, state, res.msg || (res.ok ? 'Done' : 'Failed'));
+    updateStepCard(step, state, res.msg || (res.ok ? t('install.done') : t('install.failed')));
     if (res.ok) {
-      showToastMessage('\u2713 ' + (STEP_MAP[step]?.label || step) + ' ' + res.msg, 'success');
+      showToastMessage(t('toast.stepSuccess', { step: STEP_MAP[step]?.label || step, msg: res.msg }), 'success');
     } else {
-      showToastMessage('\u2717 ' + res.msg, 'error');
+      showToastMessage(t('toast.stepFail', { msg: res.msg }), 'error');
     }
     refreshStatus();
   } catch (e) {
@@ -649,7 +649,7 @@ async function runStep(step) {
 async function createProject() {
   try {
     const name = ($('newProjName')?.value || '').trim();
-    if (!name) { alert('Enter a project name'); return; }
+    if (!name) { alert(t('toast.enterName')); return; }
 
     // Ensure default paths are loaded
     if (!$('baseDir')?.value || !$('projectsDir')?.value) {
@@ -685,15 +685,15 @@ async function createProject() {
     hideModal('modalNewProject');
     refreshStatus();
     if (res.ok) {
-      showToastMessage('Project created: ' + name, 'success');
+      showToastMessage(t('toast.projectCreated'), 'success');
       // Switch to Dashboard to see new project
       showPanel('dashboard', document.querySelectorAll('.nav-tab')[0]);
     } else {
-      showToastMessage('Failed: ' + (res.msg || 'Unknown error'), 'error');
+      showToastMessage(t('toast.failed', { msg: res.msg || '' }), 'error');
     }
   } catch (e) {
     console.error('createProject error:', e);
-    showToastMessage('Error: ' + e.message, 'error');
+    showToastMessage(t('toast.error', { msg: e.message }), 'error');
   }
 }
 
@@ -742,14 +742,18 @@ async function startOdoo(name) {
       const proj = _status?.projects?.find(p => p.name === name);
       const domain = proj?.domain || '';
       showToastMessage(t('toast.odooRunning'), 'success');
+      // Optimistic: mark as running in local state
+      if (proj) proj.is_running = true;
       openProjectUrl(domain, port);
     } else {
       showToastMessage(t('toast.odooNotResponding'), 'error');
     }
   } else {
-    showToastMessage('Failed: ' + res.msg, 'error');
+    showToastMessage(t('toast.failed', { msg: res.msg }), 'error');
   }
   clearProjectPending(name);
+  // Render immediately with current state
+  if (_status) { renderProjects(_status); renderDashboard(_status); }
   await refreshStatus();
 }
 
@@ -762,10 +766,17 @@ async function stopOdoo(name) {
   const res = await api('stop_odoo', { http_port: port });
   if (res.ok) {
     showToastMessage(t('toast.odooStopped'), 'success');
+    // Optimistic: mark as stopped in local state immediately
+    const proj = _status?.projects?.find(p => p.name === name);
+    if (proj) proj.is_running = false;
   } else {
-    showToastMessage('Failed: ' + res.msg, 'error');
+    showToastMessage(t('toast.failed', { msg: res.msg }), 'error');
   }
   clearProjectPending(name);
+  // Render immediately with optimistic state
+  if (_status) { renderProjects(_status); renderDashboard(_status); }
+  // Wait for port to fully release, then confirm with real status
+  await new Promise(r => setTimeout(r, 1500));
   await refreshStatus();
 }
 
@@ -841,7 +852,7 @@ function deleteProject(name) {
 }
 
 async function confirmDelete() {
-  if ($('deleteConfirmInput').value !== _deletingProject) { alert('Name does not match!'); return; }
+  if ($('deleteConfirmInput').value !== _deletingProject) { alert(t('toast.nameNoMatch')); return; }
   const data = getFormData();
   const dropDb = $('deleteDropDb')?.checked ? 'true' : 'false';
   const res = await api('delete_project', {
@@ -855,7 +866,7 @@ async function confirmDelete() {
 }
 
 async function resetTemplates(name, version) {
-  if (!confirm(`Reset launch.json and settings.json for "${name}" to default templates?`)) return;
+  if (!confirm(t('modal.confirmResetOne', { name }))) return;
   const data = getFormData();
   const res = await api('reset_templates', {
     base_dir: data.base_dir,
@@ -866,17 +877,17 @@ async function resetTemplates(name, version) {
   if (res.ok) {
     showToastMessage(t('toast.templateReset'), 'success');
   } else {
-    showToastMessage('Failed: ' + res.msg, 'error');
+    showToastMessage(t('toast.failed', { msg: res.msg }), 'error');
   }
 }
 
 async function resetAllTemplates() {
   if (!_status || !_status.projects || _status.projects.length === 0) {
-    showToastMessage('No projects found.', 'error');
+    showToastMessage(t('toast.noProjects'), 'error');
     return;
   }
   const names = _status.projects.map(p => p.name).join(', ');
-  if (!confirm(`Reset launch.json & settings.json for ALL ${_status.projects.length} projects?\n\n${names}`)) return;
+  if (!confirm(t('modal.confirmResetAll', { count: _status.projects.length, names }))) return;
 
   const data = getFormData();
   let ok = 0, fail = 0;
@@ -998,19 +1009,19 @@ function renderKanban(projects) {
         <div class="kanban-card-tags">
           <span class="kanban-tag kanban-tag-version" style="background:${getVersionColor(p.odoo_version)};color:#fff">v${escHtml(p.odoo_version || '17')}</span>
           ${p.is_running
-            ? '<span class="kanban-tag kanban-tag-running">running</span>'
-            : '<span class="kanban-tag kanban-tag-stopped">stopped</span>'}
+            ? '<span class="kanban-tag kanban-tag-running">${t('project.runningTag')}</span>'
+            : '<span class="kanban-tag kanban-tag-stopped">${t('project.stoppedTag')}</span>'}
           ${p.custom_modules > 0 ? `<span class="kanban-tag kanban-tag-modules">${p.custom_modules} modules</span>` : ''}
         </div>
       </div>
       <div class="kanban-card-actions">
         ${p.is_running
-          ? `<button class="btn btn-danger btn-xs" data-project-action="${escAttr(p.name)}" onclick="stopOdoo('${escAttr(p.name)}')">Stop</button>`
-          : `<button class="btn btn-success btn-xs" data-project-action="${escAttr(p.name)}" onclick="startOdoo('${escAttr(p.name)}')">Start</button>`}
-        <button class="btn btn-vscode btn-xs" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
-        <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
-        <button class="btn btn-outline btn-xs" onclick="showProjectDetail('${escAttr(p.name)}')">Detail</button>
-        <button class="btn btn-danger btn-xs" onclick="deleteProject('${escAttr(p.name)}')">Delete</button>
+          ? `<button class="btn btn-danger btn-xs" data-project-action="${escAttr(p.name)}" onclick="stopOdoo('${escAttr(p.name)}')">${t('project.stop')}</button>`
+          : `<button class="btn btn-success btn-xs" data-project-action="${escAttr(p.name)}" onclick="startOdoo('${escAttr(p.name)}')">${t('project.start')}</button>`}
+        <button class="btn btn-vscode btn-xs" onclick="openVSCode('${escAttr(p.path)}')">${t('project.vsCode')}</button>
+        <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}')">${t('project.explorer')}</button>
+        <button class="btn btn-outline btn-xs" onclick="showProjectDetail('${escAttr(p.name)}')">${t('project.detail')}</button>
+        <button class="btn btn-danger btn-xs" onclick="deleteProject('${escAttr(p.name)}')">${t('project.delete')}</button>
       </div>
     </div>
   `).join('');
@@ -1061,7 +1072,7 @@ function showProjectDetail(name) {
         </div>`;
       }).join('')}
       <div class="detail-item detail-editable">
-        <div class="detail-label">Admin Password</div>
+        <div class="detail-label">${t('project.adminPassword')}</div>
         <div style="display:flex;gap:4px;align-items:center;margin-top:4px">
           <input class="detail-input" data-key="admin_passwd" type="password" value="${escHtml(p.admin_passwd || 'odoo')}" style="margin:0;flex:1" id="detailAdminPwd">
           <button class="btn-icon" onclick="togglePwdVisibility('detailAdminPwd')" title="Show/Hide" type="button">
@@ -1081,7 +1092,7 @@ function showProjectDetail(name) {
       </div>
     </div>
     <div class="detail-item" style="margin-bottom:16px;padding:12px;background:var(--bg-surface);border:1px solid var(--border-default);border-radius:8px">
-      <div class="detail-label" style="margin-bottom:8px">Addons Path</div>
+      <div class="detail-label" style="margin-bottom:8px">${t('project.addonsPath')}</div>
       <div id="detailAddonsList">
         ${addonsPaths.map((ap, i) => `
           <div class="addons-row" style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
@@ -1094,7 +1105,7 @@ function showProjectDetail(name) {
       </div>
       <button class="btn btn-outline btn-xs" onclick="addAddonPath()" style="margin-top:4px">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Add Folder
+        ${t('project.addFolder')}
       </button>
     </div>
     ${p.addon_dirs && p.addon_dirs.length ? `
@@ -1112,26 +1123,26 @@ function showProjectDetail(name) {
     ` : ''}
     <div class="cmd-box" onclick="copyCmd(this)" title="Click to copy" style="margin-bottom:16px">
       <span>${escHtml(p.start_command)}</span>
-      <span class="copy-hint">click to copy</span>
+      <span class="copy-hint">${t('project.clickCopy')}</span>
     </div>
     <div style="margin-bottom:16px">
-      <div class="detail-label" style="margin-bottom:8px">Odoo Log (realtime)</div>
+      <div class="detail-label" style="margin-bottom:8px">${t('project.odooLog')}</div>
       <div class="log-box" id="detailLogBox" style="max-height:250px;font-size:0.72rem" data-logpath="${escAttr(p.logfile || (p.path + '\\odoo.log'))}">
-        <div style="color:var(--text-tertiary);padding:8px">Loading log...</div>
+        <div style="color:var(--text-tertiary);padding:8px">${t('project.loadingLog')}</div>
       </div>
     </div>
     <div class="btn-row" style="justify-content:space-between">
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         ${p.is_running
-          ? `<button class="btn btn-danger btn-sm" data-project-action="${escAttr(p.name)}" onclick="stopOdoo('${escAttr(p.name)}');hideModal('modalDetail')">Stop</button>`
-          : `<button class="btn btn-success btn-sm" data-project-action="${escAttr(p.name)}" onclick="startOdoo('${escAttr(p.name)}');hideModal('modalDetail')">Start</button>`}
-        <button class="btn btn-vscode btn-sm" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
-        <button class="btn btn-outline btn-sm" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
-        <button class="btn btn-outline btn-sm" onclick="resetTemplates('${escAttr(p.name)}','${escAttr(p.odoo_version || '17')}')">Reset Templates</button>
-        <button class="btn btn-outline btn-sm" onclick="hideModal('modalDetail');duplicateProject('${escAttr(p.name)}','${escAttr(p.http_port)}')">Duplicate</button>
-        <button class="btn btn-danger btn-sm" onclick="hideModal('modalDetail');deleteProject('${escAttr(p.name)}')">Delete</button>
+          ? `<button class="btn btn-danger btn-sm" data-project-action="${escAttr(p.name)}" onclick="stopOdoo('${escAttr(p.name)}');hideModal('modalDetail')">${t('project.stop')}</button>`
+          : `<button class="btn btn-success btn-sm" data-project-action="${escAttr(p.name)}" onclick="startOdoo('${escAttr(p.name)}');hideModal('modalDetail')">${t('project.start')}</button>`}
+        <button class="btn btn-vscode btn-sm" onclick="openVSCode('${escAttr(p.path)}')">${t('project.vsCode')}</button>
+        <button class="btn btn-outline btn-sm" onclick="openExplorer('${escAttr(p.path)}')">${t('project.explorer')}</button>
+        <button class="btn btn-outline btn-sm" onclick="resetTemplates('${escAttr(p.name)}','${escAttr(p.odoo_version || '17')}')">${t('project.resetTemplates')}</button>
+        <button class="btn btn-outline btn-sm" onclick="hideModal('modalDetail');duplicateProject('${escAttr(p.name)}','${escAttr(p.http_port)}')">${t('project.duplicate')}</button>
+        <button class="btn btn-danger btn-sm" onclick="hideModal('modalDetail');deleteProject('${escAttr(p.name)}')">${t('project.delete')}</button>
       </div>
-      <button class="btn btn-primary btn-sm" onclick="saveDetailAndRestart('${escAttr(p.name)}')">Save & Restart</button>
+      <button class="btn btn-primary btn-sm" onclick="saveDetailAndRestart('${escAttr(p.name)}')">${t('project.saveRestart')}</button>
     </div>
   `;
 
@@ -1163,7 +1174,7 @@ async function startLogWatch() {
         .join('');
       logBox.scrollTop = logBox.scrollHeight;
     } else {
-      logBox.innerHTML = '<div style="color:var(--text-tertiary);padding:8px">No log file yet. Start Odoo to generate logs.</div>';
+      logBox.innerHTML = '<div style="color:var(--text-tertiary);padding:8px">${t('project.noLogFile')}</div>';
       // Retry every 3s until log file appears
       _logRetryTimer = setInterval(async () => {
         if (_currentLogPath !== logPath) { clearInterval(_logRetryTimer); return; }
@@ -1187,7 +1198,7 @@ async function startLogWatch() {
       return;
     }
   } catch {
-    logBox.innerHTML = '<div style="color:var(--text-tertiary);padding:8px">No log file found.</div>';
+    logBox.innerHTML = '<div style="color:var(--text-tertiary);padding:8px">${t('project.noLogFound')}</div>';
     return;
   }
 
@@ -1265,7 +1276,7 @@ async function saveDetailAndRestart(name) {
     // Read current config
     const data = getFormData();
     const readRes = await api('read_config', { projects_dir: data.projects_dir, project_name: name });
-    if (!readRes.ok) { showToastMessage('Failed to read config: ' + readRes.msg, 'error'); return; }
+    if (!readRes.ok) { showToastMessage(t('toast.readConfigFail', { msg: readRes.msg }), 'error'); return; }
 
     // Parse current config and update fields
     let content = readRes.content;
@@ -1300,7 +1311,7 @@ async function saveDetailAndRestart(name) {
     // Save config
     showToastMessage(t('toast.configSaving'), 'info');
     const saveRes = await api('save_config', { projects_dir: data.projects_dir, project_name: name, content });
-    if (!saveRes.ok) { showToastMessage('Save failed: ' + saveRes.msg, 'error'); return; }
+    if (!saveRes.ok) { showToastMessage(t('toast.saveFail', { msg: saveRes.msg }), 'error'); return; }
 
     // Restart Odoo if running
     const port = _status?.projects?.find(p => p.name === name)?.http_port || '8069';
@@ -1318,7 +1329,7 @@ async function saveDetailAndRestart(name) {
       refreshStatus();
     }
   } catch (e) {
-    showToastMessage('Error: ' + e.message, 'error');
+    showToastMessage(t('toast.error', { msg: e.message }), 'error');
   }
 }
 
@@ -1331,7 +1342,7 @@ let _manualCheckResolve = null;
 async function checkForUpdate() {
   const el = $('navVersion');
   const original = el.textContent;
-  el.textContent = 'Checking...';
+  el.textContent = t('update.checking');
   try {
     // Reset periodic interval so it doesn't overlap
     await api('update-reset-interval');
@@ -1363,16 +1374,16 @@ async function checkForUpdate() {
 
 function showUpdateCard(version) {
   const toast = $('updateToast');
-  $('updateTitle').textContent = 'New version available';
+  $('updateTitle').textContent = t('update.title');
   $('updateVersion').textContent = 'v' + version;
-  $('updateDesc').textContent = 'A new version is ready to download.';
+  $('updateDesc').textContent = t('update.readyDownload');
   $('updateActions').style.display = 'flex';
   $('updateProgressWrap').style.display = 'none';
   $('updateFill').style.width = '0%';
   $('updatePct').textContent = '0%';
   $('updateSpinner').classList.remove('hidden');
   $('btnUpdateDownload').disabled = false;
-  $('btnUpdateDownload').textContent = 'Download Now';
+  $('btnUpdateDownload').textContent = t('update.downloadNow');
   toast.style.animation = 'none';
   toast.classList.add('visible');
   requestAnimationFrame(() => { toast.style.animation = ''; });
@@ -1380,8 +1391,8 @@ function showUpdateCard(version) {
 
 function startUpdateDownload() {
   $('btnUpdateDownload').disabled = true;
-  $('btnUpdateDownload').textContent = 'Downloading...';
-  $('updateDesc').textContent = 'Downloading update...';
+  $('btnUpdateDownload').textContent = t('update.downloading');
+  $('updateDesc').textContent = t('update.downloadingUpdate');
   $('updateActions').style.display = 'none';
   $('updateProgressWrap').style.display = '';
   api('update-download');
@@ -1397,7 +1408,7 @@ function updateProgress(pct) {
 }
 
 function updateReady(version) {
-  $('updateDesc').textContent = 'Download complete! Restarting...';
+  $('updateDesc').textContent = t('update.downloadComplete');
   $('updateActions').style.display = 'none';
   $('updateProgressWrap').style.display = '';
   $('updateFill').style.width = '100%';
@@ -1735,9 +1746,9 @@ function renderTourSteps() {
   const container = $('helpTour');
   if (!container || typeof TOUR_STEPS === 'undefined') return;
   container.innerHTML = `
-    <p class="desc" style="margin-bottom:14px">Click any step to highlight it on the app. Or click "Start Full Tour" to run all steps.</p>
+    <p class="desc" style="margin-bottom:14px">${t('help.tourStepsDesc')}</p>
     <div style="margin-bottom:12px">
-      <button class="btn btn-primary btn-sm" onclick="startTour()">Start Full Tour</button>
+      <button class="btn btn-primary btn-sm" onclick="startTour()">${t('help.startFullTour')}</button>
     </div>
     ${TOUR_STEPS.map((step, i) => `
       <div class="tour-step-item" onclick="startTourAtStep(${i})" style="display:flex;align-items:center;gap:12px;padding:10px 14px;margin-bottom:6px;background:var(--bg-surface);border:1px solid var(--border-muted);border-radius:8px;cursor:pointer;transition:border-color 0.15s"
@@ -1773,7 +1784,7 @@ function renderDocs(filter) {
   }
 
   if (entries.length === 0) {
-    container.innerHTML = '<div class="help-empty">No matching documentation found.</div>';
+    container.innerHTML = '<div class="help-empty">' + t('help.noDocs') + '</div>';
     return;
   }
 
@@ -1818,7 +1829,7 @@ function expandDocCard(id) {
     <div class="doc-expanded">
       <div class="doc-expanded-header">
         <div class="doc-expanded-title">${escHtml(entry.title)}</div>
-        <button class="btn btn-outline btn-xs" onclick="expandDocCard('${id}')">Close</button>
+        <button class="btn btn-outline btn-xs" onclick="expandDocCard('${id}')">${t('help.close')}</button>
       </div>
       <div class="doc-expanded-body">${entry.body || ''}${videoHtml}</div>
     </div>
@@ -1839,7 +1850,7 @@ function renderTroubleshooting(filter) {
   }
 
   if (entries.length === 0) {
-    container.innerHTML = '<div class="help-empty">No matching issues found.</div>';
+    container.innerHTML = '<div class="help-empty">' + t('help.noIssues') + '</div>';
     return;
   }
 
@@ -1848,14 +1859,14 @@ function renderTroubleshooting(filter) {
       <div class="troubleshoot-header" onclick="toggleTroubleshootItem('${e.id}')">
         <span class="troubleshoot-arrow">&#9654;</span>
         <span class="troubleshoot-title">${escHtml(e.title)}</span>
-        <div class="troubleshoot-tags">${e.tags.slice(0, 3).map(t => `<span class="troubleshoot-tag">${escHtml(t)}</span>`).join('')}</div>
+        <div class="troubleshoot-tags">${e.tags.slice(0, 3).map(tag => `<span class="troubleshoot-tag">${escHtml(tag)}</span>`).join('')}</div>
       </div>
       <div class="troubleshoot-body">
-        <div class="troubleshoot-label">Symptom</div>
+        <div class="troubleshoot-label">${t('help.symptom')}</div>
         <p>${e.symptom}</p>
-        <div class="troubleshoot-label">Cause</div>
+        <div class="troubleshoot-label">${t('help.cause')}</div>
         <p>${e.cause}</p>
-        <div class="troubleshoot-label">Solution</div>
+        <div class="troubleshoot-label">${t('help.solution')}</div>
         <p>${e.solution}</p>
       </div>
     </div>

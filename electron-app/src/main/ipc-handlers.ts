@@ -388,12 +388,19 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       }
 
       // Start Odoo using exec (no terminal window)
+      // Inject PostgreSQL bin into PATH so Odoo can find psql/pg_restore for DB operations
+      const odooEnv = { ...process.env };
+      if (pgBin && !odooEnv.PATH?.includes(pgBin)) {
+        odooEnv.PATH = `${pgBin};${odooEnv.PATH || ''}`;
+        logger.log(`  > Added PostgreSQL bin to PATH: ${pgBin}`);
+      }
       logger.log(`Starting Odoo: ${cmd}`);
       const { exec: execChild } = require('child_process');
       const odooProc = execChild(cmd, {
         cwd: projPath,
         windowsHide: true,
         maxBuffer: 10 * 1024 * 1024,
+        env: odooEnv,
       });
 
       // Log Odoo stdout/stderr to installer log
@@ -444,6 +451,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         logger.log(`  > Nginx HTTPS proxy: ${e}`);
       }
 
+      invalidateStatusCache();
       return { ok: true, command: cmd };
     } catch (e) {
       return { ok: false, msg: String(e) };
@@ -470,6 +478,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         await runCmd(`taskkill /F /PID ${pid}`);
       }
       logger.log(`Odoo stopped (killed PID: ${[...pids].join(', ')})`);
+      invalidateStatusCache();
       return { ok: true, msg: 'Stopped' };
     } catch (e) {
       return { ok: false, msg: String(e) };
