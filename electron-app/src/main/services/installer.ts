@@ -577,11 +577,11 @@ export async function stepCreateProject(
   const projectDomain = opts.project_domain || projectToDomain(projectName);
   cfg.project_domain = projectDomain;
 
-  // Auto-set dbfilter from domain's first subdomain (DB isolation without manual config)
-  // e.g. "test.odoo.local" → dbfilter "^test.*$", "w2.odoo.local" → "^w2.*$"
+  // Auto-set dbfilter from project name (DB isolation without manual config)
+  // e.g. project "test_db" → dbfilter "^test_db.*$"
+  // Uses project name (not domain) to preserve underscores in DB names
   if (!cfg.dbfilter) {
-    const firstSubdomain = projectDomain.split('.')[0];
-    cfg.dbfilter = `^${firstSubdomain}.*$`;
+    cfg.dbfilter = `^${projectName}.*$`;
   }
 
   // odoo.conf from template
