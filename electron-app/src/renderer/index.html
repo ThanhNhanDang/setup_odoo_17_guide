@@ -495,8 +495,12 @@
       <div class="update-toast-version" id="updateVersion">v1.0.0</div>
     </div>
   </div>
-  <div class="update-toast-desc" id="updateDesc">Downloading update...</div>
-  <div class="update-toast-progress" id="updateProgressWrap">
+  <div class="update-toast-desc" id="updateDesc">A new version is ready to download.</div>
+  <div id="updateActions" style="display:flex;gap:8px;margin:8px 0">
+    <button class="btn btn-primary btn-xs" id="btnUpdateDownload" onclick="startUpdateDownload()">Download Now</button>
+    <button class="btn btn-outline btn-xs" onclick="dismissUpdate()">Later</button>
+  </div>
+  <div class="update-toast-progress" id="updateProgressWrap" style="display:none">
     <div class="update-toast-bar">
       <div class="update-toast-fill" id="updateFill" style="width:0%"></div>
     </div>

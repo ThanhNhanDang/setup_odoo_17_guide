@@ -1269,16 +1269,30 @@ function showUpdateCard(version) {
   const toast = $('updateToast');
   $('updateTitle').textContent = 'New version available';
   $('updateVersion').textContent = 'v' + version;
-  $('updateDesc').textContent = 'Downloading update...';
+  $('updateDesc').textContent = 'A new version is ready to download.';
+  $('updateActions').style.display = 'flex';
+  $('updateProgressWrap').style.display = 'none';
   $('updateFill').style.width = '0%';
   $('updatePct').textContent = '0%';
   $('updateSpinner').classList.remove('hidden');
-  // Remove old animation, show element, then re-trigger animation next frame
+  $('btnUpdateDownload').disabled = false;
+  $('btnUpdateDownload').textContent = 'Download Now';
   toast.style.animation = 'none';
   toast.classList.add('visible');
-  requestAnimationFrame(() => {
-    toast.style.animation = '';
-  });
+  requestAnimationFrame(() => { toast.style.animation = ''; });
+}
+
+function startUpdateDownload() {
+  $('btnUpdateDownload').disabled = true;
+  $('btnUpdateDownload').textContent = 'Downloading...';
+  $('updateDesc').textContent = 'Downloading update...';
+  $('updateActions').style.display = 'none';
+  $('updateProgressWrap').style.display = '';
+  api('update-download');
+}
+
+function dismissUpdate() {
+  $('updateToast').classList.remove('visible');
 }
 
 function updateProgress(pct) {
@@ -1288,10 +1302,11 @@ function updateProgress(pct) {
 
 function updateReady(version) {
   $('updateDesc').textContent = 'Download complete! Restarting...';
+  $('updateActions').style.display = 'none';
+  $('updateProgressWrap').style.display = '';
   $('updateFill').style.width = '100%';
   $('updatePct').textContent = '100%';
   $('updateSpinner').classList.add('hidden');
-  // Auto-install after short delay so user sees 100%
   setTimeout(() => api('update-install'), 1500);
 }
 
@@ -1300,25 +1315,20 @@ if (window.electronAPI) {
   window.electronAPI.onEvent('update-status', (data) => {
     switch (data.status) {
       case 'available':
-        // Show card immediately — download starts automatically
         showUpdateCard(data.version);
         break;
 
       case 'downloading':
-        // Update progress bar
-        if (!$('updateToast').classList.contains('visible')) {
-          showUpdateCard('');
-        }
+        $('updateProgressWrap').style.display = '';
+        $('updateActions').style.display = 'none';
         updateProgress(data.percent || 0);
         break;
 
       case 'ready':
-        // Download complete — auto restart
         updateReady(data.version);
         break;
 
       case 'error':
-        // Silently ignore update errors
         console.log('Update check:', data.message);
         $('updateToast').classList.remove('visible');
         break;

@@ -20,10 +20,11 @@ import * as path from 'path';
 export class UpdaterService {
   private updateAvailable = false;
   private updateInfo: UpdateInfo | null = null;
+  private checkInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(private readonly window: BrowserWindow) {
-    // Auto-download updates immediately
-    autoUpdater.autoDownload = true;
+    // Don't auto-download — wait for user confirmation
+    autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = true;
     autoUpdater.autoRunAppAfterInstall = true;
 
@@ -113,6 +114,24 @@ export class UpdaterService {
     autoUpdater.checkForUpdates().catch((err) => {
       console.error('[updater] Check failed:', err.message);
     });
+  }
+
+  /** Start periodic update checks (every 30 minutes) */
+  startPeriodicCheck(intervalMs: number = 30 * 60 * 1000): void {
+    this.stopPeriodicCheck();
+    this.checkInterval = setInterval(() => {
+      if (!this.updateAvailable) {
+        this.checkForUpdates();
+      }
+    }, intervalMs);
+  }
+
+  /** Stop periodic update checks */
+  stopPeriodicCheck(): void {
+    if (this.checkInterval) {
+      clearInterval(this.checkInterval);
+      this.checkInterval = null;
+    }
   }
 
   /** Start downloading the update */

@@ -93,12 +93,14 @@ function createWindow(): void {
   // Register IPC handlers
   registerIpcHandlers(mainWindow);
 
-  // Auto-update: check after window is ready
+  // Auto-update: check after window is ready, then every 30 minutes
   mainWindow.webContents.on('did-finish-load', () => {
     const updater = new UpdaterService(mainWindow!);
     registerUpdateHandlers(mainWindow!, updater);
-    // Check for updates after UI is settled
-    setTimeout(() => updater.checkForUpdates(), 3000);
+    setTimeout(() => {
+      updater.checkForUpdates();
+      updater.startPeriodicCheck();
+    }, 3000);
   });
 
   // Minimize to tray instead of closing
