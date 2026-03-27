@@ -1109,6 +1109,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   transition:all 0.15s;
 }
 .kanban-action-btn{width:32px;height:32px;border-radius:6px}
+.kanban-icon-btn svg,.kanban-icon-btn img{pointer-events:none}
 .kanban-icon-btn:hover{background:var(--bg-overlay);color:var(--text-primary);border-color:var(--border-default)}
 /* Start icon — green, bigger */
 .kanban-icon-btn.btn-start-icon{color:var(--success);border-color:var(--success);width:38px;height:36px;border-radius:8px}
@@ -1117,8 +1118,8 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .kanban-icon-btn.btn-stop-icon{color:var(--danger);border-color:var(--danger);width:38px;height:36px;border-radius:8px}
 .kanban-icon-btn.btn-stop-icon:hover{background:var(--danger);color:#fff}
 /* VS Code icon — override .btn-vscode background for icon-only buttons */
-.kanban-icon-btn.btn-vscode{background:transparent!important;color:var(--text-tertiary);border-color:var(--border-muted);box-shadow:none!important}
-.kanban-icon-btn.btn-vscode:hover{background:var(--bg-overlay)!important;border-color:#007acc}
+.kanban-icon-btn.btn-vscode{background:transparent!important;color:var(--text-tertiary);border:1px solid var(--border-muted)!important;box-shadow:none!important}
+.kanban-icon-btn.btn-vscode:hover{background:var(--bg-overlay)!important;border-color:#007acc!important}
 /* Delete icon — red bg, white icon */
 .kanban-icon-btn.btn-delete-icon{background:var(--danger);color:#fff;border-color:var(--danger)}
 .kanban-icon-btn.btn-delete-icon:hover{background:#c62828;border-color:#c62828}
