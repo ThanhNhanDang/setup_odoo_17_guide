@@ -518,6 +518,8 @@ export async function stepInstallRequirements(baseDir: string, logger: LoggerSer
   return { ok: true, msg: 'Installed' };
 }
 
+type ProgressFn = (step: string, done: boolean) => void;
+
 export async function stepCreateProject(
   baseDir: string,
   projectsDir: string,
@@ -525,6 +527,7 @@ export async function stepCreateProject(
   logger: LoggerService,
   opts: Record<string, string> = {},
   odooVersion: string = DEFAULT_ODOO_VERSION,
+  onProgress?: ProgressFn,
 ): Promise<StepResult> {
   fs.mkdirSync(projectsDir, { recursive: true });
   const proj = path.join(projectsDir, projectName);
@@ -539,12 +542,17 @@ export async function stepCreateProject(
     return { ok: false, msg: 'PROJECT_EXISTS' };
   }
 
+  const emit = (step: string, done: boolean) => { if (onProgress) onProgress(step, done); };
+
+  emit('create_folder', false);
   logger.log(`Creating project '${projectName}'...`);
   fs.mkdirSync(proj, { recursive: true });
   fs.mkdirSync(path.join(proj, 'addons'), { recursive: true });
   fs.mkdirSync(path.join(proj, '.vscode'), { recursive: true });
+  emit('create_folder', true);
 
   // Junction link — use custom Odoo source dir name if set
+  emit('junction_link', false);
   const odooSourceDir = opts.odoo_source_dir || 'odoo';
   const odooLink = path.join(proj, 'odoo');
   const odooSource = path.join(baseDir, odooSourceDir);
@@ -554,6 +562,7 @@ export async function stepCreateProject(
       return { ok: false, msg: 'Failed to create symlink. Run as Administrator.' };
     }
   }
+  emit('junction_link', true);
 
   // Build config values with defaults
   const cfg: Record<string, string> = { ...PROJECT_DEFAULTS };
@@ -589,6 +598,7 @@ export async function stepCreateProject(
   }
 
   // odoo.conf from template
+  emit('write_config', false);
   const templatesDir = getTemplatesDir();
   const confTemplate = fs.readFileSync(path.join(templatesDir, 'odoo.conf'), 'utf8');
   // Replace {key} placeholders with config values
@@ -616,13 +626,18 @@ export async function stepCreateProject(
     fs.writeFileSync(path.join(proj, '.vscode', 'settings.json'), settingsContent, 'utf8');
   }
 
+  emit('write_config', true);
+
   // Add domain to hosts file
+  emit('setup_domain', false);
   const hostsResult = addHostEntry(projectDomain);
   if (hostsResult.ok) {
     logger.log(`  > Domain '${projectDomain}' added to hosts file.`);
   } else {
     logger.log(`  > Could not add domain to hosts: ${hostsResult.msg}`);
   }
+
+  emit('setup_domain', true);
 
   logger.log(`Project '${projectName}' ready at ${proj}`);
   logger.log(`  > URL: http://${projectDomain}:${cfg.http_port}`);

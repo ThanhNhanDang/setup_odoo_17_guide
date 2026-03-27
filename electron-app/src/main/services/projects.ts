@@ -49,10 +49,13 @@ function isSafeDbIdentifier(val: string): boolean {
   return /^[a-zA-Z0-9_]+$/.test(val);
 }
 
+type ProgressFn = (step: string, done: boolean) => void;
+
 export async function deleteProject(
   projectsDir: string,
   projectName: string,
   dropDatabases: boolean = false,
+  onProgress?: ProgressFn,
 ): Promise<ProjectResult> {
   if (!isValidName(projectName)) {
     return { ok: false, msg: 'INVALID_NAME' };
@@ -66,10 +69,13 @@ export async function deleteProject(
     return { ok: false, msg: 'PROJECT_NOT_FOUND' };
   }
 
+  const emit = (step: string, done: boolean) => { if (onProgress) onProgress(step, done); };
+
   // Drop databases matching dbfilter if requested
   const droppedDbs: string[] = [];
   const dropErrors: string[] = [];
   if (dropDatabases) {
+    emit('drop_databases', false);
     try {
       const iniContent = fs.readFileSync(conf, 'utf8');
       const ini = parseIni(iniContent);
@@ -138,9 +144,11 @@ export async function deleteProject(
     } catch (e) {
       dropErrors.push(String(e));
     }
+    emit('drop_databases', true);
   }
 
   // Stop Odoo if running on this project's port
+  emit('stop_odoo', false);
   try {
     const iniContent = fs.readFileSync(conf, 'utf8');
     const ini = parseIni(iniContent);
@@ -156,7 +164,10 @@ export async function deleteProject(
     }
   } catch { /* ignore */ }
 
+  emit('stop_odoo', true);
+
   // Close VS Code windows that have this project open
+  emit('close_vscode', false);
   try {
     const projNorm = proj.replace(/\\/g, '\\\\').replace(/\//g, '\\\\');
     // Kill code.exe processes whose command line contains this project path
@@ -164,8 +175,10 @@ export async function deleteProject(
     // Small delay for file locks to release
     await new Promise(r => setTimeout(r, 1000));
   } catch { /* ignore */ }
+  emit('close_vscode', true);
 
   // Remove junction links first (Windows locks these, fs.rmSync fails on them)
+  emit('delete_files', false);
   try {
     for (const entry of fs.readdirSync(proj)) {
       const entryPath = path.join(proj, entry);
@@ -189,6 +202,7 @@ export async function deleteProject(
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       fs.rmSync(proj, { recursive: true, force: true });
+      emit('delete_files', true);
       let dbMsg = 'Deleted';
       if (droppedDbs.length > 0) dbMsg += ` (dropped DB: ${droppedDbs.join(', ')})`;
       if (dropErrors.length > 0) dbMsg += ` [DB errors: ${dropErrors.join('; ')}]`;

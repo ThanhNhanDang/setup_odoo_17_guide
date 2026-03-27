@@ -722,6 +722,48 @@ function validateProjectNameInput(input) {
 }
 
 // ---------------------------------------------------------------------------
+// Progress step definitions for create/delete
+// ---------------------------------------------------------------------------
+const CREATE_STEPS = [
+  { id: 'create_folder', key: 'modal.dupStepFolder' },
+  { id: 'junction_link', key: 'modal.dupStepJunction' },
+  { id: 'write_config', key: 'modal.dupStepConfig' },
+  { id: 'setup_domain', key: 'modal.dupStepDomain' },
+];
+const DELETE_STEPS = [
+  { id: 'drop_databases', key: 'modal.delStepDropDb' },
+  { id: 'stop_odoo', key: 'modal.delStepStopOdoo' },
+  { id: 'close_vscode', key: 'modal.delStepCloseVscode' },
+  { id: 'delete_files', key: 'modal.delStepDeleteFiles' },
+];
+
+function _renderProgressSteps(containerId, steps) {
+  const el = $(containerId);
+  if (!el) return;
+  el.innerHTML = steps.map(s =>
+    `<div class="dup-step" id="prog-${s.id}">
+      <span class="dup-step-icon">&#9711;</span>
+      <span class="dup-step-label">${t(s.key)}</span>
+    </div>`
+  ).join('');
+  el.style.display = '';
+}
+
+function _updateProgressStep(stepId, done) {
+  const el = $('prog-' + stepId);
+  if (!el) return;
+  const icon = el.querySelector('.dup-step-icon');
+  if (done) {
+    icon.innerHTML = '&#10003;';
+    el.classList.add('done');
+    el.classList.remove('active');
+  } else {
+    icon.innerHTML = '<span class="spinner-sm"></span>';
+    el.classList.add('active');
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Create Project
 // ---------------------------------------------------------------------------
 async function createProject() {
@@ -755,15 +797,30 @@ async function createProject() {
     data.proxy_mode = $('newProxyMode')?.value || 'True';
     data.project_domain = $('newProjDomain')?.value || '';
 
-    showToastMessage(t('toast.projectCreating', { name }), 'info');
+    // Show progress in modal
+    const formEls = $('modalNewProject').querySelector('.modal-body');
+    const footerEl = $('modalNewProject').querySelector('.modal-footer');
+    formEls.innerHTML = '<div id="createProgressSteps"></div>';
+    if (footerEl) footerEl.style.display = 'none';
+    _renderProgressSteps('createProgressSteps', CREATE_STEPS);
 
-    const res = await api('create_project', data);
+    const handler = (d) => _updateProgressStep(d.step, d.done);
+    window.electronAPI.onEvent('create-progress', handler);
 
+    let res;
+    try {
+      res = await api('create_project', data);
+    } catch (e) {
+      res = { ok: false, msg: String(e) };
+    } finally {
+      window.electronAPI.removeAllListeners('create-progress');
+    }
+
+    await new Promise(r => setTimeout(r, 400));
     hideModal('modalNewProject');
     if (res.ok) {
       await refreshStatus();
       showToastMessage(t('toast.projectCreated'), 'success');
-      // Switch to Dashboard to see new project
       showPanel('dashboard', document.querySelectorAll('.nav-tab')[0]);
     } else {
       refreshStatus();
@@ -998,17 +1055,38 @@ async function confirmDelete() {
   if ($('deleteConfirmInput').value.trim() !== _deletingProject) { alert(t('toast.nameNoMatch')); return; }
   const data = getFormData();
   const dropDb = $('deleteDropDb')?.checked ? 'true' : 'false';
-  const res = await api('delete_project', {
-    projects_dir: data.projects_dir,
-    project_name: _deletingProject,
-    drop_databases: dropDb,
-  });
+
+  // Show progress in modal
+  const bodyEl = $('modalDelete').querySelector('.modal-body');
+  const footerEl = $('modalDelete').querySelector('.modal-footer');
+  bodyEl.innerHTML = '<div id="deleteProgressSteps"></div>';
+  if (footerEl) footerEl.style.display = 'none';
+  const steps = dropDb === 'true' ? DELETE_STEPS : DELETE_STEPS.filter(s => s.id !== 'drop_databases');
+  _renderProgressSteps('deleteProgressSteps', steps);
+
+  const handler = (d) => _updateProgressStep(d.step, d.done);
+  window.electronAPI.onEvent('delete-progress', handler);
+
+  let res;
+  try {
+    res = await api('delete_project', {
+      projects_dir: data.projects_dir,
+      project_name: _deletingProject,
+      drop_databases: dropDb,
+    });
+  } catch (e) {
+    res = { ok: false, msg: String(e) };
+  } finally {
+    window.electronAPI.removeAllListeners('delete-progress');
+  }
+
+  await new Promise(r => setTimeout(r, 400));
   hideModal('modalDelete');
   await refreshStatus();
   if (res.ok) {
-    alert('\u2705 ' + t('toast.deleted'));
+    showToastMessage(t('toast.deleted'), 'success');
   } else {
-    alert('\u274C ' + tMsg(res.msg));
+    showToastMessage(t('toast.failed', { msg: tMsg(res.msg) }), 'error');
   }
 }
 

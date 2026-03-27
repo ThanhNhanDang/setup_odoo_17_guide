@@ -185,7 +185,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         opts[k] = v;
       }
     }
-    return stepCreateProject(baseDir, projectsDir, projectName, logger, opts, odooVersion);
+    const onProgress = (step: string, done: boolean) => {
+      mainWindow.webContents.send('create-progress', { step, done });
+    };
+    return stepCreateProject(baseDir, projectsDir, projectName, logger, opts, odooVersion, onProgress);
   });
 
   // --- Read Config ---
@@ -208,7 +211,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const projectsDir = data?.projects_dir || DEFAULT_PROJECTS_DIR;
     const projectName = data?.project_name || '';
     const dropDatabases = data?.drop_databases === 'true';
-    return deleteProject(projectsDir, projectName, dropDatabases);
+    const onProgress = (step: string, done: boolean) => {
+      mainWindow.webContents.send('delete-progress', { step, done });
+    };
+    return deleteProject(projectsDir, projectName, dropDatabases, onProgress);
   });
 
   // --- Reset Templates ---
