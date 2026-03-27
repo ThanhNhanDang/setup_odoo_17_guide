@@ -1135,10 +1135,11 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .kanban-tag-pending{background:var(--bg-surface);color:var(--text-secondary);display:inline-flex;align-items:center;gap:4px}
 .kanban-tag-version{border-radius:4px;font-size:0.6rem;letter-spacing:0.5px}
 .kanban-card-actions{
-  display:flex;gap:6px;padding:12px 18px;border-top:1px solid var(--border-default);
+  display:flex;align-items:center;justify-content:space-between;gap:6px;padding:10px 18px;border-top:1px solid var(--border-default);
   background:var(--bg-canvas);
 }
-.kanban-card-actions .btn-xs{flex:1;justify-content:center;border-radius:6px}
+.kanban-actions-center{display:flex;gap:6px}
+.kanban-card-actions .btn-xs{flex:none;justify-content:center;border-radius:6px}
 .btn-close-modal{
   background:none;border:none;color:var(--text-tertiary);font-size:1.2rem;
   cursor:pointer;padding:4px 8px;border-radius:4px;
