@@ -1110,11 +1110,11 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 }
 .kanban-action-btn{width:32px;height:32px;border-radius:6px}
 .kanban-icon-btn:hover{background:var(--bg-overlay);color:var(--text-primary);border-color:var(--border-default)}
-/* Start icon — green */
-.kanban-icon-btn.btn-start-icon{color:var(--success);border-color:var(--success)}
+/* Start icon — green, bigger */
+.kanban-icon-btn.btn-start-icon{color:var(--success);border-color:var(--success);width:38px;height:36px;border-radius:8px}
 .kanban-icon-btn.btn-start-icon:hover{background:var(--success);color:#fff}
-/* Stop icon — red */
-.kanban-icon-btn.btn-stop-icon{color:var(--danger);border-color:var(--danger)}
+/* Stop icon — red, bigger */
+.kanban-icon-btn.btn-stop-icon{color:var(--danger);border-color:var(--danger);width:38px;height:36px;border-radius:8px}
 .kanban-icon-btn.btn-stop-icon:hover{background:var(--danger);color:#fff}
 /* VS Code icon */
 .kanban-icon-btn.btn-vscode{border-color:#007acc40}

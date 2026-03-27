@@ -1353,13 +1353,13 @@ function renderKanban(projects) {
         </button>
       </div>
       <div class="kanban-card-actions">
-        <button class="kanban-icon-btn kanban-action-btn btn-delete-icon" onclick="deleteProject('${escAttr(p.name)}')" title="${t('project.delete')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+        ${renderActionBtn(p)}
         <div class="kanban-actions-center">
-          <button class="kanban-icon-btn kanban-action-btn btn-vscode" onclick="openVSCode('${escAttr(p.path)}',event)" title="${t('project.vsCode')}"><img src="resources/vscode.png" width="18" height="18" style="border-radius:2px"></button>
+          <button class="kanban-icon-btn kanban-action-btn btn-vscode" onclick="openVSCode('${escAttr(p.path)}',event)" title="${t('project.vsCode')}"><img src="images/vscode.png" width="18" height="18" style="border-radius:2px"></button>
           <button class="kanban-icon-btn kanban-action-btn" onclick="openExplorer('${escAttr(p.path)}',event)" title="${t('project.explorer')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></button>
           <button class="kanban-icon-btn kanban-action-btn" onclick="showProjectDetail('${escAttr(p.name)}')" title="${t('project.detail')}"><svg viewBox="0 0 32 32" fill="currentColor" width="16" height="16"><path d="M 2 6 L 2 26 L 7 26 L 7 31.09375 L 8.625 29.78125 L 13.34375 26 L 30 26 L 30 6 Z M 4 8 L 28 8 L 28 24 L 12.65625 24 L 12.375 24.21875 L 9 26.90625 L 9 24 L 4 24 Z M 15 10 L 15 12 L 17 12 L 17 10 Z M 15 14 L 15 22 L 17 22 L 17 14 Z"/></svg></button>
         </div>
-        ${renderActionBtn(p)}
+        <button class="kanban-icon-btn kanban-action-btn btn-delete-icon" onclick="deleteProject('${escAttr(p.name)}')" title="${t('project.delete')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
       </div>
     </div>
   `).join('');
