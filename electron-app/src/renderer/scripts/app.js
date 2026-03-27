@@ -876,7 +876,7 @@ function renderActionBtn(p, size, extraOnclick) {
   const name = escAttr(p.name);
   const extra = extraOnclick ? ';' + extraOnclick : '';
   const pending = _pendingProjects.get(p.name);
-  const iconSize = cls === 'btn-sm' ? 16 : 14;
+  const iconSize = cls === 'btn-sm' ? 18 : 18;
   if (pending) {
     return `<button class="kanban-icon-btn kanban-action-btn" data-project-action="${name}" disabled><span class="spinner-sm"></span></button>`;
   }
