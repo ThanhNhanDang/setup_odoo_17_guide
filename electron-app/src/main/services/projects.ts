@@ -93,6 +93,11 @@ export async function deleteProject(
           if (shouldDrop) {
             // Use postgres superuser to drop (db_user may not have permission)
             const envSuper = { ...process.env, PGPASSWORD: 'postgres' };
+            // Terminate active connections first — PostgreSQL refuses DROP with open sessions
+            await runCmd(
+              `"${psqlExe}" -h ${dbHost} -p ${dbPort} -U postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='"'"'${db}'"'"' AND pid <> pg_backend_pid();"`,
+              undefined, envSuper,
+            );
             const { code } = await runCmd(
               `"${psqlExe}" -h ${dbHost} -p ${dbPort} -U postgres -c "DROP DATABASE IF EXISTS \\"${db}\\";"`,
               undefined, envSuper,
