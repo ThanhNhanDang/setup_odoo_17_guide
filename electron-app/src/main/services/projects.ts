@@ -68,15 +68,17 @@ export async function deleteProject(
 
   // Drop databases matching dbfilter if requested
   const droppedDbs: string[] = [];
+  const dropErrors: string[] = [];
   if (dropDatabases) {
     try {
       const iniContent = fs.readFileSync(conf, 'utf8');
       const ini = parseIni(iniContent);
       const dbPort = ini.options?.db_port || '5434';
-      const dbUser = ini.options?.db_user || 'odoo';
-      const dbPassword = ini.options?.db_password || 'odoo';
       const dbHost = ini.options?.db_host || 'localhost';
       const dbfilter = ini.options?.dbfilter || '';
+      // Read pg_super_password from config comment, fallback to 'postgres'
+      const pgSuperMatch = iniContent.match(/^;\s*pg_super_password\s*=\s*(.+)$/m);
+      const pgSuperPassword = pgSuperMatch ? pgSuperMatch[1].trim() : 'postgres';
 
       // Find psql binary
       const { findPostgresForPort, findPostgresBin } = require('./detection');
@@ -85,45 +87,56 @@ export async function deleteProject(
 
       if (pgBin) {
         const psqlExe = path.join(pgBin, 'psql.exe');
-        const env = { ...process.env, PGPASSWORD: dbPassword };
+        // Use superuser to list all databases (project user may lack permission)
+        const envSuper = { ...process.env, PGPASSWORD: pgSuperPassword };
 
-        // List databases owned by the project's db_user
-        const { output: dbList } = await runCmd(
-          `"${psqlExe}" -h ${dbHost} -p ${dbPort} -U ${dbUser} -tAc "SELECT datname FROM pg_database WHERE datistemplate=false AND datname != 'postgres'"`,
-          undefined, env,
+        const { output: dbList, code: listCode } = await runCmd(
+          `"${psqlExe}" -h ${dbHost} -p ${dbPort} -U postgres -tAc "SELECT datname FROM pg_database WHERE datistemplate=false AND datname != 'postgres'"`,
+          undefined, envSuper,
         );
 
-        const databases = dbList.trim().split('\n').map((d: string) => d.trim()).filter(Boolean);
+        if (listCode !== 0) {
+          dropErrors.push(`Failed to list databases: ${dbList}`);
+        } else {
+          const databases = dbList.trim().split('\n').map((d: string) => d.trim()).filter(Boolean);
 
-        // Filter by dbfilter if set, otherwise drop all DBs matching project name pattern
-        let filterRegex: RegExp | null = null;
-        if (dbfilter) {
-          try { filterRegex = new RegExp(dbfilter); } catch { /* invalid regex */ }
-        }
+          // Filter by dbfilter if set, otherwise drop all DBs matching project name pattern
+          let filterRegex: RegExp | null = null;
+          if (dbfilter) {
+            try { filterRegex = new RegExp(dbfilter); } catch { /* invalid regex */ }
+          }
 
-        for (const db of databases) {
-          const shouldDrop = filterRegex
-            ? filterRegex.test(db)
-            : db.startsWith(projectName.replace(/-/g, '_'));
+          for (const db of databases) {
+            // Skip system databases
+            if (['template0', 'template1', 'postgres'].includes(db)) continue;
 
-          if (shouldDrop) {
-            // Use postgres superuser to drop (db_user may not have permission)
-            const envSuper = { ...process.env, PGPASSWORD: 'postgres' };
-            // Terminate active connections first — PostgreSQL refuses DROP with open sessions
-            await runCmd(
-              `"${psqlExe}" -h ${dbHost} -p ${dbPort} -U postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='"'"'${db}'"'"' AND pid <> pg_backend_pid();"`,
-              undefined, envSuper,
-            );
-            const { code } = await runCmd(
-              `"${psqlExe}" -h ${dbHost} -p ${dbPort} -U postgres -c "DROP DATABASE IF EXISTS \\"${db}\\";"`,
-              undefined, envSuper,
-            );
-            if (code === 0) droppedDbs.push(db);
+            const shouldDrop = filterRegex
+              ? filterRegex.test(db)
+              : db.startsWith(projectName.replace(/-/g, '_'));
+
+            if (shouldDrop) {
+              // Terminate active connections first
+              await runCmd(
+                `"${psqlExe}" -h ${dbHost} -p ${dbPort} -U postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${db}' AND pid <> pg_backend_pid();"`,
+                undefined, envSuper,
+              );
+              const { code, output } = await runCmd(
+                `"${psqlExe}" -h ${dbHost} -p ${dbPort} -U postgres -c "DROP DATABASE IF EXISTS \\"${db}\\";"`,
+                undefined, envSuper,
+              );
+              if (code === 0) {
+                droppedDbs.push(db);
+              } else {
+                dropErrors.push(`DROP ${db}: ${output}`);
+              }
+            }
           }
         }
+      } else {
+        dropErrors.push('psql not found — cannot drop databases');
       }
-    } catch {
-      // DB cleanup failed — continue with folder deletion
+    } catch (e) {
+      dropErrors.push(String(e));
     }
   }
 
@@ -176,9 +189,9 @@ export async function deleteProject(
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       fs.rmSync(proj, { recursive: true, force: true });
-      const dbMsg = droppedDbs.length > 0
-        ? `Deleted (dropped ${droppedDbs.length} DB: ${droppedDbs.join(', ')})`
-        : 'Deleted';
+      let dbMsg = 'Deleted';
+      if (droppedDbs.length > 0) dbMsg += ` (dropped DB: ${droppedDbs.join(', ')})`;
+      if (dropErrors.length > 0) dbMsg += ` [DB errors: ${dropErrors.join('; ')}]`;
       return { ok: true, msg: dbMsg };
     } catch (e) {
       if (attempt < 2) {
