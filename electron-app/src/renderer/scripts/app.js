@@ -943,8 +943,13 @@ async function stopOdoo(name) {
   } finally {
     clearProjectPending(name);
     if (_status) { renderProjects(_status); renderDashboard(_status); }
-    await new Promise(r => setTimeout(r, 1500));
-    await refreshStatus();
+    // Poll until port is released or timeout (10s)
+    for (let i = 0; i < 5; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+      await refreshStatus();
+      const proj = _status?.projects?.find(p => p.name === name);
+      if (!proj?.is_running) break;
+    }
   }
 }
 

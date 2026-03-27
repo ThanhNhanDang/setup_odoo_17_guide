@@ -307,12 +307,18 @@ export async function duplicateProject(
         if (!isNaN(lpPort)) {
           ini = iniSet(ini, 'options', 'longpolling_port', String(lpPort + 3));
         }
-        // Update domain and dbfilter for new project
+        // Update dbfilter for new project
+        ini = iniSet(ini, 'options', 'dbfilter', `^${newName}.*$`);
+        let confStr = stringifyIni(ini);
+        // Update domain as comment line (Odoo doesn't recognize project_domain as a key)
         const { projectToDomain } = require('../utils/hosts');
         const newDomain = projectToDomain(newName);
-        ini = iniSet(ini, 'options', 'project_domain', newDomain);
-        ini = iniSet(ini, 'options', 'dbfilter', `^${newName}.*$`);
-        fs.writeFileSync(path.join(dst, 'odoo.conf'), stringifyIni(ini), 'utf8');
+        if (/^;\s*project_domain\s*=/m.test(confStr)) {
+          confStr = confStr.replace(/^;\s*project_domain\s*=.*$/m, `; project_domain = ${newDomain}`);
+        } else {
+          confStr = confStr.replace('[options]', `[options]\n; project_domain = ${newDomain}`);
+        }
+        fs.writeFileSync(path.join(dst, 'odoo.conf'), confStr, 'utf8');
       }
     }
     await emit('update_config', true);
