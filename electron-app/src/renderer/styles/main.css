@@ -1116,9 +1116,9 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 /* Stop icon — red, bigger */
 .kanban-icon-btn.btn-stop-icon{color:var(--danger);border-color:var(--danger);width:38px;height:36px;border-radius:8px}
 .kanban-icon-btn.btn-stop-icon:hover{background:var(--danger);color:#fff}
-/* VS Code icon */
-.kanban-icon-btn.btn-vscode{border-color:#007acc40}
-.kanban-icon-btn.btn-vscode:hover{background:#007acc20;border-color:#007acc}
+/* VS Code icon — override .btn-vscode background for icon-only buttons */
+.kanban-icon-btn.btn-vscode{background:transparent!important;color:var(--text-tertiary);border-color:var(--border-muted);box-shadow:none!important}
+.kanban-icon-btn.btn-vscode:hover{background:var(--bg-overlay)!important;border-color:#007acc}
 /* Delete icon — red bg, white icon */
 .kanban-icon-btn.btn-delete-icon{background:var(--danger);color:#fff;border-color:var(--danger)}
 .kanban-icon-btn.btn-delete-icon:hover{background:#c62828;border-color:#c62828}
