@@ -1108,9 +1108,20 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   display:inline-flex;align-items:center;justify-content:center;padding:0;
   transition:all 0.15s;
 }
+.kanban-action-btn{width:32px;height:32px;border-radius:6px}
 .kanban-icon-btn:hover{background:var(--bg-overlay);color:var(--text-primary);border-color:var(--border-default)}
-.kanban-icon-btn.btn-vscode:hover{color:#007acc;border-color:#007acc}
-.kanban-icon-btn.btn-danger-icon:hover{color:var(--danger);border-color:var(--danger)}
+/* Start icon — green */
+.kanban-icon-btn.btn-start-icon{color:var(--success);border-color:var(--success)}
+.kanban-icon-btn.btn-start-icon:hover{background:var(--success);color:#fff}
+/* Stop icon — red */
+.kanban-icon-btn.btn-stop-icon{color:var(--danger);border-color:var(--danger)}
+.kanban-icon-btn.btn-stop-icon:hover{background:var(--danger);color:#fff}
+/* VS Code icon */
+.kanban-icon-btn.btn-vscode{border-color:#007acc40}
+.kanban-icon-btn.btn-vscode:hover{background:#007acc20;border-color:#007acc}
+/* Delete icon — red bg, white icon */
+.kanban-icon-btn.btn-delete-icon{background:var(--danger);color:#fff;border-color:var(--danger)}
+.kanban-icon-btn.btn-delete-icon:hover{background:#c62828;border-color:#c62828}
 .kanban-card-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
 .kanban-meta-item{display:flex;flex-direction:column;gap:2px}
 .kanban-meta-label{font-size:0.65rem;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px}

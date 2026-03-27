@@ -876,14 +876,14 @@ function renderActionBtn(p, size, extraOnclick) {
   const name = escAttr(p.name);
   const extra = extraOnclick ? ';' + extraOnclick : '';
   const pending = _pendingProjects.get(p.name);
+  const iconSize = cls === 'btn-sm' ? 16 : 14;
   if (pending) {
-    // Spinner only, no text — btn-pending class keeps consistent size
-    return `<button class="btn btn-outline btn-pending ${cls}" data-project-action="${name}" disabled><span class="spinner-sm"></span></button>`;
+    return `<button class="kanban-icon-btn kanban-action-btn" data-project-action="${name}" disabled><span class="spinner-sm"></span></button>`;
   }
   if (p.is_running) {
-    return `<button class="btn btn-danger ${cls}" data-project-action="${name}" onclick="stopOdoo('${name}')${extra}">${t('project.stop')}</button>`;
+    return `<button class="kanban-icon-btn kanban-action-btn btn-stop-icon" data-project-action="${name}" onclick="stopOdoo('${name}')${extra}" title="${t('project.stop')}"><svg viewBox="0 0 24 24" fill="currentColor" width="${iconSize}" height="${iconSize}"><rect x="6" y="6" width="12" height="12" rx="1"/></svg></button>`;
   }
-  return `<button class="btn btn-success ${cls}" data-project-action="${name}" onclick="startOdoo('${name}')${extra}">${t('project.start')}</button>`;
+  return `<button class="kanban-icon-btn kanban-action-btn btn-start-icon" data-project-action="${name}" onclick="startOdoo('${name}')${extra}" title="${t('project.start')}"><svg viewBox="0 0 24 24" fill="currentColor" width="${iconSize}" height="${iconSize}"><polygon points="6,4 20,12 6,20"/></svg></button>`;
 }
 
 async function startOdoo(name) {
@@ -1354,10 +1354,10 @@ function renderKanban(projects) {
       </div>
       <div class="kanban-card-actions">
         ${renderActionBtn(p)}
-        <button class="kanban-icon-btn btn-vscode" onclick="openVSCode('${escAttr(p.path)}',event)" title="${t('project.vsCode')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></button>
-        <button class="kanban-icon-btn" onclick="openExplorer('${escAttr(p.path)}',event)" title="${t('project.explorer')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></button>
-        <button class="kanban-icon-btn" onclick="showProjectDetail('${escAttr(p.name)}')" title="${t('project.detail')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></button>
-        <button class="kanban-icon-btn btn-danger-icon" onclick="deleteProject('${escAttr(p.name)}')" title="${t('project.delete')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+        <button class="kanban-icon-btn kanban-action-btn btn-vscode" onclick="openVSCode('${escAttr(p.path)}',event)" title="${t('project.vsCode')}"><svg viewBox="0 0 100 100" width="16" height="16"><path d="M71.6 99.1l24.7-12.4c2.3-1.2 3.7-3.5 3.7-6V19.3c0-2.5-1.4-4.8-3.7-6L71.6.9c-3-1.5-6.6-1-9 1.2L28.5 33.7 11.8 21c-1.9-1.5-4.6-1.3-6.3.3l-4 3.7c-1.9 1.8-1.9 4.8 0 6.6L16.8 50 1.5 68.4c-1.9 1.8-1.9 4.8 0 6.6l4 3.7c1.7 1.6 4.4 1.8 6.3.3L28.5 66.3l34.1 31.6c1.5 1.4 3.5 2.1 5.5 2.1 1.2 0 2.4-.3 3.5-.9zM71.6 27L45.2 50l26.4 23V27z" fill="#007acc"/></svg></button>
+        <button class="kanban-icon-btn kanban-action-btn" onclick="openExplorer('${escAttr(p.path)}',event)" title="${t('project.explorer')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></button>
+        <button class="kanban-icon-btn kanban-action-btn" onclick="showProjectDetail('${escAttr(p.name)}')" title="${t('project.detail')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></button>
+        <button class="kanban-icon-btn kanban-action-btn btn-delete-icon" onclick="deleteProject('${escAttr(p.name)}')" title="${t('project.delete')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
       </div>
     </div>
   `).join('');
