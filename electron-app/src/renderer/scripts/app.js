@@ -364,8 +364,8 @@ function renderProjects(s) {
       </div>
       <div class="project-actions">
         ${renderActionBtn(p)}
-        <button class="btn btn-vscode btn-xs" onclick="openVSCode('${escAttr(p.path)}')">${t('project.vsCode')}</button>
-        <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}')">${t('project.explorer')}</button>
+        <button class="btn btn-vscode btn-xs" onclick="openVSCode('${escAttr(p.path)}',event)">${t('project.vsCode')}</button>
+        <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}',event)">${t('project.explorer')}</button>
         <button class="btn btn-outline btn-xs" onclick="editConfig('${escAttr(p.name)}')">${t('project.editConfig')}</button>
         <button class="btn btn-outline btn-xs" onclick="duplicateProject('${escAttr(p.name)}','${escAttr(p.http_port)}')">${t('project.duplicate')}</button>
         <button class="btn btn-danger btn-xs" onclick="deleteProject('${escAttr(p.name)}')">${t('project.delete')}</button>
@@ -885,17 +885,31 @@ function toggleOdoo(name, isRunning) {
   else startOdoo(name);
 }
 
-async function openVSCode(projPath) {
-  const btn = event?.target?.closest?.('button');
-  if (btn) { _setBtnPending(btn); }
-  await api('open_vscode', { path: projPath });
-  if (btn) { setTimeout(() => _resetBtn(btn, t('project.vsCode'), 'btn-vscode'), 1000); }
+let _openingVSCode = false;
+async function openVSCode(projPath, e) {
+  if (_openingVSCode) return;
+  _openingVSCode = true;
+  const btn = (e || event)?.target?.closest?.('button');
+  if (btn) _setBtnPending(btn);
+  try {
+    await api('open_vscode', { path: projPath });
+  } finally {
+    if (btn) setTimeout(() => _resetBtn(btn, t('project.vsCode'), 'btn-vscode'), 1000);
+    setTimeout(() => { _openingVSCode = false; }, 2000);
+  }
 }
-async function openExplorer(projPath) {
-  const btn = event?.target?.closest?.('button');
-  if (btn) { _setBtnPending(btn); }
-  await api('open_explorer', { path: projPath });
-  if (btn) { setTimeout(() => _resetBtn(btn, t('project.explorer'), 'btn-outline'), 1000); }
+let _openingExplorer = false;
+async function openExplorer(projPath, e) {
+  if (_openingExplorer) return;
+  _openingExplorer = true;
+  const btn = (e || event)?.target?.closest?.('button');
+  if (btn) _setBtnPending(btn);
+  try {
+    await api('open_explorer', { path: projPath });
+  } finally {
+    if (btn) setTimeout(() => _resetBtn(btn, t('project.explorer'), 'btn-outline'), 1000);
+    setTimeout(() => { _openingExplorer = false; }, 2000);
+  }
 }
 
 /** Set any button to pending: lock width, show spinner only */
@@ -1257,8 +1271,8 @@ function renderKanban(projects) {
       </div>
       <div class="kanban-card-actions">
         ${renderActionBtn(p)}
-        <button class="btn btn-vscode btn-xs" onclick="openVSCode('${escAttr(p.path)}')">${t('project.vsCode')}</button>
-        <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}')">${t('project.explorer')}</button>
+        <button class="btn btn-vscode btn-xs" onclick="openVSCode('${escAttr(p.path)}',event)">${t('project.vsCode')}</button>
+        <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}',event)">${t('project.explorer')}</button>
         <button class="btn btn-outline btn-xs" onclick="showProjectDetail('${escAttr(p.name)}')">${t('project.detail')}</button>
         <button class="btn btn-danger btn-xs" onclick="deleteProject('${escAttr(p.name)}')">${t('project.delete')}</button>
       </div>
@@ -1327,7 +1341,7 @@ function showProjectDetail(name) {
       `).join('')}
       <div class="detail-item" style="grid-column:1/-1">
         <div class="detail-label">Path</div>
-        <div class="detail-value detail-path" title="${escHtml(p.path)}" onclick="openExplorer('${escAttr(p.path)}')">${escHtml(p.path)}</div>
+        <div class="detail-value detail-path" title="${escHtml(p.path)}" onclick="openExplorer('${escAttr(p.path)}',event)">${escHtml(p.path)}</div>
       </div>
     </div>
     <div class="detail-item" style="margin-bottom:16px;padding:12px;background:var(--bg-surface);border:1px solid var(--border-default);border-radius:8px">
@@ -1377,8 +1391,8 @@ function showProjectDetail(name) {
     <div class="btn-row" style="flex:1;justify-content:space-between">
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         ${renderActionBtn(p, 'btn-sm', "hideModal('modalDetail')")}
-        <button class="btn btn-vscode btn-sm" onclick="openVSCode('${escAttr(p.path)}')">${t('project.vsCode')}</button>
-        <button class="btn btn-outline btn-sm" onclick="openExplorer('${escAttr(p.path)}')">${t('project.explorer')}</button>
+        <button class="btn btn-vscode btn-sm" onclick="openVSCode('${escAttr(p.path)}',event)">${t('project.vsCode')}</button>
+        <button class="btn btn-outline btn-sm" onclick="openExplorer('${escAttr(p.path)}',event)">${t('project.explorer')}</button>
         <button class="btn btn-outline btn-sm" onclick="hideModal('modalDetail');editConfig('${escAttr(p.name)}')">${t('project.editConfig')}</button>
         <button class="btn btn-outline btn-sm" onclick="resetTemplates('${escAttr(p.name)}','${escAttr(p.odoo_version || '17')}')">${t('project.resetTemplates')}</button>
         <button class="btn btn-outline btn-sm" onclick="hideModal('modalDetail');duplicateProject('${escAttr(p.name)}','${escAttr(p.http_port)}')">${t('project.duplicate')}</button>
