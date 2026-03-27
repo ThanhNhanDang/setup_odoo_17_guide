@@ -11,7 +11,9 @@
         "-c",
         "${workspaceFolder}/odoo.conf",
         "--dev",
-        "xml"
+        "xml",
+        "--logfile",
+        ""
       ],
       "env": {
         "PYTHONPATH": "${workspaceFolder}"
