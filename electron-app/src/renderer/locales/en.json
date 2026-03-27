@@ -138,6 +138,7 @@
     "noProjects": "No projects found.",
     "deleteLocked": "Cannot delete — files may be locked. Close VS Code and Odoo, then try again.",
     "invalidName": "Invalid project name. Use lowercase letters, numbers, underscores and hyphens. Must start with a letter or underscore.",
+    "symlinkFailed": "Failed to create symlink. Run as Administrator.",
     "projectNotFound": "Project not found.",
     "configNotFound": "Config file not found.",
     "readConfigFail": "Failed to read config: {msg}",

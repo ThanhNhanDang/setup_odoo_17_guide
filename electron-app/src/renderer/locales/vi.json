@@ -137,6 +137,7 @@
     "noProjects": "Không tìm thấy dự án.",
     "deleteLocked": "Không thể xoá — file đang bị khoá. Đóng VS Code và Odoo rồi thử lại.",
     "invalidName": "Tên dự án không hợp lệ. Chỉ dùng chữ thường, số, gạch dưới và gạch ngang. Phải bắt đầu bằng chữ cái hoặc gạch dưới.",
+    "symlinkFailed": "Tạo liên kết thất bại. Chạy với quyền Administrator.",
     "projectNotFound": "Không tìm thấy dự án.",
     "configNotFound": "Không tìm thấy file cấu hình.",
     "readConfigFail": "Không đọc được cấu hình: {msg}",

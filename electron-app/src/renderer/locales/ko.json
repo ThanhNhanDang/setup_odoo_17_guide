@@ -137,6 +137,7 @@
     "noProjects": "프로젝트를 찾을 수 없습니다.",
     "deleteLocked": "삭제할 수 없습니다 — 파일이 잠겨 있을 수 있습니다. VS Code와 Odoo를 닫고 다시 시도하세요.",
     "invalidName": "잘못된 프로젝트 이름입니다. 소문자, 숫자, 밑줄, 하이픈만 사용하세요. 문자 또는 밑줄로 시작해야 합니다.",
+    "symlinkFailed": "심링크 생성 실패. 관리자 권한으로 실행하세요.",
     "projectNotFound": "프로젝트를 찾을 수 없습니다.",
     "configNotFound": "설정 파일을 찾을 수 없습니다.",
     "readConfigFail": "설정 읽기 실패: {msg}",

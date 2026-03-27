@@ -69,13 +69,16 @@ export async function deleteProject(
     return { ok: false, msg: 'PROJECT_NOT_FOUND' };
   }
 
-  const emit = (step: string, done: boolean) => { if (onProgress) onProgress(step, done); };
+  const emit = async (step: string, done: boolean) => {
+    if (onProgress) onProgress(step, done);
+    if (done) await new Promise(r => setTimeout(r, 300));
+  };
 
   // Drop databases matching dbfilter if requested
   const droppedDbs: string[] = [];
   const dropErrors: string[] = [];
   if (dropDatabases) {
-    emit('drop_databases', false);
+    await emit('drop_databases', false);
     try {
       const iniContent = fs.readFileSync(conf, 'utf8');
       const ini = parseIni(iniContent);
@@ -144,11 +147,11 @@ export async function deleteProject(
     } catch (e) {
       dropErrors.push(String(e));
     }
-    emit('drop_databases', true);
+    await emit('drop_databases', true);
   }
 
   // Stop Odoo if running on this project's port
-  emit('stop_odoo', false);
+  await emit('stop_odoo', false);
   try {
     const iniContent = fs.readFileSync(conf, 'utf8');
     const ini = parseIni(iniContent);
@@ -164,10 +167,10 @@ export async function deleteProject(
     }
   } catch { /* ignore */ }
 
-  emit('stop_odoo', true);
+  await emit('stop_odoo', true);
 
   // Close VS Code windows that have this project open
-  emit('close_vscode', false);
+  await emit('close_vscode', false);
   try {
     const projNorm = proj.replace(/\\/g, '\\\\').replace(/\//g, '\\\\');
     // Kill code.exe processes whose command line contains this project path
@@ -175,10 +178,10 @@ export async function deleteProject(
     // Small delay for file locks to release
     await new Promise(r => setTimeout(r, 1000));
   } catch { /* ignore */ }
-  emit('close_vscode', true);
+  await emit('close_vscode', true);
 
   // Remove junction links first (Windows locks these, fs.rmSync fails on them)
-  emit('delete_files', false);
+  await emit('delete_files', false);
   try {
     for (const entry of fs.readdirSync(proj)) {
       const entryPath = path.join(proj, entry);
@@ -202,7 +205,7 @@ export async function deleteProject(
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       fs.rmSync(proj, { recursive: true, force: true });
-      emit('delete_files', true);
+      await emit('delete_files', true);
       let dbMsg = 'Deleted';
       if (droppedDbs.length > 0) dbMsg += ` (dropped DB: ${droppedDbs.join(', ')})`;
       if (dropErrors.length > 0) dbMsg += ` [DB errors: ${dropErrors.join('; ')}]`;
@@ -252,45 +255,48 @@ export async function duplicateProject(
     return { ok: false, msg: 'PROJECT_EXISTS' };
   }
 
-  const emit = (step: string, done: boolean) => { if (onProgress) onProgress(step, done); };
+  const emit = async (step: string, done: boolean) => {
+    if (onProgress) onProgress(step, done);
+    if (done) await new Promise(r => setTimeout(r, 300));
+  };
 
   try {
     // Step 1: Create project folder
-    emit('create_folder', false);
+    await emit('create_folder', false);
     fs.mkdirSync(dst, { recursive: true });
     fs.mkdirSync(path.join(dst, '.vscode'), { recursive: true });
-    emit('create_folder', true);
+    await emit('create_folder', true);
 
     // Step 2: Create junction link to shared Odoo source
-    emit('junction_link', false);
+    await emit('junction_link', false);
     const odooSrc = path.join(src, 'odoo');
     if (fs.existsSync(odooSrc)) {
       // Resolve the real target of the source junction
       const realTarget = fs.realpathSync(odooSrc);
       await runCmd(`cmd /c mklink /J "${path.join(dst, 'odoo')}" "${realTarget}"`);
     }
-    emit('junction_link', true);
+    await emit('junction_link', true);
 
     // Step 3: Copy addons (custom modules)
-    emit('copy_addons', false);
+    await emit('copy_addons', false);
     const addonsDir = path.join(src, 'addons');
     if (fs.existsSync(addonsDir)) {
       fs.cpSync(addonsDir, path.join(dst, 'addons'), { recursive: true });
     } else {
       fs.mkdirSync(path.join(dst, 'addons'), { recursive: true });
     }
-    emit('copy_addons', true);
+    await emit('copy_addons', true);
 
     // Step 4: Copy .vscode config
-    emit('copy_vscode', false);
+    await emit('copy_vscode', false);
     const vscodeSrc = path.join(src, '.vscode');
     if (fs.existsSync(vscodeSrc)) {
       fs.cpSync(vscodeSrc, path.join(dst, '.vscode'), { recursive: true });
     }
-    emit('copy_vscode', true);
+    await emit('copy_vscode', true);
 
     // Step 5: Copy odoo.conf + update ports, domain, dbfilter
-    emit('update_config', false);
+    await emit('update_config', false);
     const conf = path.join(src, 'odoo.conf');
     if (fs.existsSync(conf)) {
       const content = fs.readFileSync(conf, 'utf8');
@@ -309,14 +315,14 @@ export async function duplicateProject(
         fs.writeFileSync(path.join(dst, 'odoo.conf'), stringifyIni(ini), 'utf8');
       }
     }
-    emit('update_config', true);
+    await emit('update_config', true);
 
     // Step 6: Setup domain in hosts file
-    emit('setup_domain', false);
+    await emit('setup_domain', false);
     const { projectToDomain, addHostEntry } = require('../utils/hosts');
     const newDomain = projectToDomain(newName);
     addHostEntry(newDomain);
-    emit('setup_domain', true);
+    await emit('setup_domain', true);
 
     // Note: data/ folder is NOT copied — user creates fresh DB or restores backup
 

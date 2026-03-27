@@ -12,6 +12,7 @@ const _backendMsgMap = {
   'INVALID_NAME': 'toast.invalidName',
   'NAME_REQUIRED': 'toast.enterName',
   'PROJECT_EXISTS': 'toast.projectExists',
+  'SYMLINK_FAILED': 'toast.symlinkFailed',
   'PROJECT_NOT_FOUND': 'toast.projectNotFound',
   'CONFIG_NOT_FOUND': 'toast.configNotFound',
 };

@@ -542,27 +542,30 @@ export async function stepCreateProject(
     return { ok: false, msg: 'PROJECT_EXISTS' };
   }
 
-  const emit = (step: string, done: boolean) => { if (onProgress) onProgress(step, done); };
+  const emit = async (step: string, done: boolean) => {
+    if (onProgress) onProgress(step, done);
+    if (done) await new Promise(r => setTimeout(r, 300));
+  };
 
-  emit('create_folder', false);
+  await emit('create_folder', false);
   logger.log(`Creating project '${projectName}'...`);
   fs.mkdirSync(proj, { recursive: true });
   fs.mkdirSync(path.join(proj, 'addons'), { recursive: true });
   fs.mkdirSync(path.join(proj, '.vscode'), { recursive: true });
-  emit('create_folder', true);
+  await emit('create_folder', true);
 
   // Junction link — use custom Odoo source dir name if set
-  emit('junction_link', false);
+  await emit('junction_link', false);
   const odooSourceDir = opts.odoo_source_dir || 'odoo';
   const odooLink = path.join(proj, 'odoo');
   const odooSource = path.join(baseDir, odooSourceDir);
   if (!fs.existsSync(odooLink)) {
     await runCmd(`cmd /c mklink /J "${odooLink}" "${odooSource}"`);
     if (!fs.existsSync(odooLink)) {
-      return { ok: false, msg: 'Failed to create symlink. Run as Administrator.' };
+      return { ok: false, msg: 'SYMLINK_FAILED' };
     }
   }
-  emit('junction_link', true);
+  await emit('junction_link', true);
 
   // Build config values with defaults
   const cfg: Record<string, string> = { ...PROJECT_DEFAULTS };
@@ -598,7 +601,7 @@ export async function stepCreateProject(
   }
 
   // odoo.conf from template
-  emit('write_config', false);
+  await emit('write_config', false);
   const templatesDir = getTemplatesDir();
   const confTemplate = fs.readFileSync(path.join(templatesDir, 'odoo.conf'), 'utf8');
   // Replace {key} placeholders with config values
@@ -626,10 +629,10 @@ export async function stepCreateProject(
     fs.writeFileSync(path.join(proj, '.vscode', 'settings.json'), settingsContent, 'utf8');
   }
 
-  emit('write_config', true);
+  await emit('write_config', true);
 
   // Add domain to hosts file
-  emit('setup_domain', false);
+  await emit('setup_domain', false);
   const hostsResult = addHostEntry(projectDomain);
   if (hostsResult.ok) {
     logger.log(`  > Domain '${projectDomain}' added to hosts file.`);
@@ -637,7 +640,7 @@ export async function stepCreateProject(
     logger.log(`  > Could not add domain to hosts: ${hostsResult.msg}`);
   }
 
-  emit('setup_domain', true);
+  await emit('setup_domain', true);
 
   logger.log(`Project '${projectName}' ready at ${proj}`);
   logger.log(`  > URL: http://${projectDomain}:${cfg.http_port}`);
