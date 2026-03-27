@@ -5,7 +5,7 @@ import * as fs from 'fs';
 import { runCmd } from './utils/shell';
 import { LoggerService } from './services/logger';
 import { StepLockManager } from './services/step-lock';
-import { DEFAULT_BASE_DIR, DEFAULT_PROJECTS_DIR, getDefaultBaseDir, getDefaultProjectsDir } from './services/config';
+import { DEFAULT_BASE_DIR, DEFAULT_PROJECTS_DIR, getDefaultBaseDir, getDefaultProjectsDir, getTemplatesDir } from './services/config';
 import { DEFAULT_ODOO_VERSION, ALL_VERSIONS, ODOO_VERSIONS } from './services/odoo-versions';
 import { detectStatus, invalidateStatusCache } from './services/status';
 import {
@@ -205,6 +205,46 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const projectName = data?.project_name || '';
     const dropDatabases = data?.drop_databases === 'true';
     return deleteProject(projectsDir, projectName, dropDatabases);
+  });
+
+  // --- Reset Templates ---
+  ipcMain.handle('reset_templates', async (_event, data: Record<string, string>) => {
+    const odooVersion = data?.odoo_version || DEFAULT_ODOO_VERSION;
+    const baseDir = data?.base_dir || getDefaultBaseDir(odooVersion);
+    const projectsDir = data?.projects_dir || getDefaultProjectsDir(odooVersion);
+    const projectName = data?.project_name || '';
+    const proj = path.join(projectsDir, projectName);
+
+    if (!fs.existsSync(proj)) {
+      return { ok: false, msg: 'Project not found' };
+    }
+
+    try {
+      const templatesDir = getTemplatesDir();
+      const venvPython = path.join(baseDir, 'venv', 'Scripts', 'python.exe').replace(/\\/g, '\\\\');
+      const odooBin = path.join(baseDir, 'odoo', 'odoo-bin').replace(/\\/g, '\\\\');
+
+      // Reset launch.json
+      const vscodePath = path.join(proj, '.vscode');
+      fs.mkdirSync(vscodePath, { recursive: true });
+      let launchContent = fs.readFileSync(path.join(templatesDir, 'launch.json'), 'utf8');
+      launchContent = launchContent.replace(/\{python_path\}/g, venvPython);
+      launchContent = launchContent.replace(/\{odoo_bin_path\}/g, odooBin);
+      fs.writeFileSync(path.join(vscodePath, 'launch.json'), launchContent, 'utf8');
+
+      // Reset settings.json
+      const settingsTemplate = path.join(templatesDir, 'settings.json');
+      if (fs.existsSync(settingsTemplate)) {
+        let settingsContent = fs.readFileSync(settingsTemplate, 'utf8');
+        settingsContent = settingsContent.replace(/\{python_path\}/g, venvPython);
+        fs.writeFileSync(path.join(vscodePath, 'settings.json'), settingsContent, 'utf8');
+      }
+
+      logger.log(`Templates reset for project '${projectName}'.`);
+      return { ok: true, msg: 'Templates reset' };
+    } catch (e) {
+      return { ok: false, msg: String(e) };
+    }
   });
 
   // --- Duplicate Project ---

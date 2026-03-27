@@ -793,6 +793,22 @@ async function confirmDelete() {
   alert(res.ok ? '\u2705 ' + res.msg : '\u274C ' + res.msg);
 }
 
+async function resetTemplates(name, version) {
+  if (!confirm(`Reset launch.json and settings.json for "${name}" to default templates?`)) return;
+  const data = getFormData();
+  const res = await api('reset_templates', {
+    base_dir: data.base_dir,
+    projects_dir: data.projects_dir,
+    project_name: name,
+    odoo_version: version,
+  });
+  if (res.ok) {
+    showToastMessage('Templates reset to defaults!', 'success');
+  } else {
+    showToastMessage('Failed: ' + res.msg, 'error');
+  }
+}
+
 let _dupSource = '';
 function duplicateProject(name, port) {
   _dupSource = name;
@@ -1028,6 +1044,7 @@ function showProjectDetail(name) {
           : `<button class="btn btn-success btn-sm" data-project-action="${escAttr(p.name)}" onclick="startOdoo('${escAttr(p.name)}');hideModal('modalDetail')">Start</button>`}
         <button class="btn btn-vscode btn-sm" onclick="openVSCode('${escAttr(p.path)}')">VS Code</button>
         <button class="btn btn-outline btn-sm" onclick="openExplorer('${escAttr(p.path)}')">Explorer</button>
+        <button class="btn btn-outline btn-sm" onclick="resetTemplates('${escAttr(p.name)}','${escAttr(p.odoo_version || '17')}')">Reset Templates</button>
         <button class="btn btn-outline btn-sm" onclick="hideModal('modalDetail');duplicateProject('${escAttr(p.name)}','${escAttr(p.http_port)}')">Duplicate</button>
         <button class="btn btn-danger btn-sm" onclick="hideModal('modalDetail');deleteProject('${escAttr(p.name)}')">Delete</button>
       </div>
