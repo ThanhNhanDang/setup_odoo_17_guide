@@ -17,10 +17,15 @@ export class LoggerService {
 
   constructor(private readonly window: BrowserWindow) {}
 
+  private static readonly MAX_LINES = 10_000;
+
   log(msg: string): void {
     const ts = new Date().toLocaleTimeString('en-GB', { hour12: false });
     const line = `[${ts}] ${msg}`;
     this.lines.push(line);
+    if (this.lines.length > LoggerService.MAX_LINES) {
+      this.lines.splice(0, this.lines.length - LoggerService.MAX_LINES);
+    }
     console.log(line);
     // Push to renderer immediately
     if (!this.window.isDestroyed()) {

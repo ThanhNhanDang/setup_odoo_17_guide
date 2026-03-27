@@ -211,6 +211,13 @@ export async function duplicateProject(
   const src = path.join(projectsDir, projectName);
   const dst = path.join(projectsDir, newName);
 
+  // Path confinement — prevent directory traversal
+  if (!path.resolve(src).startsWith(path.resolve(projectsDir) + path.sep)) {
+    return { ok: false, msg: 'INVALID_NAME' };
+  }
+  if (!path.resolve(dst).startsWith(path.resolve(projectsDir) + path.sep)) {
+    return { ok: false, msg: 'INVALID_NAME' };
+  }
   if (!fs.existsSync(src) || !fs.statSync(src).isDirectory()) {
     return { ok: false, msg: 'PROJECT_NOT_FOUND' };
   }

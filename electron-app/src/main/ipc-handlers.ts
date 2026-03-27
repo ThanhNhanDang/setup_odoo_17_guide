@@ -113,6 +113,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       }
     }
 
+    // Set running status synchronously to prevent race condition on double-click
+    logger.updateTask({ status: 'running', step: 'Starting...', progress: 0 });
+
     // Run in background (non-blocking)
     stepFullInstall(baseDir, projectsDir, projectName, logger, opts, stepLock, odooVersion)
       .then(results => {
@@ -482,6 +485,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   // --- Stop Odoo ---
   ipcMain.handle('stop_odoo', async (_event, data: Record<string, string>) => {
     const port = data?.http_port || '8069';
+    if (!/^\d{1,5}$/.test(port)) return { ok: false, msg: 'Invalid port' };
     try {
       // Find and kill process on port
       const { output } = await runCmd(`netstat -ano | findstr ":${port}.*LISTENING"`);
@@ -590,10 +594,18 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     if (!logPath || !fs.existsSync(logPath)) return { ok: false, lines: [] };
     if (!logPath.endsWith('.log')) return { ok: false, lines: [] };
 
-    // Read last 1000 lines
-    const content = fs.readFileSync(logPath, 'utf8');
-    const allLines = content.split('\n');
-    const last1000 = allLines.slice(-1000);
+    // Read last ~64KB of the file (streaming tail, not entire file)
+    const TAIL_BYTES = 64 * 1024;
+    const fileSize = fs.statSync(logPath).size;
+    const startPos = Math.max(0, fileSize - TAIL_BYTES);
+    const tailBuf = Buffer.alloc(Math.min(TAIL_BYTES, fileSize));
+    const fd = fs.openSync(logPath, 'r');
+    fs.readSync(fd, tailBuf, 0, tailBuf.length, startPos);
+    fs.closeSync(fd);
+    const tailText = tailBuf.toString('utf8');
+    const allLines = tailText.split('\n');
+    // If we started mid-line (startPos > 0), drop the first partial line
+    const last1000 = (startPos > 0 ? allLines.slice(1) : allLines).slice(-1000);
 
     const callerWindow = BrowserWindow.fromWebContents(event.sender) || mainWindow;
 
@@ -815,5 +827,19 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     } catch (e) {
       return { ok: false, msg: String(e) };
     }
+  });
+
+  // --- Cleanup on app quit ---
+  app.on('before-quit', () => {
+    // Close all log file watchers
+    for (const [, entry] of logWatchers) {
+      entry.watcher.close();
+    }
+    logWatchers.clear();
+    // Close all log viewer windows
+    for (const [, win] of logWindows) {
+      if (!win.isDestroyed()) win.destroy();
+    }
+    logWindows.clear();
   });
 }

@@ -255,12 +255,13 @@ export async function parseProjectConfig(projectPath: string, baseDir: string = 
 // Detect full system status — parallel + cached
 // ---------------------------------------------------------------------------
 
-let _statusCache: { result: StatusResult; timestamp: number } | null = null;
+let _statusCache: { result: StatusResult; timestamp: number; key: string } | null = null;
 const CACHE_TTL = 5000; // 5 seconds
 
 export async function detectStatus(baseDir: string, projectsDir: string, odooSourceDir: string = 'odoo'): Promise<StatusResult> {
-  // Return cache if fresh
-  if (_statusCache && Date.now() - _statusCache.timestamp < CACHE_TTL) {
+  // Return cache if fresh and same params
+  const cacheKey = `${baseDir}::${projectsDir}::${odooSourceDir}`;
+  if (_statusCache && _statusCache.key === cacheKey && Date.now() - _statusCache.timestamp < CACHE_TTL) {
     return _statusCache.result;
   }
 
@@ -332,7 +333,7 @@ export async function detectStatus(baseDir: string, projectsDir: string, odooSou
     projects,
   };
 
-  _statusCache = { result, timestamp: Date.now() };
+  _statusCache = { result, timestamp: Date.now(), key: cacheKey };
   return result;
 }
 

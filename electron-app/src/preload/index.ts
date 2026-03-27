@@ -33,9 +33,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('download-progress', (_event, data) => callback(data));
   },
 
-  // Generic event listener (for update-status and other push events)
+  // Generic event listener (for push events from main process)
   onEvent: (eventName: string, callback: (...args: unknown[]) => void): void => {
-    ipcRenderer.on(eventName, (_event, ...args) => callback(...args));
+    const validPushChannels = [
+      'log-message', 'task-progress', 'download-progress',
+      'update-status', 'project-log', 'duplicate-progress',
+    ];
+    if (validPushChannels.includes(eventName)) {
+      ipcRenderer.on(eventName, (_event, ...args) => callback(...args));
+    }
   },
 
   removeAllListeners: (channel: string): void => {

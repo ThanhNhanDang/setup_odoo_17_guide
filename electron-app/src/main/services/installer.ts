@@ -51,7 +51,7 @@ export async function stepInstallGit(baseDir: string, logger: LoggerService): Pr
   // Check file-based (PATH may not be updated yet)
   const gitExe = 'C:\\Program Files\\Git\\cmd\\git.exe';
   if (fs.existsSync(gitExe)) {
-    process.env.PATH = `C:\\Program Files\\Git\\cmd;${process.env.PATH}`;
+    if (!process.env.PATH?.includes('Git\\cmd')) process.env.PATH = `C:\\Program Files\\Git\\cmd;${process.env.PATH}`;
     logger.log('Git found at ' + gitExe);
     return { ok: true, msg: 'Already installed' };
   }
@@ -70,7 +70,7 @@ export async function stepInstallGit(baseDir: string, logger: LoggerService): Pr
   await new Promise(resolve => setTimeout(resolve, 5000));
   // Add to PATH for current process
   if (fs.existsSync(gitExe)) {
-    process.env.PATH = `C:\\Program Files\\Git\\cmd;${process.env.PATH}`;
+    if (!process.env.PATH?.includes('Git\\cmd')) process.env.PATH = `C:\\Program Files\\Git\\cmd;${process.env.PATH}`;
     logger.log('Git installed!');
     return { ok: true, msg: 'Installed' };
   }
