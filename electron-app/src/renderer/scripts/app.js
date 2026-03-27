@@ -1357,6 +1357,7 @@ function showProjectDetail(name) {
         ${renderActionBtn(p, 'btn-sm', "hideModal('modalDetail')")}
         <button class="btn btn-vscode btn-sm" onclick="openVSCode('${escAttr(p.path)}')">${t('project.vsCode')}</button>
         <button class="btn btn-outline btn-sm" onclick="openExplorer('${escAttr(p.path)}')">${t('project.explorer')}</button>
+        <button class="btn btn-outline btn-sm" onclick="hideModal('modalDetail');editConfig('${escAttr(p.name)}')">${t('project.editConfig')}</button>
         <button class="btn btn-outline btn-sm" onclick="resetTemplates('${escAttr(p.name)}','${escAttr(p.odoo_version || '17')}')">${t('project.resetTemplates')}</button>
         <button class="btn btn-outline btn-sm" onclick="hideModal('modalDetail');duplicateProject('${escAttr(p.name)}','${escAttr(p.http_port)}')">${t('project.duplicate')}</button>
         <button class="btn btn-danger btn-sm" onclick="hideModal('modalDetail');deleteProject('${escAttr(p.name)}')">${t('project.delete')}</button>
