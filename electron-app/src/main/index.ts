@@ -6,26 +6,22 @@ import { registerIpcHandlers } from './ipc-handlers';
 import { UpdaterService } from './services/updater';
 
 // Self-elevate to Admin if not already (Windows only)
+// In dev mode (--dev flag or VS Code F5), skip elevation so the app still launches.
+// Some operations (PostgreSQL install, Nginx) require admin — those will fail gracefully.
 function ensureAdmin(): void {
   if (process.platform !== 'win32') return;
+  // Skip admin elevation in dev mode — allows F5 from VS Code
+  if (process.argv.includes('--dev') || !app.isPackaged) return;
   try {
     execSync('net session', { stdio: 'ignore', windowsHide: true });
     // Already admin
   } catch {
-    // Not admin - relaunch with elevation
-    const { shell } = require('electron');
-    const appPath = app.isPackaged
-      ? process.execPath
-      : `"${process.execPath}" "${path.join(__dirname, '..', '..', 'node_modules', 'electron', 'dist', 'electron.exe')}"`;
-
-    if (app.isPackaged) {
-      // Use PowerShell Start-Process -Verb RunAs for packaged app
-      const args = process.argv.slice(1).join('" "');
-      execSync(
-        `powershell -Command "Start-Process -FilePath '${process.execPath}' -ArgumentList '${args}' -Verb RunAs"`,
-        { windowsHide: true }
-      );
-    }
+    // Not admin - relaunch with elevation (packaged app only)
+    const args = process.argv.slice(1).join('" "');
+    execSync(
+      `powershell -Command "Start-Process -FilePath '${process.execPath}' -ArgumentList '${args}' -Verb RunAs"`,
+      { windowsHide: true }
+    );
     app.quit();
   }
 }
