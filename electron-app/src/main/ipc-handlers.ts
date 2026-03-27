@@ -749,6 +749,15 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
     logWin.on('closed', () => {
       logWindows.delete(windowKey);
+      // Cleanup: remove this window from all log watcher subscribers
+      for (const [watchPath, entry] of logWatchers) {
+        entry.subscribers.delete(logWin);
+        if (entry.subscribers.size === 0) {
+          if (entry.watcher) entry.watcher.close();
+          clearInterval(entry.pollTimer);
+          logWatchers.delete(watchPath);
+        }
+      }
     });
 
     return { ok: true, msg: 'opened', color };
