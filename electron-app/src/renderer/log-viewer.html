@@ -20,12 +20,14 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 }
 .titlebar-title{font-size:0.8rem;font-weight:600;color:#fff;opacity:0.95;display:flex;align-items:center;gap:6px}
 .titlebar-title svg{width:14px;height:14px;stroke:#fff;opacity:0.8}
-.titlebar-controls{display:flex;-webkit-app-region:no-drag;height:100%}
+.titlebar-controls{display:flex;-webkit-app-region:no-drag;height:100%;gap:1px}
 .titlebar-controls button{
-  width:40px;height:100%;border:none;background:transparent;color:rgba(255,255,255,0.8);
+  width:40px;height:100%;border:none;
+  background:rgba(0,0,0,0.3);color:rgba(255,255,255,0.8);
   font-size:0.85rem;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background 0.15s;
 }
-.titlebar-controls button:hover{background:rgba(255,255,255,0.15)}
+.titlebar-controls button:hover{background:rgba(0,0,0,0.5)}
 .titlebar-controls button.close:hover{background:#e81123;color:#fff}
 
 /* Status bar */
@@ -66,10 +68,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 /* Pin button — emoji with animated arrow effect */
 .pin-btn{position:relative;transition:all 0.2s;font-size:1rem}
 .pin-btn .pin-icon{display:inline-block;transition:transform 0.3s ease}
-.pin-btn:not(.pinned){background:transparent}
 .pin-btn:not(.pinned) .pin-icon{transform:rotate(45deg) translateY(2px);opacity:0.4}
 .pin-btn:hover .pin-icon{opacity:0.8}
-.pin-btn.pinned{background:rgba(255,255,255,0.2)}
+.pin-btn.pinned{background:rgba(0,0,0,0.5)!important}
 .pin-btn.pinned .pin-icon{transform:rotate(0deg) translateY(0);opacity:1}
 /* Arrow animation on toggle */
 @keyframes pinIn{0%{transform:rotate(45deg) translateY(6px);opacity:0}100%{transform:rotate(0deg) translateY(0);opacity:1}}
