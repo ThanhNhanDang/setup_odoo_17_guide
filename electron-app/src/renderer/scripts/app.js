@@ -19,6 +19,11 @@ function tMsg(msg) {
 }
 
 // Language dropdown
+const _langLabels = { en: 'EN', vi: 'VI', ko: 'KO' };
+function updateLangLabel() {
+  const label = $('langLabel');
+  if (label) label.textContent = _langLabels[getCurrentLanguage()] || 'EN';
+}
 function toggleLangDropdown() {
   const menu = $('langMenu');
   menu.classList.toggle('visible');
@@ -39,6 +44,7 @@ document.addEventListener('click', (e) => {
 // Initialize i18n before rendering anything
 initI18n(getCurrentLanguage()).then(() => {
   applyTranslations();
+  updateLangLabel();
   // Sync language selector
   const sel = $('langSelect');
   if (sel) sel.value = getCurrentLanguage();
@@ -325,9 +331,11 @@ function renderProjects(s) {
       <div class="project-header">
         <div><span class="name">${escHtml(p.name)}</span>
           <span class="tag tag-port" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port)}')" style="cursor:pointer" title="Open in browser">:${escHtml(p.http_port)}</span>
-          ${p.is_running
-            ? `<span class="tag tag-running">${t('project.runningTag')}</span>`
-            : `<span class="tag tag-stopped">${t('project.stoppedTag')}</span>`}
+          ${_pendingProjects.has(p.name)
+            ? `<span class="tag tag-pending"><span class="spinner-sm"></span> ${escHtml(_pendingProjects.get(p.name) === 'starting' ? t('project.starting') : t('project.stopping'))}</span>`
+            : p.is_running
+              ? `<span class="tag tag-running">${t('project.runningTag')}</span>`
+              : `<span class="tag tag-stopped">${t('project.stoppedTag')}</span>`}
           <span class="project-url" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port)}')" title="Click to open">${escHtml(getProjectUrl(p.domain, p.http_port))}</span></div>
         <div style="font-size:0.75rem;color:var(--text-tertiary)">${escHtml(p.path)}</div>
       </div>
@@ -341,9 +349,7 @@ function renderProjects(s) {
         <span class="copy-hint">${t('project.clickCopy')}</span>
       </div>
       <div class="project-actions">
-        ${p.is_running
-          ? `<button class="btn btn-danger btn-xs" data-project-action="${escAttr(p.name)}" onclick="stopOdoo('${escAttr(p.name)}')">${t('project.stop')}</button>`
-          : `<button class="btn btn-success btn-xs" data-project-action="${escAttr(p.name)}" onclick="startOdoo('${escAttr(p.name)}')">${t('project.start')}</button>`}
+        ${renderActionBtn(p)}
         <button class="btn btn-vscode btn-xs" onclick="openVSCode('${escAttr(p.path)}')">${t('project.vsCode')}</button>
         <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}')">${t('project.explorer')}</button>
         <button class="btn btn-outline btn-xs" onclick="editConfig('${escAttr(p.name)}')">${t('project.editConfig')}</button>
@@ -733,14 +739,20 @@ async function createProject() {
 // ---------------------------------------------------------------------------
 // Project Actions
 // ---------------------------------------------------------------------------
-const _pendingProjects = new Set(); // projects with start/stop in progress
+const _pendingProjects = new Map(); // name -> 'starting' | 'stopping'
 
-function setProjectPending(name, label) {
-  _pendingProjects.add(name);
-  // Update all Start/Stop buttons for this project to pending state
+function setProjectPending(name, action) {
+  _pendingProjects.set(name, action);
+  _applyPendingButtons(name);
+}
+
+function _applyPendingButtons(name) {
+  const action = _pendingProjects.get(name);
+  if (!action) return;
+  const label = action === 'starting' ? t('project.starting') : t('project.stopping');
   document.querySelectorAll(`[data-project-action="${name}"]`).forEach(btn => {
     btn.disabled = true;
-    btn.textContent = label;
+    btn.innerHTML = `<span class="spinner-sm"></span> ${escHtml(label)}`;
     btn.className = btn.className.replace(/btn-danger|btn-success/g, 'btn-outline');
   });
 }
@@ -749,9 +761,27 @@ function clearProjectPending(name) {
   _pendingProjects.delete(name);
 }
 
+/** Render the Start/Stop button respecting pending state */
+function renderActionBtn(p, size, extraOnclick) {
+  const cls = size || 'btn-xs';
+  const name = escAttr(p.name);
+  const extra = extraOnclick ? ';' + extraOnclick : '';
+  const pending = _pendingProjects.get(p.name);
+  if (pending === 'starting') {
+    return `<button class="btn btn-outline ${cls}" data-project-action="${name}" disabled><span class="spinner-sm"></span> ${escHtml(t('project.starting'))}</button>`;
+  }
+  if (pending === 'stopping') {
+    return `<button class="btn btn-outline ${cls}" data-project-action="${name}" disabled><span class="spinner-sm"></span> ${escHtml(t('project.stopping'))}</button>`;
+  }
+  if (p.is_running) {
+    return `<button class="btn btn-danger ${cls}" data-project-action="${name}" onclick="stopOdoo('${name}')${extra}">${t('project.stop')}</button>`;
+  }
+  return `<button class="btn btn-success ${cls}" data-project-action="${name}" onclick="startOdoo('${name}')${extra}">${t('project.start')}</button>`;
+}
+
 async function startOdoo(name) {
   if (_pendingProjects.has(name)) return;
-  setProjectPending(name, 'Starting...');
+  setProjectPending(name, 'starting');
 
   const proj = _status?.projects?.find(p => p.name === name);
   const data = getFormData();
@@ -762,7 +792,6 @@ async function startOdoo(name) {
   const res = await api('start_odoo', data);
   if (res.ok) {
     showToastMessage(t('toast.odooWaiting'), 'info');
-    const port = _status?.projects?.find(p => p.name === name)?.http_port || '8069';
     // Poll until running or timeout (30s)
     let running = false;
     for (let i = 0; i < 15; i++) {
@@ -772,11 +801,7 @@ async function startOdoo(name) {
       if (proj?.is_running) { running = true; break; }
     }
     if (running) {
-      const proj = _status?.projects?.find(p => p.name === name);
-      const domain = proj?.domain || '';
       showToastMessage(t('toast.odooRunning'), 'success');
-      // Optimistic: mark as running in local state
-      if (proj) proj.is_running = true;
     } else {
       showToastMessage(t('toast.odooNotResponding'), 'error');
     }
@@ -791,7 +816,7 @@ async function startOdoo(name) {
 
 async function stopOdoo(name) {
   if (_pendingProjects.has(name)) return;
-  setProjectPending(name, 'Stopping...');
+  setProjectPending(name, 'stopping');
 
   const port = _status?.projects?.find(p => p.name === name)?.http_port || '8069';
   showToastMessage(t('toast.odooStopping'), 'info');
@@ -813,7 +838,7 @@ async function stopOdoo(name) {
 }
 
 function toggleOdoo(name, isRunning) {
-  if (_pendingProjects.has(name)) return;
+  if (_pendingProjects.has(name)) return; // Map.has works like Set.has
   if (isRunning) stopOdoo(name);
   else startOdoo(name);
 }
@@ -978,29 +1003,31 @@ function renderDashboard(s) {
   const totalModules = projects.reduce((sum, p) => sum + (p.custom_modules || 0), 0);
   const uniquePorts = new Set(projects.map(p => p.db_port || '5432')).size;
 
+  const _ok = `<span style="color:#3fb950">${t('status.ok')}</span>`;
+  const _miss = `<span style="color:#f85149">${t('status.missing')}</span>`;
   $('dashStats').innerHTML = `
     <div class="dash-stat accent">
       <div class="dash-stat-value">${totalProjects}</div>
-      <div class="dash-stat-label">Total Projects</div>
+      <div class="dash-stat-label">${t('dashboard.totalProjects')}</div>
     </div>
     <div class="dash-stat green">
       <div class="dash-stat-value">${totalModules}</div>
-      <div class="dash-stat-label">Custom Modules</div>
+      <div class="dash-stat-label">${t('dashboard.customModules')}</div>
     </div>
     <div class="dash-stat blue">
       <div class="dash-stat-value">${uniquePorts}</div>
-      <div class="dash-stat-label">DB Connections</div>
+      <div class="dash-stat-label">${t('dashboard.dbConnections')}</div>
     </div>
     <div class="dash-stat">
-      <div class="dash-stat-value">${s.python311 ? '<span style="color:#3fb950">OK</span>' : '<span style="color:#f85149">Missing</span>'}</div>
-      <div class="dash-stat-label">Python 3.11</div>
+      <div class="dash-stat-value">${s.python311 ? _ok : _miss}</div>
+      <div class="dash-stat-label">${t('dashboard.python')}</div>
     </div>
     <div class="dash-stat">
-      <div class="dash-stat-value">${s.postgres ? '<span style="color:#3fb950">OK</span>' : '<span style="color:#f85149">Missing</span>'}</div>
-      <div class="dash-stat-label">PostgreSQL</div>
+      <div class="dash-stat-value">${s.postgres ? _ok : _miss}</div>
+      <div class="dash-stat-label">${t('dashboard.postgresql')}</div>
     </div>
     <div class="dash-stat">
-      <div class="dash-stat-value">${s.vscode ? '<span style="color:#3fb950">' + escHtml(s.vscode_version || 'OK') + '</span>' : '<span style="color:#f85149">Missing</span>'}</div>
+      <div class="dash-stat-value">${s.vscode ? '<span style="color:#3fb950">' + escHtml(s.vscode_version || t('status.ok')) + '</span>' : _miss}</div>
       <div class="dash-stat-label">VS Code</div>
     </div>
   `;
@@ -1044,16 +1071,16 @@ function renderKanban(projects) {
       <div class="kanban-card-body">
         <div class="kanban-card-tags">
           <span class="kanban-tag kanban-tag-version" style="background:${getVersionColor(p.odoo_version)};color:#fff">v${escHtml(p.odoo_version || '17')}</span>
-          ${p.is_running
-            ? `<span class="kanban-tag kanban-tag-running">${t('project.runningTag')}</span>`
-            : `<span class="kanban-tag kanban-tag-stopped">${t('project.stoppedTag')}</span>`}
+          ${_pendingProjects.has(p.name)
+            ? `<span class="kanban-tag kanban-tag-pending"><span class="spinner-sm"></span> ${escHtml(_pendingProjects.get(p.name) === 'starting' ? t('project.starting') : t('project.stopping'))}</span>`
+            : p.is_running
+              ? `<span class="kanban-tag kanban-tag-running">${t('project.runningTag')}</span>`
+              : `<span class="kanban-tag kanban-tag-stopped">${t('project.stoppedTag')}</span>`}
           ${p.custom_modules > 0 ? `<span class="kanban-tag kanban-tag-modules">${p.custom_modules} modules</span>` : ''}
         </div>
       </div>
       <div class="kanban-card-actions">
-        ${p.is_running
-          ? `<button class="btn btn-danger btn-xs" data-project-action="${escAttr(p.name)}" onclick="stopOdoo('${escAttr(p.name)}')">${t('project.stop')}</button>`
-          : `<button class="btn btn-success btn-xs" data-project-action="${escAttr(p.name)}" onclick="startOdoo('${escAttr(p.name)}')">${t('project.start')}</button>`}
+        ${renderActionBtn(p)}
         <button class="btn btn-vscode btn-xs" onclick="openVSCode('${escAttr(p.path)}')">${t('project.vsCode')}</button>
         <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}')">${t('project.explorer')}</button>
         <button class="btn btn-outline btn-xs" onclick="showProjectDetail('${escAttr(p.name)}')">${t('project.detail')}</button>
@@ -1169,9 +1196,7 @@ function showProjectDetail(name) {
     </div>
     <div class="btn-row" style="justify-content:space-between">
       <div style="display:flex;gap:6px;flex-wrap:wrap">
-        ${p.is_running
-          ? `<button class="btn btn-danger btn-sm" data-project-action="${escAttr(p.name)}" onclick="stopOdoo('${escAttr(p.name)}');hideModal('modalDetail')">${t('project.stop')}</button>`
-          : `<button class="btn btn-success btn-sm" data-project-action="${escAttr(p.name)}" onclick="startOdoo('${escAttr(p.name)}');hideModal('modalDetail')">${t('project.start')}</button>`}
+        ${renderActionBtn(p, 'btn-sm', "hideModal('modalDetail')")}
         <button class="btn btn-vscode btn-sm" onclick="openVSCode('${escAttr(p.path)}')">${t('project.vsCode')}</button>
         <button class="btn btn-outline btn-sm" onclick="openExplorer('${escAttr(p.path)}')">${t('project.explorer')}</button>
         <button class="btn btn-outline btn-sm" onclick="resetTemplates('${escAttr(p.name)}','${escAttr(p.odoo_version || '17')}')">${t('project.resetTemplates')}</button>

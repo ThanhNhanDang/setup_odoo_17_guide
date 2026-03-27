@@ -45,12 +45,13 @@
     <svg id="themeIconLight" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
   </button>
   <div class="lang-dropdown" id="langDropdown">
-    <button class="theme-toggle" onclick="toggleLangDropdown()" title="Language">
+    <button class="theme-toggle lang-btn" onclick="toggleLangDropdown()" title="Language">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+      <span class="lang-label" id="langLabel">EN</span>
     </button>
     <div class="lang-menu" id="langMenu">
       <div class="lang-option" onclick="setLanguage('en');closeLangDropdown()">English</div>
-      <div class="lang-option" onclick="setLanguage('vi');closeLangDropdown()">Tieng Viet</div>
+      <div class="lang-option" onclick="setLanguage('vi');closeLangDropdown()">Tiếng Việt</div>
       <div class="lang-option" onclick="setLanguage('ko');closeLangDropdown()">한국어</div>
     </div>
   </div>
@@ -74,7 +75,7 @@
       <h3 data-i18n="settings.appearance">Appearance</h3>
 
       <!-- Theme Presets -->
-      <label style="font-size:0.75rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;display:block">Theme Preset</label>
+      <label style="font-size:0.75rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;display:block" data-i18n="settings.themePreset">Theme Preset</label>
       <div class="preset-grid" id="presetGrid">
         <div class="preset-card active" data-preset="default" onclick="applyPreset('default')">
           <div class="preset-preview" style="background:#0d1117;border-radius:6px 6px 0 0">
@@ -121,11 +122,11 @@
       <!-- App Icon -->
       <div class="form-grid" style="margin-top:14px">
         <div class="form-group">
-          <label>App Icon</label>
+          <label data-i18n="settings.appIcon">App Icon</label>
           <div style="display:flex;align-items:center;gap:10px">
             <img id="iconPreview" src="" alt="icon" style="width:40px;height:40px;border-radius:6px;border:1px solid var(--border-muted);background:var(--bg-canvas);object-fit:contain">
-            <button class="btn btn-outline btn-xs" onclick="pickIcon()">Browse</button>
-            <button class="btn btn-outline btn-xs" onclick="resetIcon()">Reset</button>
+            <button class="btn btn-outline btn-xs" onclick="pickIcon()" data-i18n="settings.browse">Browse</button>
+            <button class="btn btn-outline btn-xs" onclick="resetIcon()" data-i18n="settings.reset">Reset</button>
           </div>
           <p id="iconPath" style="font-size:0.65rem;color:var(--text-tertiary);margin-top:4px;word-break:break-all"></p>
         </div>
@@ -133,25 +134,25 @@
 
       <!-- Custom Colors -->
       <div style="margin-top:12px">
-        <label style="font-size:0.75rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px">Custom Colors</label>
+        <label style="font-size:0.75rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px" data-i18n="settings.customColors">Custom Colors</label>
         <div style="display:flex;gap:10px;margin-top:6px;flex-wrap:wrap">
           <div style="display:flex;align-items:center;gap:6px">
             <input type="color" id="colorAccent" value="#f0883e" onchange="applyCustomColor('--accent',this.value)" style="width:32px;height:32px;border:1px solid var(--border-muted);border-radius:4px;cursor:pointer;background:none;padding:0">
-            <span style="font-size:0.75rem;color:var(--text-secondary)">Accent</span>
+            <span style="font-size:0.75rem;color:var(--text-secondary)" data-i18n="settings.accent">Accent</span>
           </div>
           <div style="display:flex;align-items:center;gap:6px">
             <input type="color" id="colorBg" value="#0d1117" onchange="applyCustomColor('--bg-canvas',this.value)" style="width:32px;height:32px;border:1px solid var(--border-muted);border-radius:4px;cursor:pointer;background:none;padding:0">
-            <span style="font-size:0.75rem;color:var(--text-secondary)">Background</span>
+            <span style="font-size:0.75rem;color:var(--text-secondary)" data-i18n="settings.background">Background</span>
           </div>
           <div style="display:flex;align-items:center;gap:6px">
             <input type="color" id="colorSurface" value="#161b22" onchange="applyCustomColor('--bg-surface',this.value)" style="width:32px;height:32px;border:1px solid var(--border-muted);border-radius:4px;cursor:pointer;background:none;padding:0">
-            <span style="font-size:0.75rem;color:var(--text-secondary)">Surface</span>
+            <span style="font-size:0.75rem;color:var(--text-secondary)" data-i18n="settings.surface">Surface</span>
           </div>
           <div style="display:flex;align-items:center;gap:6px">
             <input type="color" id="colorText" value="#e6edf3" onchange="applyCustomColor('--text-primary',this.value)" style="width:32px;height:32px;border:1px solid var(--border-muted);border-radius:4px;cursor:pointer;background:none;padding:0">
-            <span style="font-size:0.75rem;color:var(--text-secondary)">Text</span>
+            <span style="font-size:0.75rem;color:var(--text-secondary)" data-i18n="settings.text">Text</span>
           </div>
-          <button class="btn btn-outline btn-xs" onclick="resetCustomColors()">Reset Colors</button>
+          <button class="btn btn-outline btn-xs" onclick="resetCustomColors()" data-i18n="settings.resetColors">Reset Colors</button>
         </div>
       </div>
     </div>
@@ -163,7 +164,7 @@
         <div class="form-group">
           <select id="langSelect" onchange="setLanguage(this.value)">
             <option value="en">English</option>
-            <option value="vi">Tieng Viet</option>
+            <option value="vi">Tiếng Việt</option>
             <option value="ko">한국어</option>
           </select>
         </div>
@@ -211,11 +212,11 @@
         <div class="form-group"><label data-i18n="settings.dbPassword">DB Password</label><input id="dbPassword" value="odoo"></div>
         <div class="form-group"><label data-i18n="settings.pgSuperPassword">PG Super Password</label><input id="pgSuperPassword" value="postgres"></div>
         <div class="form-group" id="pgModeGroup" style="display:none">
-          <label>PostgreSQL Mode</label>
+          <label data-i18n="settings.pgMode">PostgreSQL Mode</label>
           <select id="pgMode">
-            <option value="native" selected>Native install</option>
-            <option value="docker">Docker</option>
-            <option value="auto">Auto (Docker first, then Native)</option>
+            <option value="native" selected data-i18n="settings.pgNative">Native install</option>
+            <option value="docker" data-i18n="settings.pgDocker">Docker</option>
+            <option value="auto" data-i18n="settings.pgAuto">Auto (Docker first, then Native)</option>
           </select>
         </div>
       </div>
@@ -233,7 +234,7 @@
 
     <!-- Advanced -->
     <div class="form-section">
-      <h3 onclick="toggleAdvanced('advInstall')"><span class="arrow" id="arrowAdvInstall">&#9654;</span> Advanced Odoo Config</h3>
+      <h3 onclick="toggleAdvanced('advInstall')"><span class="arrow" id="arrowAdvInstall">&#9654;</span> <span data-i18n="settings.advanced">Advanced Odoo Config</span></h3>
       <div class="collapsible" id="advInstall">
         <div class="form-grid">
           <div class="form-group full"><label data-i18n="settings.addonsPath">Addons Path</label><input id="addonsPath" value="./addons,./odoo/addons"></div>
@@ -295,7 +296,7 @@
     <div class="dash-stats" id="dashStats"></div>
     <div class="dash-kanban" id="dashKanban"></div>
     <div class="empty" id="dashEmpty" style="display:none">
-      <p>No projects yet. Go to <strong>New Project</strong> to create one.</p>
+      <p data-i18n-html="dashboard.noProjects">No projects yet. Go to <strong>New Project</strong> to create one.</p>
     </div>
   </div>
 
@@ -311,14 +312,14 @@
         <option value="19">Odoo 19</option>
       </select>
     </div>
-    <p class="desc">Install all components. Configure defaults in Settings tab first.</p>
+    <p class="desc" data-i18n="install.desc">Install all components. Configure defaults in Settings tab first.</p>
     <!-- Step Cards -->
     <div class="install-steps" id="installSteps">
       <div class="step-card" id="step-install_nginx" onclick="runStep('install_nginx')">
         <div class="step-icon" id="stepIcon-install_nginx">1</div>
         <div class="step-info">
-          <div class="step-name">Nginx</div>
-          <div class="step-desc">HTTPS proxy</div>
+          <div class="step-name" data-i18n="install.nginx">Nginx</div>
+          <div class="step-desc" data-i18n="install.nginxDesc">HTTPS proxy</div>
           <div class="step-progress" id="stepProgress-install_nginx"></div>
         </div>
         <div class="step-status" id="stepStatus-install_nginx"></div>
@@ -326,8 +327,8 @@
       <div class="step-card" id="step-install_git" onclick="runStep('install_git')">
         <div class="step-icon" id="stepIcon-install_git">2</div>
         <div class="step-info">
-          <div class="step-name">Git</div>
-          <div class="step-desc">Version control</div>
+          <div class="step-name" data-i18n="install.git">Git</div>
+          <div class="step-desc" data-i18n="install.gitDesc">Version control</div>
           <div class="step-progress" id="stepProgress-install_git"></div>
         </div>
         <div class="step-status" id="stepStatus-install_git"></div>
@@ -335,8 +336,8 @@
       <div class="step-card" id="step-install_vscode" onclick="runStep('install_vscode')">
         <div class="step-icon" id="stepIcon-install_vscode">3</div>
         <div class="step-info">
-          <div class="step-name">VS Code</div>
-          <div class="step-desc">Code editor</div>
+          <div class="step-name" data-i18n="install.vscode">VS Code</div>
+          <div class="step-desc" data-i18n="install.vscodeDesc">Code editor</div>
           <div class="step-progress" id="stepProgress-install_vscode"></div>
         </div>
         <div class="step-status" id="stepStatus-install_vscode"></div>
@@ -345,7 +346,7 @@
         <div class="step-icon" id="stepIcon-install_python">4</div>
         <div class="step-info">
           <div class="step-name" id="stepName-install_python">Python 3.11</div>
-          <div class="step-desc">Runtime for Odoo</div>
+          <div class="step-desc" data-i18n="install.pythonDesc">Runtime for Odoo</div>
           <div class="step-progress" id="stepProgress-install_python"></div>
         </div>
         <div class="step-status" id="stepStatus-install_python"></div>
@@ -354,7 +355,7 @@
         <div class="step-icon" id="stepIcon-install_postgres">5</div>
         <div class="step-info">
           <div class="step-name" id="stepName-install_postgres">PostgreSQL 16</div>
-          <div class="step-desc">Database server</div>
+          <div class="step-desc" data-i18n="install.postgresDesc">Database server</div>
           <div class="step-progress" id="stepProgress-install_postgres"></div>
         </div>
         <div class="step-status" id="stepStatus-install_postgres"></div>
@@ -363,7 +364,7 @@
         <div class="step-icon" id="stepIcon-clone_odoo">6</div>
         <div class="step-info">
           <div class="step-name" id="stepName-clone_odoo">Clone Odoo 17</div>
-          <div class="step-desc">Source from GitHub</div>
+          <div class="step-desc" data-i18n="install.cloneDesc">Source from GitHub</div>
           <div class="step-progress" id="stepProgress-clone_odoo"></div>
         </div>
         <div class="step-status" id="stepStatus-clone_odoo"></div>
@@ -371,8 +372,8 @@
       <div class="step-card" id="step-create_venv" onclick="runStep('create_venv')">
         <div class="step-icon" id="stepIcon-create_venv">7</div>
         <div class="step-info">
-          <div class="step-name">Virtual Env</div>
-          <div class="step-desc">Python packages</div>
+          <div class="step-name" data-i18n="install.venv">Virtual Env</div>
+          <div class="step-desc" data-i18n="install.venvDesc">Python packages</div>
           <div class="step-progress" id="stepProgress-create_venv"></div>
         </div>
         <div class="step-status" id="stepStatus-create_venv"></div>
@@ -380,8 +381,8 @@
       <div class="step-card" id="step-install_requirements" onclick="runStep('install_requirements')">
         <div class="step-icon" id="stepIcon-install_requirements">8</div>
         <div class="step-info">
-          <div class="step-name">Pip Requirements</div>
-          <div class="step-desc">Odoo dependencies</div>
+          <div class="step-name" data-i18n="install.pip">Pip Requirements</div>
+          <div class="step-desc" data-i18n="install.pipDesc">Odoo dependencies</div>
           <div class="step-progress" id="stepProgress-install_requirements"></div>
         </div>
         <div class="step-status" id="stepStatus-install_requirements"></div>

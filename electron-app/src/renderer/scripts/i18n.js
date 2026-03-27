@@ -93,6 +93,9 @@ async function setLanguage(lang) {
   const sel = document.getElementById('langSelect');
   if (sel) sel.value = lang;
 
+  // Update language label in nav
+  if (typeof updateLangLabel === 'function') updateLangLabel();
+
   // Force re-render dynamic panels
   if (typeof _helpRendered !== 'undefined') _helpRendered = false;
   if (typeof refreshStatus === 'function') refreshStatus();
