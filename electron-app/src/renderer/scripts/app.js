@@ -309,8 +309,8 @@ function renderProjects(s) {
         <div><span class="name">${escHtml(p.name)}</span>
           <span class="tag tag-port" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port)}')" style="cursor:pointer" title="Open in browser">:${escHtml(p.http_port)}</span>
           ${p.is_running
-            ? '<span class="tag tag-running">${t('project.runningTag')}</span>'
-            : '<span class="tag tag-stopped">${t('project.stoppedTag')}</span>'}
+            ? `<span class="tag tag-running">${t('project.runningTag')}</span>`
+            : `<span class="tag tag-stopped">${t('project.stoppedTag')}</span>`}
           <span class="project-url" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port)}')" title="Click to open">${escHtml(getProjectUrl(p.domain, p.http_port))}</span></div>
         <div style="font-size:0.75rem;color:var(--text-tertiary)">${escHtml(p.path)}</div>
       </div>
@@ -1026,8 +1026,8 @@ function renderKanban(projects) {
         <div class="kanban-card-tags">
           <span class="kanban-tag kanban-tag-version" style="background:${getVersionColor(p.odoo_version)};color:#fff">v${escHtml(p.odoo_version || '17')}</span>
           ${p.is_running
-            ? '<span class="kanban-tag kanban-tag-running">${t('project.runningTag')}</span>'
-            : '<span class="kanban-tag kanban-tag-stopped">${t('project.stoppedTag')}</span>'}
+            ? `<span class="kanban-tag kanban-tag-running">${t('project.runningTag')}</span>`
+            : `<span class="kanban-tag kanban-tag-stopped">${t('project.stoppedTag')}</span>`}
           ${p.custom_modules > 0 ? `<span class="kanban-tag kanban-tag-modules">${p.custom_modules} modules</span>` : ''}
         </div>
       </div>
@@ -1191,7 +1191,7 @@ async function startLogWatch() {
         .join('');
       logBox.scrollTop = logBox.scrollHeight;
     } else {
-      logBox.innerHTML = '<div style="color:var(--text-tertiary);padding:8px">${t('project.noLogFile')}</div>';
+      logBox.innerHTML = `<div style="color:var(--text-tertiary);padding:8px">${t('project.noLogFile')}</div>`;
       // Retry every 3s until log file appears
       _logRetryTimer = setInterval(async () => {
         if (_currentLogPath !== logPath) { clearInterval(_logRetryTimer); return; }
@@ -1215,7 +1215,7 @@ async function startLogWatch() {
       return;
     }
   } catch {
-    logBox.innerHTML = '<div style="color:var(--text-tertiary);padding:8px">${t('project.noLogFound')}</div>';
+    logBox.innerHTML = `<div style="color:var(--text-tertiary);padding:8px">${t('project.noLogFound')}</div>`;
     return;
   }
 
