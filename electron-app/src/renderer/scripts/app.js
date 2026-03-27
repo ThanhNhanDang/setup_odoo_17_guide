@@ -990,7 +990,7 @@ function deleteProject(name) {
   _deletingProject = name;
   $('deleteConfirmText').innerHTML = t('modal.deleteConfirmPrefix') + ' <strong style="user-select:all">' + escHtml(name) + '</strong> ' + t('modal.deleteConfirmSuffix');
   $('deleteConfirmInput').value = '';
-  $('deleteDropDb').checked = false;
+  $('deleteDropDb').checked = true;
   showModal('modalDelete');
 }
 
