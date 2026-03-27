@@ -63,6 +63,15 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 }
 .empty-state svg{width:32px;height:32px;opacity:0.4}
 
+/* Pin button */
+.pin-btn{opacity:0.4;transition:all 0.15s}
+.pin-btn:hover{opacity:0.8}
+.pin-btn.pinned{opacity:1;background:rgba(255,255,255,0.2)}
+
+/* Toggle buttons */
+.toggle-btn{transition:all 0.15s}
+.toggle-btn.active{background:var(--border);color:var(--text)}
+
 /* Controls */
 .controls{
   display:flex;align-items:center;gap:6px;padding:6px 12px;
@@ -87,7 +96,9 @@ body{display:flex;flex-direction:column}
     <span id="windowTitle">Odoo Log</span>
   </span>
   <div class="titlebar-controls">
-    <button onclick="togglePin()" id="btnPin" title="Always on top">&#128204;</button>
+    <button onclick="togglePin()" id="btnPin" class="pin-btn" title="Always on top">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><path d="M12 2v10l3.5 3.5L17 14l-5-5V2z" transform="rotate(45 12 12)"/><line x1="5" y1="19" x2="10" y2="14"/></svg>
+    </button>
     <button class="close" onclick="window.close()" title="Close">&#10005;</button>
   </div>
 </div>
@@ -98,8 +109,8 @@ body{display:flex;flex-direction:column}
 <div class="log-container" id="logBox"></div>
 <div class="controls">
   <button onclick="clearLog()">Clear</button>
-  <button onclick="toggleAutoScroll()" id="btnAutoScroll">Auto-scroll: ON</button>
-  <button onclick="toggleWrap()" id="btnWrap">Wrap: ON</button>
+  <button onclick="toggleAutoScroll()" id="btnAutoScroll" class="toggle-btn active">&#8595; Auto-scroll</button>
+  <button onclick="toggleWrap()" id="btnWrap" class="toggle-btn active">&#8629; Word wrap</button>
   <span class="spacer"></span>
   <span class="line-count" id="lineCount">0 lines</span>
 </div>
@@ -155,20 +166,25 @@ function clearLog() {
 
 function toggleAutoScroll() {
   autoScroll = !autoScroll;
-  document.getElementById('btnAutoScroll').textContent = 'Auto-scroll: ' + (autoScroll ? 'ON' : 'OFF');
+  const btn = document.getElementById('btnAutoScroll');
+  btn.classList.toggle('active', autoScroll);
+  btn.innerHTML = (autoScroll ? '&#8595; ' : '&#8644; ') + 'Auto-scroll';
 }
 
 function toggleWrap() {
   const box = document.getElementById('logBox');
-  const nowrap = box.style.whiteSpace === 'pre';
-  box.style.whiteSpace = nowrap ? '' : 'pre';
-  document.getElementById('btnWrap').textContent = 'Wrap: ' + (nowrap ? 'ON' : 'OFF');
+  const isWrapped = box.style.whiteSpace !== 'pre';
+  box.style.whiteSpace = isWrapped ? 'pre' : '';
+  const btn = document.getElementById('btnWrap');
+  btn.classList.toggle('active', !isWrapped);
+  btn.innerHTML = '&#8629; Word wrap';
 }
 
 function togglePin() {
   pinned = !pinned;
   window.electronAPI.invoke('log-window-pin', { pinned });
-  document.getElementById('btnPin').style.opacity = pinned ? '1' : '0.5';
+  const btn = document.getElementById('btnPin');
+  btn.classList.toggle('pinned', pinned);
 }
 
 // IPC: receive log lines from main process
