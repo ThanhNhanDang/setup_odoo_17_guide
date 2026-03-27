@@ -6,10 +6,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const validChannels = [
       'status', 'log', 'full_install', 'run_step',
       'create_project', 'read_config', 'save_config',
-      'delete_project', 'duplicate_project',
+      'delete_project', 'duplicate_project', 'reset_templates',
       'start_odoo', 'stop_odoo', 'open_vscode', 'open_explorer', 'open_browser', 'pick-folder',
       'window-minimize', 'window-maximize', 'window-close', 'window-is-maximized',
-      'update-check', 'update-download', 'update-install', 'update-info',
+      'update-check', 'update-download', 'update-install', 'update-info', 'update-reset-interval',
       'app-version', 'default-paths', 'odoo-versions', 'pick-icon', 'get-icon', 'reset-icon',
       'watch-log', 'unwatch-log',
     ];

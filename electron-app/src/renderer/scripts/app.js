@@ -1265,20 +1265,34 @@ async function saveDetailAndRestart(name) {
 // Auto-Update — auto download + auto restart
 // ---------------------------------------------------------------------------
 
+let _manualCheckResolve = null;
+
 async function checkForUpdate() {
   const el = $('navVersion');
   const original = el.textContent;
   el.textContent = 'Checking...';
   try {
-    await api('update-check');
-    // Wait a moment for the update-status event to arrive
-    await new Promise(r => setTimeout(r, 3000));
-    const info = await api('update-info');
-    if (info.available) {
-      el.textContent = original + ' → v' + info.version;
-    } else {
+    // Reset periodic interval so it doesn't overlap
+    await api('update-reset-interval');
+    // Create a promise that resolves when update-status event arrives
+    const result = await new Promise((resolve) => {
+      _manualCheckResolve = resolve;
+      api('update-check');
+      // Timeout after 15s if no response
+      setTimeout(() => resolve({ status: 'timeout' }), 15000);
+    });
+    _manualCheckResolve = null;
+
+    if (result.status === 'available') {
+      el.textContent = original + ' \u2192 v' + result.version;
+      // showUpdateCard is already called by the event listener
+    } else if (result.status === 'up-to-date') {
       el.textContent = original + ' (latest)';
       showToastMessage('You are on the latest version!', 'success');
+      setTimeout(() => { el.textContent = original; }, 3000);
+    } else {
+      el.textContent = original;
+      showToastMessage('Could not check for updates.', 'error');
       setTimeout(() => { el.textContent = original; }, 3000);
     }
   } catch {
@@ -1334,6 +1348,11 @@ function updateReady(version) {
 // Listen for update events from main process
 if (window.electronAPI) {
   window.electronAPI.onEvent('update-status', (data) => {
+    // Resolve manual check promise if waiting
+    if (_manualCheckResolve && (data.status === 'available' || data.status === 'up-to-date' || data.status === 'error')) {
+      _manualCheckResolve(data);
+    }
+
     switch (data.status) {
       case 'available':
         showUpdateCard(data.version);
@@ -1351,7 +1370,6 @@ if (window.electronAPI) {
 
       case 'error':
         console.log('Update check:', data.message);
-        $('updateToast').classList.remove('visible');
         break;
     }
   });

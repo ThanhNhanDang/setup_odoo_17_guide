@@ -161,6 +161,7 @@ function registerUpdateHandlers(win: BrowserWindow, updater: UpdaterService): vo
   ipcMain.handle('update-download', () => updater.downloadUpdate());
   ipcMain.handle('update-install', () => updater.installUpdate());
   ipcMain.handle('update-info', () => updater.getUpdateInfo());
+  ipcMain.handle('update-reset-interval', () => updater.startPeriodicCheck());
 }
 
 // Set app name (shows in taskbar, Alt+Tab, etc.)
