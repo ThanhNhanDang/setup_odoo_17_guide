@@ -121,13 +121,81 @@ Four presets (`default`, `autonsi`, `cyberpunk`, `luxury`) with dark/light modes
 - **Project name rules** — `^[a-z_][a-z0-9_\-]*$` (lowercase, no leading digit)
 - **Backend error codes** — Backend returns codes like `INVALID_NAME`, frontend translates via `tMsg()`
 
-## Project Name Validation
+## Features
 
-Regex: `^[a-z_][a-z0-9_\-]*$`
-- Lowercase only, no uppercase
-- Must start with letter or underscore
-- Numbers, hyphens allowed after first char
-- Validated both frontend (realtime hint) and backend
+### Dashboard
+- Project kanban cards with status (running/stopped), version badge, port, domain
+- Stats row: Total Projects, Custom Modules, DB Connections, Python/PostgreSQL/VS Code status
+- Search + filter (All / Running / Has Custom Modules)
+- "New Project" and "Reset All Templates" buttons
+
+### Project Management
+- **Create**: name validation, auto-port, auto-domain, version select, DB config, advanced config
+- **Start/Stop**: pending spinner, auto-start PostgreSQL, 30s polling, toast notifications
+- **Edit Config**: full odoo.conf text editor modal
+- **Duplicate**: progress popup (6 steps), skip DB, setup domain in hosts
+- **Delete**: name confirmation, optional DB drop
+- **VS Code**: opens project with pre-configured launch.json/settings.json
+- **Explorer**: opens Windows File Explorer at project path
+- **Open Browser**: http://localhost:{port} or https://{domain} (if Nginx)
+- **Reset Templates**: regenerate launch.json + settings.json from templates
+
+### Log Viewer (Separate Window)
+- Independent BrowserWindow — stays open when main app minimized to tray
+- Draggable, resizable, pin (always on top)
+- Unique header color per window (10 colors rotate)
+- Realtime streaming via IPC file watcher
+- Log level coloring: ERROR (red), WARNING (yellow), INFO (blue)
+- Controls: Clear, Auto-scroll, Word wrap, line count
+- Max 5000 lines buffer
+
+### Installation (8 Steps)
+1. **Nginx** — HTTPS reverse proxy
+2. **Git** — version control
+3. **VS Code** — code editor
+4. **Python** — runtime (3.10/3.11/3.12 per Odoo version)
+5. **PostgreSQL** — database (14/16 per Odoo version, Docker support)
+6. **Clone Odoo** — shallow clone from GitHub
+7. **Virtual Env** — Python venv
+8. **Pip Requirements** — Odoo dependencies
+
+Each step: individual run, status indicator, progress bar, real-time log. "Install Everything" runs all 8 in parallel pipeline.
+
+### Settings
+- **Appearance**: 4 theme presets (Default/Amethyst/Cyberpunk/Pink Luxury), dark/light mode, custom colors (accent/bg/surface/text), custom app icon
+- **Language**: EN/VI/KO with realtime switch
+- **System Status**: Python, PostgreSQL, Git, VS Code, Nginx detection
+- **Odoo Version**: 15/17/19 selector (auto-adjusts paths and download URLs)
+- **Directories**: Base dir, Projects dir, Odoo Source folder (configurable)
+- **Database**: host, port, user, password, PG super password, PG mode (Native/Docker/Auto)
+- **Default Project Config**: HTTP port, project name, admin password
+- **Advanced Odoo Config**: addons_path, longpolling, log_level, workers, list_db, dbfilter, proxy_mode, server_wide_modules, data_dir, memory limits
+- **About**: version display, check for updates
+- Auto-save with "Saved" indicator in footer
+
+### Help System
+- **Documentation**: 12+ articles (first install, create project, start/stop, duplicate/delete, custom modules, edit config, debug VS Code, multiple PG, create/restore DB, VS Code dev, Claude Code)
+- **Guided Tour**: 12 interactive steps with spotlight overlay, keyboard navigation
+- **Troubleshooting**: 18+ entries with symptom/cause/solution, full-text search
+- All content translated in EN/VI/KO
+
+### Auto-Update
+- Checks GitHub Releases every 30 minutes + manual check
+- Download with progress bar, install on quit
+- NSIS installer for Windows
+
+### System
+- Frameless window with custom titlebar
+- System tray (minimize to tray, click to restore)
+- Single instance lock
+- Admin elevation via PowerShell RunAs (for PostgreSQL, Nginx, symlinks)
+- Partial download cleanup on quit
+
+### Validation
+- Project name: `^[a-z_][a-z0-9_\-]*$` with realtime hint
+- Port: 1024-65535, uniqueness check against existing projects
+- Path confinement: resolve check prevents directory traversal
+- Backend error codes mapped to translated messages via `tMsg()`
 
 ## Duplicate Project Flow
 
@@ -135,3 +203,11 @@ Regex: `^[a-z_][a-z0-9_\-]*$`
 2. Create folder → junction link → copy addons → copy .vscode → update odoo.conf → setup domain
 3. Database is NOT copied (user creates new or restores)
 4. Progress events sent to renderer via `duplicate-progress` channel
+
+## IPC Channels
+
+### Request-Response (renderer → main)
+`status`, `log`, `full_install`, `run_step`, `create_project`, `read_config`, `save_config`, `delete_project`, `duplicate_project`, `reset_templates`, `start_odoo`, `stop_odoo`, `open_vscode`, `open_explorer`, `open_browser`, `pick-folder`, `window-minimize`, `window-maximize`, `window-close`, `window-is-maximized`, `update-check`, `update-download`, `update-install`, `update-info`, `update-reset-interval`, `app-version`, `default-paths`, `odoo-versions`, `pick-icon`, `get-icon`, `reset-icon`, `watch-log`, `unwatch-log`, `load-settings`, `save-settings`, `open-log-window`, `log-window-pin`
+
+### Push Events (main → renderer)
+`log-message`, `task-progress`, `download-progress`, `update-status`, `project-log`, `duplicate-progress`
