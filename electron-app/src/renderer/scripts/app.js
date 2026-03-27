@@ -1251,12 +1251,14 @@ function renderKanban(projects) {
               : `<span class="kanban-tag kanban-tag-stopped">${t('project.stoppedTag')}</span>`}
           ${p.custom_modules > 0 ? `<span class="kanban-tag kanban-tag-modules">${p.custom_modules} modules</span>` : ''}
         </div>
+        <button class="kanban-log-btn" onclick="openLogWindow('${escAttr(p.name)}','${escAttr(p.logfile || (p.path + '\\\\odoo.log'))}')" title="${t('project.log')}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+        </button>
       </div>
       <div class="kanban-card-actions">
         ${renderActionBtn(p)}
         <button class="btn btn-vscode btn-xs" onclick="openVSCode('${escAttr(p.path)}')">${t('project.vsCode')}</button>
         <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}')">${t('project.explorer')}</button>
-        <button class="btn btn-outline btn-xs" onclick="openLogWindow('${escAttr(p.name)}','${escAttr(p.logfile || (p.path + '\\\\odoo.log'))}')" title="${t('project.log')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg> ${t('project.log')}</button>
         <button class="btn btn-outline btn-xs" onclick="showProjectDetail('${escAttr(p.name)}')">${t('project.detail')}</button>
         <button class="btn btn-danger btn-xs" onclick="deleteProject('${escAttr(p.name)}')">${t('project.delete')}</button>
       </div>

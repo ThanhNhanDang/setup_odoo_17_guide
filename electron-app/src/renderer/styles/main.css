@@ -1092,7 +1092,14 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   font-family:'Cascadia Code',Consolas,monospace;
 }
 .kanban-card-url:hover{text-decoration:underline;color:var(--accent)}
-.kanban-card-body{padding:14px 18px}
+.kanban-card-body{padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.kanban-log-btn{
+  width:32px;height:32px;border-radius:6px;border:1px solid var(--border-muted);
+  background:transparent;color:var(--text-tertiary);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  transition:all 0.15s;
+}
+.kanban-log-btn:hover{background:var(--bg-overlay);color:var(--accent);border-color:var(--accent)}
 .kanban-card-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
 .kanban-meta-item{display:flex;flex-direction:column;gap:2px}
 .kanban-meta-label{font-size:0.65rem;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px}

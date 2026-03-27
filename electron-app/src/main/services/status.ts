@@ -175,7 +175,8 @@ export async function parseProjectConfig(projectPath: string, baseDir: string = 
     info.server_wide_modules = get('server_wide_modules');
     const rawLogfile = get('logfile');
     // Resolve logfile path (may be relative like ./odoo.log or absolute)
-    if (rawLogfile) {
+    // "False" or "None" means no logfile (Odoo logs to stdout)
+    if (rawLogfile && rawLogfile !== 'False' && rawLogfile !== 'None') {
       info.logfile = path.isAbsolute(rawLogfile) ? rawLogfile : path.join(projectPath, rawLogfile);
     } else {
       info.logfile = path.join(projectPath, 'odoo.log');
