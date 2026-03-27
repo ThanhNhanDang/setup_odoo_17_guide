@@ -188,7 +188,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const onProgress = (step: string, done: boolean) => {
       mainWindow.webContents.send('create-progress', { step, done });
     };
-    return stepCreateProject(baseDir, projectsDir, projectName, logger, opts, odooVersion, onProgress);
+    const result = await stepCreateProject(baseDir, projectsDir, projectName, logger, opts, odooVersion, onProgress);
+    invalidateStatusCache();
+    return result;
   });
 
   // --- Read Config ---
@@ -214,7 +216,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const onProgress = (step: string, done: boolean) => {
       mainWindow.webContents.send('delete-progress', { step, done });
     };
-    return deleteProject(projectsDir, projectName, dropDatabases, onProgress);
+    const result = await deleteProject(projectsDir, projectName, dropDatabases, onProgress);
+    invalidateStatusCache();
+    return result;
   });
 
   // --- Reset Templates ---
@@ -276,7 +280,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const onProgress = (step: string, done: boolean) => {
       mainWindow.webContents.send('duplicate-progress', { step, done });
     };
-    return duplicateProject(baseDir, projectsDir, projectName, newName, newHttpPort, onProgress);
+    const result = await duplicateProject(baseDir, projectsDir, projectName, newName, newHttpPort, onProgress);
+    invalidateStatusCache();
+    return result;
   });
 
   // --- Start Odoo ---

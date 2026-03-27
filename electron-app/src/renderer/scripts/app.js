@@ -809,10 +809,13 @@ async function createProject(e) {
     const btn = (e || event)?.target?.closest?.('button');
     if (btn) _setBtnPending(btn);
 
-    // Show progress in modal
-    const formEls = $('modalNewProject').querySelector('.modal-body');
-    const footerEl = $('modalNewProject').querySelector('.modal-footer');
-    formEls.innerHTML = '<div id="createProgressSteps"></div>';
+    // Show progress in modal (save form for restore)
+    const modal = $('modalNewProject');
+    const bodyEl = modal.querySelector('.modal-body');
+    const footerEl = modal.querySelector('.modal-footer');
+    if (!modal._origBody) modal._origBody = bodyEl.innerHTML;
+    if (!modal._origFooter) modal._origFooter = footerEl?.innerHTML;
+    bodyEl.innerHTML = '<div id="createProgressSteps"></div>';
     if (footerEl) footerEl.style.display = 'none';
     _renderProgressSteps('createProgressSteps', CREATE_STEPS, 'modalNewProject');
 
@@ -829,6 +832,9 @@ async function createProject(e) {
     }
 
     await new Promise(r => setTimeout(r, 400));
+    // Restore form for next use
+    if (modal._origBody) { bodyEl.innerHTML = modal._origBody; modal._origBody = null; }
+    if (modal._origFooter && footerEl) { footerEl.innerHTML = modal._origFooter; footerEl.style.display = ''; modal._origFooter = null; }
     hideModal('modalNewProject');
     if (res.ok) {
       await refreshStatus();
@@ -1073,9 +1079,12 @@ async function confirmDelete(e) {
   const data = getFormData();
   const dropDb = $('deleteDropDb')?.checked ? 'true' : 'false';
 
-  // Show progress in modal
-  const bodyEl = $('modalDelete').querySelector('.modal-body');
-  const footerEl = $('modalDelete').querySelector('.modal-footer');
+  // Show progress in modal (save form for restore)
+  const modal = $('modalDelete');
+  const bodyEl = modal.querySelector('.modal-body');
+  const footerEl = modal.querySelector('.modal-footer');
+  if (!modal._origBody) modal._origBody = bodyEl.innerHTML;
+  if (!modal._origFooter) modal._origFooter = footerEl?.innerHTML;
   bodyEl.innerHTML = '<div id="deleteProgressSteps"></div>';
   if (footerEl) footerEl.style.display = 'none';
   const steps = dropDb === 'true' ? DELETE_STEPS : DELETE_STEPS.filter(s => s.id !== 'drop_databases');
@@ -1098,6 +1107,9 @@ async function confirmDelete(e) {
   }
 
   await new Promise(r => setTimeout(r, 400));
+  // Restore form for next use
+  if (modal._origBody) { bodyEl.innerHTML = modal._origBody; modal._origBody = null; }
+  if (modal._origFooter && footerEl) { footerEl.innerHTML = modal._origFooter; footerEl.style.display = ''; modal._origFooter = null; }
   hideModal('modalDelete');
   await refreshStatus();
   if (res.ok) {
