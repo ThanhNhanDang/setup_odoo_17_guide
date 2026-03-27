@@ -572,7 +572,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   // --- Watch project log file (realtime tail) ---
   // Supports multiple windows watching the same log file
-  const logWatchers = new Map<string, { watcher: fs.FSWatcher; subscribers: Set<BrowserWindow> }>();
+  const logWatchers = new Map<string, { watcher: fs.FSWatcher | null; pollTimer: ReturnType<typeof setInterval>; subscribers: Set<BrowserWindow> }>();
 
   function broadcastLogLines(logPath: string, lines: string[]): void {
     const entry = logWatchers.get(logPath);
@@ -615,14 +615,14 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       return { ok: true, lines: last1000 };
     }
 
-    // Create new watcher
+    // Create new watcher — fs.watch + polling fallback for reliability on Windows
     let lastSize = fs.statSync(logPath).size;
     const subscribers = new Set<BrowserWindow>([callerWindow]);
-    const watcher = fs.watch(logPath, () => {
+
+    function readNewLines() {
       try {
         const newSize = fs.statSync(logPath).size;
         if (newSize === lastSize) return;
-        // File was truncated/recreated (Odoo restart) — read from beginning
         const readStart = newSize < lastSize ? 0 : lastSize;
         const stream = fs.createReadStream(logPath, { start: readStart, encoding: 'utf8' });
         let newData = '';
@@ -633,9 +633,18 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
           if (newLines.length > 0) broadcastLogLines(logPath, newLines);
         });
       } catch { /* ignore */ }
-    });
+    }
 
-    logWatchers.set(logPath, { watcher, subscribers });
+    // Primary: fs.watch (instant on most Windows setups)
+    let watcher: fs.FSWatcher | null = null;
+    try {
+      watcher = fs.watch(logPath, () => readNewLines());
+    } catch { /* fs.watch may fail on some paths — polling will cover it */ }
+
+    // Fallback: poll every 1s (fs.watch is unreliable on some Windows configs)
+    const pollTimer = setInterval(readNewLines, 1000);
+
+    logWatchers.set(logPath, { watcher, pollTimer, subscribers });
     return { ok: true, lines: last1000 };
   });
 
@@ -647,7 +656,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     if (callerWindow) entry.subscribers.delete(callerWindow);
     // Close watcher only when no more subscribers
     if (entry.subscribers.size === 0) {
-      entry.watcher.close();
+      if (entry.watcher) entry.watcher.close();
+      clearInterval(entry.pollTimer);
       logWatchers.delete(logPath);
     }
     return { ok: true };
@@ -833,9 +843,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   // --- Cleanup on app quit ---
   app.on('before-quit', () => {
-    // Close all log file watchers
+    // Close all log file watchers + poll timers
     for (const [, entry] of logWatchers) {
-      entry.watcher.close();
+      if (entry.watcher) entry.watcher.close();
+      clearInterval(entry.pollTimer);
     }
     logWatchers.clear();
     // Close all log viewer windows
