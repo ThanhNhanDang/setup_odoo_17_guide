@@ -230,21 +230,43 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const cmd = `"${venvPy}" "${odooBin}" -c "${conf}"`;
 
     try {
-      // Auto-start native PostgreSQL if stopped
-      const { detectNativePostgresDetails, findPostgresBin } = require('./services/detection');
-      const pgBin = findPostgresBin();
-      if (pgBin) {
-        const pgDetails = detectNativePostgresDetails();
-        const pgPort = pgDetails?.port || '5432';
-        logger.log(`  > PostgreSQL detected: bin=${pgBin}, port=${pgPort}, ready=${pgDetails?.is_ready}`);
+      // Read project's DB config from odoo.conf
+      let projectDbPort = '5434';
+      let projectDbUser = 'odoo';
+      let projectDbPassword = 'odoo';
+      try {
+        const { parseIniFile, iniGet } = require('./services/ini-parser');
+        const ini = parseIniFile(conf);
+        projectDbPort = iniGet(ini, 'options', 'db_port', '5434');
+        projectDbUser = iniGet(ini, 'options', 'db_user', 'odoo');
+        projectDbPassword = iniGet(ini, 'options', 'db_password', 'odoo');
+      } catch { /* use defaults */ }
 
-        if (pgDetails && !pgDetails.is_ready) {
-          logger.log('PostgreSQL is stopped. Starting...');
+      logger.log(`  > Project DB config: port=${projectDbPort}, user=${projectDbUser}`);
+
+      // Find the PostgreSQL instance matching this project's port
+      const { findPostgresForPort, findPostgresBin, findDockerPostgres } = require('./services/detection');
+      const pgInstance = findPostgresForPort(projectDbPort);
+      const pgBin = pgInstance?.binPath || findPostgresBin();
+
+      if (pgInstance) {
+        logger.log(`  > PostgreSQL ${pgInstance.version} found for port ${projectDbPort}: ${pgInstance.binPath}`);
+
+        // Check if this specific instance is ready
+        const pgIsready = path.join(pgInstance.binPath, 'pg_isready.exe');
+        let isReady = false;
+        try {
+          require('child_process').execSync(`"${pgIsready}" -p ${projectDbPort}`, { timeout: 5000, windowsHide: true, stdio: 'pipe' });
+          isReady = true;
+        } catch { /* not ready */ }
+
+        if (!isReady) {
+          logger.log(`PostgreSQL ${pgInstance.version} is stopped on port ${projectDbPort}. Starting...`);
           let started = false;
 
-          // Method 1: net start (requires Admin)
-          for (const svc of ['postgresql-x64-17', 'postgresql-x64-16', 'postgresql-x64-15', 'postgresql-x64-14']) {
-            const { code, output } = await runCmd(`net start "${svc}"`);
+          // Method 1: net start with exact service name
+          for (const svc of [pgInstance.serviceName, `postgresql-${pgInstance.version}`]) {
+            const { code } = await runCmd(`net start "${svc}"`);
             if (code === 0) {
               logger.log(`  > Service '${svc}' started!`);
               started = true;
@@ -253,10 +275,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
           }
 
           // Method 2: pg_ctl (no Admin needed)
-          if (!started && pgDetails.data_dir) {
-            const pgCtl = path.join(pgBin, 'pg_ctl.exe');
-            logger.log(`  > Trying pg_ctl start -D "${pgDetails.data_dir}" -w`);
-            const { code, output } = await runCmd(`"${pgCtl}" start -D "${pgDetails.data_dir}" -w`);
+          if (!started && pgInstance.dataDir) {
+            const pgCtl = path.join(pgInstance.binPath, 'pg_ctl.exe');
+            logger.log(`  > Trying pg_ctl start -D "${pgInstance.dataDir}" -w`);
+            const { code, output } = await runCmd(`"${pgCtl}" start -D "${pgInstance.dataDir}" -w`);
             logger.log(`  > pg_ctl exit code: ${code}`);
             if (output.trim()) logger.log(`  > ${output.trim().split('\n').pop()}`);
             if (code === 0) {
@@ -271,47 +293,52 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
             logger.log('  > Could not start PostgreSQL. Start it manually.');
           }
         }
+      } else if (pgBin) {
+        logger.log(`  > No PostgreSQL instance found for port ${projectDbPort}. Using bin: ${pgBin}`);
       } else {
         logger.log('  > No native PostgreSQL found.');
       }
 
-      // Verify PostgreSQL is ready - check directly with pg_isready
-      const pgDetailsAfter = detectNativePostgresDetails();
-      const pgReady = pgDetailsAfter?.is_ready ?? false;
-      logger.log(`  > PostgreSQL ready check: ${pgReady} (port: ${pgDetailsAfter?.port || 'unknown'})`);
+      // Verify PostgreSQL is ready on the project's port
+      let pgReady = false;
+      if (pgBin) {
+        const pgIsready = path.join(pgBin, 'pg_isready.exe');
+        try {
+          require('child_process').execSync(`"${pgIsready}" -p ${projectDbPort}`, { timeout: 5000, windowsHide: true, stdio: 'pipe' });
+          pgReady = true;
+        } catch { /* not ready */ }
+      }
+      logger.log(`  > PostgreSQL ready check on port ${projectDbPort}: ${pgReady}`);
+
       if (!pgReady) {
-        // Also check Docker containers
-        const { findDockerPostgres } = require('./services/detection');
+        // Also check Docker containers on this port
         const dockerPg = findDockerPostgres();
-        if (dockerPg.length === 0) {
-          return { ok: false, msg: `PostgreSQL is not running on port ${pgDetailsAfter?.port || '5434'}. Run as Admin: net start postgresql-x64-15` };
+        const dockerMatch = dockerPg.find((c: any) => c.port === projectDbPort);
+        if (dockerMatch) {
+          logger.log(`  > Using Docker PostgreSQL: ${dockerMatch.name} on port ${projectDbPort}`);
+          pgReady = true;
+        } else if (dockerPg.length > 0) {
+          logger.log(`  > Docker PostgreSQL found but not on port ${projectDbPort}: ${dockerPg.map((c: any) => `${c.name}:${c.port}`).join(', ')}`);
         }
-        logger.log('  > Using Docker PostgreSQL instead.');
       }
 
-      // Ensure per-project DB user exists before starting Odoo
-      // Read db_user from project's odoo.conf
-      const pgDetailsReady = detectNativePostgresDetails();
-      if (pgDetailsReady?.is_ready) {
-        const pgPort = pgDetailsReady.port || '5434';
-        let projectDbUser = 'odoo';
-        try {
-          const { parseIniFile, iniGet } = require('./services/ini-parser');
-          const ini = parseIniFile(conf);
-          projectDbUser = iniGet(ini, 'options', 'db_user', 'odoo');
-        } catch { /* use default */ }
+      if (!pgReady) {
+        return { ok: false, msg: `PostgreSQL is not running on port ${projectDbPort}. Check your DB port in odoo.conf.` };
+      }
 
-        logger.log(`  > Ensuring DB user '${projectDbUser}' exists on port ${pgPort}...`);
+      // Ensure per-project DB user exists
+      if (pgBin) {
+        logger.log(`  > Ensuring DB user '${projectDbUser}' exists on port ${projectDbPort}...`);
+        const psqlExe = path.join(pgBin, 'psql.exe');
         const { output: userCheck } = await runCmd(
-          `"${path.join(pgDetailsReady.bin_path, 'psql.exe')}" -U postgres -p ${pgPort} -tAc "SELECT 1 FROM pg_roles WHERE rolname='${projectDbUser}'"`,
+          `"${psqlExe}" -U postgres -p ${projectDbPort} -tAc "SELECT 1 FROM pg_roles WHERE rolname='${projectDbUser}'"`,
           undefined,
           { ...process.env, PGPASSWORD: 'postgres' }
         );
         if (!userCheck.includes('1')) {
-          const dbPwd = 'odoo';
           logger.log(`  > Creating DB user '${projectDbUser}'...`);
           await runCmd(
-            `"${path.join(pgDetailsReady.bin_path, 'psql.exe')}" -U postgres -p ${pgPort} -c "CREATE ROLE ${projectDbUser} WITH LOGIN PASSWORD '${dbPwd}' CREATEDB;"`,
+            `"${psqlExe}" -U postgres -p ${projectDbPort} -c "CREATE ROLE ${projectDbUser} WITH LOGIN PASSWORD '${projectDbPassword}' CREATEDB;"`,
             undefined,
             { ...process.env, PGPASSWORD: 'postgres' }
           );

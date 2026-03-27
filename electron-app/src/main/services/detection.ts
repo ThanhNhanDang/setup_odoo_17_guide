@@ -152,6 +152,44 @@ export function findPostgresBin(): string | null {
 }
 
 /**
+ * Find the PostgreSQL instance that is listening on a specific port.
+ * Returns bin path and data_dir, or null if not found.
+ */
+export function findPostgresForPort(targetPort: string): { binPath: string; dataDir: string; version: string; serviceName: string } | null {
+  for (const ver of ['17', '16', '15', '14']) {
+    const binDir = `C:\\Program Files\\PostgreSQL\\${ver}\\bin`;
+    const dataDir = `C:\\Program Files\\PostgreSQL\\${ver}\\data`;
+    if (!fs.existsSync(path.join(binDir, 'psql.exe'))) continue;
+
+    // Read port from postgresql.conf
+    const confFile = path.join(dataDir, 'postgresql.conf');
+    let port = '5432';
+    if (fs.existsSync(confFile)) {
+      try {
+        const content = fs.readFileSync(confFile, 'utf8');
+        for (const line of content.split('\n')) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('port') && trimmed.includes('=')) {
+            port = trimmed.split('=')[1].trim().split('#')[0].trim();
+            break;
+          }
+        }
+      } catch { /* ignore */ }
+    }
+
+    if (port === targetPort) {
+      return {
+        binPath: binDir,
+        dataDir,
+        version: ver,
+        serviceName: `postgresql-x64-${ver}`,
+      };
+    }
+  }
+  return null;
+}
+
+/**
  * Find VS Code installation. Returns path to code.exe or null.
  * Checks: PATH (code --version), standard install locations.
  */
