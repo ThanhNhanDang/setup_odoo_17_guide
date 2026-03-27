@@ -16,7 +16,7 @@
   <div class="titlebar-brand">
     <img id="titlebarIcon" src="" alt="" style="width:22px;height:22px;border-radius:4px;object-fit:contain;display:none">
     <svg id="titlebarSvg" viewBox="0 0 24 24" fill="none" stroke="#f0883e" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-    Odoo Installer
+    <span data-i18n="app.name">Odoo Installer</span>
   </div>
   <div class="titlebar-controls">
     <button onclick="window.electronAPI.invoke('window-minimize')" title="Minimize">&#x2014;</button>
@@ -29,15 +29,15 @@
 <div class="topnav">
   <button class="nav-tab active" onclick="showPanel('dashboard',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-    Dashboard
+    <span data-i18n="nav.dashboard">Dashboard</span>
   </button>
   <button class="nav-tab" onclick="showPanel('install',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-    Full Install
+    <span data-i18n="nav.fullInstall">Full Install</span>
   </button>
   <button class="nav-tab" onclick="showPanel('help',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-    Help
+    <span data-i18n="nav.help">Help</span>
   </button>
   <div class="nav-spacer"></div>
   <button class="theme-toggle" id="themeToggle" onclick="toggleMode()" title="Toggle Dark / Light">
@@ -146,9 +146,23 @@
       </div>
     </div>
 
+    <!-- Language -->
+    <div class="form-section">
+      <h3 data-i18n="settings.language">Language</h3>
+      <div class="form-grid">
+        <div class="form-group">
+          <select id="langSelect" onchange="setLanguage(this.value)">
+            <option value="en">English</option>
+            <option value="vi">Tieng Viet</option>
+            <option value="ko">한국어</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
     <!-- System Status -->
     <div class="form-section">
-      <h3>System Status</h3>
+      <h3 data-i18n="settings.systemStatus">System Status</h3>
       <div class="status-grid" id="statusGrid"></div>
       <div id="nativePgDetail"></div>
     </div>
@@ -245,26 +259,26 @@
   <div class="panel active" id="panel-dashboard">
     <div class="dash-header">
       <div>
-        <h2>Dashboard</h2>
-        <p class="desc">Overview of your Odoo projects</p>
+        <h2 data-i18n="dashboard.title">Dashboard</h2>
+        <p class="desc" data-i18n="dashboard.desc">Overview of your Odoo projects</p>
       </div>
       <div class="dash-actions">
         <div class="dash-search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="text" id="dashSearch" placeholder="Search projects..." oninput="filterDashboard()">
+          <input type="text" id="dashSearch" data-i18n-placeholder="dashboard.search" placeholder="Search projects..." oninput="filterDashboard()">
         </div>
         <select id="dashFilter" onchange="filterDashboard()">
-          <option value="all">All Projects</option>
-          <option value="running">Running</option>
-          <option value="custom">Has Custom Modules</option>
+          <option value="all" data-i18n="dashboard.all">All Projects</option>
+          <option value="running" data-i18n="dashboard.running">Running</option>
+          <option value="custom" data-i18n="dashboard.hasCustom">Has Custom Modules</option>
         </select>
-        <button class="btn btn-outline btn-sm" onclick="resetAllTemplates()" title="Reset launch.json & settings.json for all projects">
+        <button class="btn btn-outline btn-sm" onclick="resetAllTemplates()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 105.36-10.36L1 10"/></svg>
-          Reset All Templates
+          <span data-i18n="dashboard.resetAll">Reset All Templates</span>
         </button>
         <button class="btn btn-primary btn-sm" onclick="showModal('modalNewProject')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-          New Project
+          <span data-i18n="dashboard.newProject">New Project</span>
         </button>
       </div>
     </div>
@@ -280,7 +294,7 @@
   <!-- INSTALL -->
   <div class="panel" id="panel-install">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px">
-      <h2 style="margin:0">Full Install</h2>
+      <h2 style="margin:0" data-i18n="install.title">Full Install</h2>
       <select id="installVersion" onchange="onInstallVersionChange(this.value)" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border-muted);background:var(--bg-surface);color:var(--text-primary);font-size:0.85rem">
         <option value="15">Odoo 15</option>
         <option value="17" selected>Odoo 17</option>
@@ -364,8 +378,8 @@
       </div>
     </div>
     <div class="btn-row" style="margin-top:16px">
-      <button class="btn btn-primary" id="btnFullInstall" onclick="fullInstall()">Install Everything</button>
-      <button class="btn btn-outline" id="btnCheckStatus" onclick="checkInstallStatus()">Check Status</button>
+      <button class="btn btn-primary" id="btnFullInstall" onclick="fullInstall()" data-i18n="install.installAll">Install Everything</button>
+      <button class="btn btn-outline" id="btnCheckStatus" onclick="checkInstallStatus()" data-i18n="install.checkStatus">Check Status</button>
     </div>
     <!-- Install Log (inline) -->
     <div class="install-log" id="installLog" style="display:none">
@@ -386,17 +400,17 @@
   <!-- HELP -->
   <div class="panel" id="panel-help">
     <div class="help-header">
-      <h2>Help & Documentation</h2>
-      <p class="desc">Guides, tutorials, and troubleshooting</p>
+      <h2 data-i18n="help.title">Help & Documentation</h2>
+      <p class="desc" data-i18n="help.desc">Guides, tutorials, and troubleshooting</p>
       <div class="help-actions">
-        <input type="text" id="helpSearch" placeholder="Search docs & troubleshooting..." oninput="filterHelpContent()">
-        <button class="btn btn-primary btn-sm" onclick="startTour()">Start Guided Tour</button>
+        <input type="text" id="helpSearch" data-i18n-placeholder="help.search" placeholder="Search docs & troubleshooting..." oninput="filterHelpContent()">
+        <button class="btn btn-primary btn-sm" onclick="startTour()" data-i18n="help.startTour">Start Guided Tour</button>
       </div>
     </div>
     <div class="help-tabs">
-      <button class="help-tab active" id="helpTabDocs" onclick="showHelpTab('docs',this)">Documentation</button>
-      <button class="help-tab" id="helpTabTour" onclick="showHelpTab('tour',this)">Tour Steps</button>
-      <button class="help-tab" id="helpTabTroubleshoot" onclick="showHelpTab('troubleshoot',this)">Troubleshooting</button>
+      <button class="help-tab active" id="helpTabDocs" onclick="showHelpTab('docs',this)" data-i18n="help.docs">Documentation</button>
+      <button class="help-tab" id="helpTabTour" onclick="showHelpTab('tour',this)" data-i18n="help.tourSteps">Tour Steps</button>
+      <button class="help-tab" id="helpTabTroubleshoot" onclick="showHelpTab('troubleshoot',this)" data-i18n="help.troubleshoot">Troubleshooting</button>
     </div>
     <div class="help-content" id="helpDocs"></div>
     <div class="help-content" id="helpTour" style="display:none"></div>
@@ -548,6 +562,7 @@
   </div>
 </div>
 
+<script src="scripts/i18n.js"></script>
 <script src="scripts/docs-data.js"></script>
 <script src="scripts/tour.js"></script>
 <script src="scripts/app.js"></script>

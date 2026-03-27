@@ -40,9 +40,9 @@ function startTour(startIndex) {
     <div class="tour-tooltip-footer">
       <span class="tour-tooltip-counter" id="tourCounter"></span>
       <div class="tour-tooltip-btns">
-        <button class="tour-btn-skip" onclick="endTour()">Skip</button>
-        <button class="tour-btn-prev" id="tourBtnPrev" onclick="prevTourStep()">Prev</button>
-        <button class="tour-btn-next" id="tourBtnNext" onclick="nextTourStep()">Next</button>
+        <button class="tour-btn-skip" onclick="endTour()">${typeof t === 'function' ? t('tour.skip') : 'Skip'}</button>
+        <button class="tour-btn-prev" id="tourBtnPrev" onclick="prevTourStep()">${typeof t === 'function' ? t('tour.prev') : 'Prev'}</button>
+        <button class="tour-btn-next" id="tourBtnNext" onclick="nextTourStep()">${typeof t === 'function' ? t('tour.next') : 'Next'}</button>
       </div>
     </div>
   `;
@@ -178,7 +178,7 @@ function _positionTourStep(step, index) {
 
     // Prev button visibility
     document.getElementById('tourBtnPrev').style.display = index === 0 ? 'none' : '';
-    document.getElementById('tourBtnNext').textContent = index === TOUR_STEPS.length - 1 ? 'Done' : 'Next';
+    document.getElementById('tourBtnNext').textContent = index === TOUR_STEPS.length - 1 ? t('tour.done') : t('tour.next');
 
     // Animate tooltip in
     const tooltip = _tourEls.tooltip;

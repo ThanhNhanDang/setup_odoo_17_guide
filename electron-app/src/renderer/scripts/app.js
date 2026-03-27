@@ -6,6 +6,14 @@
 const $ = id => document.getElementById(id);
 let _status = null;
 
+// Initialize i18n before rendering anything
+initI18n(getCurrentLanguage()).then(() => {
+  applyTranslations();
+  // Sync language selector
+  const sel = $('langSelect');
+  if (sel) sel.value = getCurrentLanguage();
+});
+
 // Version-specific labels for install step cards
 const VERSION_LABELS = {
   '15': { python: 'Python 3.10', postgres: 'PostgreSQL 14', clone: 'Clone Odoo 15' },
@@ -669,7 +677,7 @@ async function createProject() {
     data.project_domain = $('newProjDomain')?.value || '';
 
     console.log('Creating project with data:', JSON.stringify(data));
-    showToastMessage('Creating project "' + name + '"...', 'info');
+    showToastMessage(t('toast.projectCreating', { name }), 'info');
 
     const res = await api('create_project', data);
     console.log('Create project result:', JSON.stringify(res));
@@ -717,10 +725,10 @@ async function startOdoo(name) {
   data.project_name = name;
   // Use project's own version, not the settings version
   if (proj?.odoo_version) data.odoo_version = proj.odoo_version;
-  showToastMessage('Starting Odoo...', 'info');
+  showToastMessage(t('toast.odooStarting'), 'info');
   const res = await api('start_odoo', data);
   if (res.ok) {
-    showToastMessage('Odoo starting... Waiting for server...', 'info');
+    showToastMessage(t('toast.odooWaiting'), 'info');
     const port = _status?.projects?.find(p => p.name === name)?.http_port || '8069';
     // Poll until running or timeout (30s)
     let running = false;
@@ -733,10 +741,10 @@ async function startOdoo(name) {
     if (running) {
       const proj = _status?.projects?.find(p => p.name === name);
       const domain = proj?.domain || '';
-      showToastMessage('Odoo is running!', 'success');
+      showToastMessage(t('toast.odooRunning'), 'success');
       openProjectUrl(domain, port);
     } else {
-      showToastMessage('Odoo process started but not responding yet.', 'error');
+      showToastMessage(t('toast.odooNotResponding'), 'error');
     }
   } else {
     showToastMessage('Failed: ' + res.msg, 'error');
@@ -750,10 +758,10 @@ async function stopOdoo(name) {
   setProjectPending(name, 'Stopping...');
 
   const port = _status?.projects?.find(p => p.name === name)?.http_port || '8069';
-  showToastMessage('Stopping Odoo...', 'info');
+  showToastMessage(t('toast.odooStopping'), 'info');
   const res = await api('stop_odoo', { http_port: port });
   if (res.ok) {
-    showToastMessage('Odoo stopped', 'success');
+    showToastMessage(t('toast.odooStopped'), 'success');
   } else {
     showToastMessage('Failed: ' + res.msg, 'error');
   }
@@ -856,7 +864,7 @@ async function resetTemplates(name, version) {
     odoo_version: version,
   });
   if (res.ok) {
-    showToastMessage('Templates reset to defaults!', 'success');
+    showToastMessage(t('toast.templateReset'), 'success');
   } else {
     showToastMessage('Failed: ' + res.msg, 'error');
   }
@@ -1290,7 +1298,7 @@ async function saveDetailAndRestart(name) {
     }
 
     // Save config
-    showToastMessage('Saving config...', 'info');
+    showToastMessage(t('toast.configSaving'), 'info');
     const saveRes = await api('save_config', { projects_dir: data.projects_dir, project_name: name, content });
     if (!saveRes.ok) { showToastMessage('Save failed: ' + saveRes.msg, 'error'); return; }
 
@@ -1298,15 +1306,15 @@ async function saveDetailAndRestart(name) {
     const port = _status?.projects?.find(p => p.name === name)?.http_port || '8069';
     const proj = _status?.projects?.find(p => p.name === name);
     if (proj?.is_running) {
-      showToastMessage('Restarting Odoo...', 'info');
+      showToastMessage(t('toast.restarting'), 'info');
       await api('stop_odoo', { http_port: port });
       await new Promise(r => setTimeout(r, 2000));
       hideModal('modalDetail');
       await startOdoo(name);
-      showToastMessage('Config saved & Odoo restarted!', 'success');
+      showToastMessage(t('toast.configRestarted'), 'success');
     } else {
       hideModal('modalDetail');
-      showToastMessage('Config saved!', 'success');
+      showToastMessage(t('toast.configSaved'), 'success');
       refreshStatus();
     }
   } catch (e) {
@@ -1341,11 +1349,11 @@ async function checkForUpdate() {
       // showUpdateCard is already called by the event listener
     } else if (result.status === 'up-to-date') {
       el.textContent = original + ' (latest)';
-      showToastMessage('You are on the latest version!', 'success');
+      showToastMessage(t('toast.latestVersion'), 'success');
       setTimeout(() => { el.textContent = original; }, 3000);
     } else {
       el.textContent = original;
-      showToastMessage('Could not check for updates.', 'error');
+      showToastMessage(t('toast.cannotCheck'), 'error');
       setTimeout(() => { el.textContent = original; }, 3000);
     }
   } catch {
@@ -1898,7 +1906,7 @@ if (window.electronAPI) {
 try {
   if (!localStorage.getItem('tour_completed')) {
     setTimeout(() => {
-      showToastMessage('Welcome! Click the ? button for a guided tour.', 'info');
+      showToastMessage(t('toast.welcome'), 'info');
     }, 5000);
   }
 } catch {}
