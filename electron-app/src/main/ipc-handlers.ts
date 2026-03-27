@@ -621,8 +621,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const watcher = fs.watch(logPath, () => {
       try {
         const newSize = fs.statSync(logPath).size;
-        if (newSize <= lastSize) { lastSize = newSize; return; }
-        const stream = fs.createReadStream(logPath, { start: lastSize, encoding: 'utf8' });
+        if (newSize === lastSize) return;
+        // File was truncated/recreated (Odoo restart) — read from beginning
+        const readStart = newSize < lastSize ? 0 : lastSize;
+        const stream = fs.createReadStream(logPath, { start: readStart, encoding: 'utf8' });
         let newData = '';
         stream.on('data', (chunk) => { newData += String(chunk); });
         stream.on('end', () => {
