@@ -211,7 +211,7 @@ export async function parseProjectConfig(projectPath: string, baseDir: string = 
       const isBase = p.replace(/\\/g, '/').includes('odoo/addons');
       let count = 0;
 
-      if (!isBase && fs.existsSync(absP) && fs.statSync(absP).isDirectory()) {
+      if (fs.existsSync(absP) && fs.statSync(absP).isDirectory()) {
         try {
           for (const entry of fs.readdirSync(absP)) {
             const manifest = path.join(absP, entry, '__manifest__.py');
