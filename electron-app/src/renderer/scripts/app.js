@@ -748,12 +748,13 @@ async function createProject() {
     const res = await api('create_project', data);
 
     hideModal('modalNewProject');
-    refreshStatus();
     if (res.ok) {
+      await refreshStatus();
       showToastMessage(t('toast.projectCreated'), 'success');
       // Switch to Dashboard to see new project
       showPanel('dashboard', document.querySelectorAll('.nav-tab')[0]);
     } else {
+      refreshStatus();
       showToastMessage(t('toast.failed', { msg: tMsg(res.msg || '') }), 'error');
     }
   } catch (e) {
@@ -944,7 +945,7 @@ async function confirmDelete() {
     drop_databases: dropDb,
   });
   hideModal('modalDelete');
-  refreshStatus();
+  await refreshStatus();
   if (res.ok) {
     alert('\u2705 ' + t('toast.deleted'));
   } else {
@@ -1012,7 +1013,7 @@ async function confirmDuplicate() {
     new_http_port: $('dupNewPort').value
   });
   hideModal('modalDuplicate');
-  refreshStatus();
+  await refreshStatus();
   alert(res.ok ? '\u2705 ' + t('toast.duplicated') + '\n' + res.msg : '\u274C ' + tMsg(res.msg));
 }
 
