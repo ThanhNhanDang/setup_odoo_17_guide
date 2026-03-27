@@ -1265,6 +1265,27 @@ async function saveDetailAndRestart(name) {
 // Auto-Update — auto download + auto restart
 // ---------------------------------------------------------------------------
 
+async function checkForUpdate() {
+  const el = $('navVersion');
+  const original = el.textContent;
+  el.textContent = 'Checking...';
+  try {
+    await api('update-check');
+    // Wait a moment for the update-status event to arrive
+    await new Promise(r => setTimeout(r, 3000));
+    const info = await api('update-info');
+    if (info.available) {
+      el.textContent = original + ' → v' + info.version;
+    } else {
+      el.textContent = original + ' (latest)';
+      showToastMessage('You are on the latest version!', 'success');
+      setTimeout(() => { el.textContent = original; }, 3000);
+    }
+  } catch {
+    el.textContent = original;
+  }
+}
+
 function showUpdateCard(version) {
   const toast = $('updateToast');
   $('updateTitle').textContent = 'New version available';
@@ -1610,8 +1631,10 @@ setInterval(() => refreshStatus(), 10000);
 // Load app version + default paths
 if (window.electronAPI) {
   api('app-version').then(v => {
+    const ver = 'v' + v;
     const el = document.querySelector('.nav-version');
-    if (el) el.textContent = 'v' + v;
+    if (el) el.textContent = ver;
+    if ($('settingsVersion')) $('settingsVersion').textContent = ver;
   });
   api('default-paths').then(paths => {
     if ($('baseDir') && !$('baseDir').value) $('baseDir').value = paths.base_dir || '';
