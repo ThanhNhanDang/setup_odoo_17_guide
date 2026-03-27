@@ -144,5 +144,53 @@
     "symptom": "증상", "cause": "원인", "solution": "해결 방법", "close": "닫기"
   },
   "tour": { "skip": "건너뛰기", "prev": "이전", "next": "다음", "done": "완료" },
-  "status": { "ok": "정상", "missing": "없음", "available": "사용 가능", "notFound": "찾을 수 없음" }
+  "status": { "ok": "정상", "missing": "없음", "available": "사용 가능", "notFound": "찾을 수 없음" },
+  "td": {
+    "tour": {
+      "0": { "title": "내비게이션 바", "text": "대시보드, 전체 설치, 도움말 탭 간 전환. 설정 및 업데이트 확인." },
+      "1": { "title": "대시보드", "text": "모든 Odoo 프로젝트 개요. 검색, 필터, 새 프로젝트 생성." },
+      "2": { "title": "프로젝트 카드", "text": "각 카드에 이름, 버전, 포트, 실행 상태 표시. 카드를 클릭하여 상세 보기." },
+      "3": { "title": "새 프로젝트", "text": "새 Odoo 프로젝트 생성. HTTP 포트 자동 증가로 충돌 방지." },
+      "4": { "title": "모든 템플릿 초기화", "text": "모든 프로젝트의 launch.json과 settings.json을 최신 기본값으로 초기화." },
+      "5": { "title": "설치 단계", "text": "8단계: Nginx, Git, VS Code, Python, PostgreSQL, Odoo 소스, 가상 환경, Pip." },
+      "6": { "title": "전체 설치", "text": "한 번 클릭으로 8단계 모두 자동 실행. 먼저 Odoo 버전을 선택하세요." },
+      "7": { "title": "Odoo 버전", "text": "Odoo 15, 17 또는 19 선택. 각 버전에 맞는 Python과 PostgreSQL 설치." },
+      "8": { "title": "설정", "text": "디렉토리, 데이터베이스, 기본 프로젝트 설정 및 외관 테마 구성." },
+      "9": { "title": "언어", "text": "영어, 베트남어, 한국어 간 전환." },
+      "10": { "title": "버전 및 업데이트", "text": "현재 버전 표시. 클릭하여 업데이트 확인. 30분마다 자동 확인." },
+      "11": { "title": "도움말 버튼", "text": "언제든 클릭하여 가이드 투어 재시작. 도움말 탭에서 문서와 문제 해결 확인." }
+    },
+    "cat": { "start": "시작하기", "project": "프로젝트 관리", "config": "설정", "video": "비디오 튜토리얼" },
+    "doc": {
+      "firstInstall": { "title": "처음 설치", "desc": "Python, PostgreSQL, Odoo 소스를 처음부터 설치하고 첫 프로젝트를 생성합니다.", "body": "<ol><li>앱을 열고 <strong>전체 설치</strong> 탭으로 이동</li><li>Odoo 버전 선택 (15, 17 또는 19)</li><li><strong>\"전체 설치\"</strong> 클릭</li><li>8단계 모두 완료될 때까지 대기</li><li><strong>대시보드</strong>로 이동 — 첫 프로젝트 준비 완료!</li><li><strong>시작</strong>을 클릭하여 Odoo 실행</li></ol><p><strong>참고:</strong> PostgreSQL 설치와 심링크 생성에 관리자 권한이 필요합니다.</p>" },
+      "createProject": { "title": "새 프로젝트 생성", "desc": "고유한 설정, 포트, 데이터베이스로 새 Odoo 프로젝트를 추가합니다.", "body": "<ol><li>대시보드에서 <strong>\"새 프로젝트\"</strong> 클릭</li><li>프로젝트 이름 입력</li><li>HTTP 포트 자동 할당</li><li><strong>\"프로젝트 생성\"</strong> 클릭</li></ol><p>각 프로젝트에는 <code>addons/</code>, <code>data/</code>, <code>odoo.conf</code>, <code>.vscode/launch.json</code>이 포함됩니다.</p>" },
+      "startStop": { "title": "Odoo 시작 및 중지", "desc": "Odoo 서버를 실행하고 인스턴스를 관리합니다.", "body": "<ul><li><strong>시작:</strong> 녹색 시작 버튼 클릭. PostgreSQL 자동 시작.</li><li><strong>중지:</strong> 빨간 중지 버튼 클릭.</li><li>상태는 10초마다 동기화.</li><li><strong>VS Code:</strong> <kbd>F5</kbd>로 터미널에서 로그와 함께 디버그.</li></ul>" },
+      "dupDelete": { "title": "프로젝트 복제 및 삭제", "desc": "기존 프로젝트를 복제하거나 영구 삭제합니다.", "body": "<p><strong>복제:</strong> 새 이름과 포트로 사본 생성.</p><p><strong>삭제:</strong> 프로젝트 이름 입력으로 확인. 데이터베이스도 삭제 가능.</p><p><strong>경고:</strong> 삭제는 영구적입니다!</p>" },
+      "customModules": { "title": "커스텀 모듈 추가", "desc": "프로젝트에 직접 만든 Odoo 모듈을 추가합니다.", "body": "<ol><li><code>addons/</code>에 모듈 폴더 배치</li><li>또는 프로젝트 상세에서 <strong>폴더 추가</strong> 사용</li><li><strong>\"저장 & 재시작\"</strong> 클릭</li><li>Odoo에서: 앱 → 앱 목록 업데이트 → 설치</li></ol>" },
+      "editConfig": { "title": "odoo.conf 편집", "desc": "Odoo 설정 변경 — 포트, 데이터베이스, 로깅.", "body": "<p>주요 설정: <code>http_port</code>, <code>db_port</code>, <code>log_level</code>, <code>addons_path</code>, <code>admin_passwd</code>, <code>dbfilter</code>.</p>" },
+      "debugVscode": { "title": "VS Code로 디버그", "desc": "VS Code F5로 브레이크포인트와 실시간 로그로 Odoo를 실행합니다.", "body": "<ol><li>프로젝트 카드에서 <strong>\"VS Code\"</strong> 클릭</li><li><kbd>F5</kbd> 누르기</li><li>터미널에 로그 표시</li><li>Python 파일에 브레이크포인트 설정</li></ol><p><strong>로그가 안 보이나요?</strong> 프로젝트 상세에서 \"템플릿 초기화\"를 클릭하세요.</p>" },
+      "multiplePg": { "title": "여러 PostgreSQL 버전", "desc": "PG 14, 16 및 Docker PG를 동시에 실행합니다.", "body": "<ul><li>각 Odoo 버전에 맞는 PG 버전 설치</li><li>PG 14 포트 5432, PG 16 포트 5434 등</li><li>Docker PostgreSQL 컨테이너도 감지</li><li>앱이 odoo.conf의 <code>db_port</code>를 읽고 올바른 PG 시작</li></ul>" },
+      "video": { "title": "앱 개요 (비디오)", "desc": "Odoo Installer 앱의 빠른 비디오 안내.", "body": "<p>비디오 준비 중!</p>" }
+    },
+    "ts": {
+      "port": { "title": "포트가 이미 사용 중", "symptom": "오류: \"Address already in use\" 또는 Odoo가 시작되지 않음.", "cause": "다른 Odoo 인스턴스나 서비스가 같은 포트를 사용 중.", "solution": "프로젝트 상세에서 HTTP 포트를 변경하거나 다른 프로세스를 중지하세요." },
+      "pgConn": { "title": "PostgreSQL 연결 거부", "symptom": "Odoo가 \"connection refused\" 오류로 시작 실패.", "cause": "PostgreSQL 서비스가 실행되지 않거나 다른 포트에서 실행 중.", "solution": "앱이 자동으로 PostgreSQL을 시작합니다. odoo.conf의 db_port를 확인하세요." },
+      "python": { "title": "설치 후 Python을 찾을 수 없음", "symptom": "Python 단계 실패 또는 \"관리자 권한 필요\" 메시지.", "cause": "Python 설치에 관리자 권한 필요.", "solution": "관리자 권한으로 앱을 실행하세요." },
+      "pip": { "title": "Pip 요구사항 설치 실패", "symptom": "\"Pip Requirements\" 단계에서 컴파일 오류.", "cause": "일부 패키지에 C++ 빌드 도구 필요.", "solution": "\"Visual Studio Build Tools\"를 C++ 워크로드와 함께 설치하세요." },
+      "symlink": { "title": "심링크 생성 실패", "symptom": "프로젝트 생성 시 \"Failed to create symlink\" 오류.", "cause": "Junction 링크에 관리자 권한 필요.", "solution": "앱을 우클릭 → 관리자 권한으로 실행." },
+      "openssl": { "title": "pyOpenSSL / cryptography 오류", "symptom": "Odoo가 \"X509_V_FLAG_NOTIFY_POLICY\" 오류로 크래시.", "cause": "pyOpenSSL과 cryptography 버전 불일치.", "solution": "실행: pip install --upgrade cryptography pyOpenSSL" },
+      "noLog": { "title": "VS Code 터미널에 로그 없음", "symptom": "VS Code F5로 Odoo 시작하지만 터미널이 비어 있음.", "cause": "odoo.conf의 logfile이 출력을 파일로 리다이렉트.", "solution": "프로젝트 상세에서 \"템플릿 초기화\"를 클릭하세요." },
+      "dbFilter": { "title": "데이터베이스가 Odoo에 보이지 않음", "symptom": "데이터베이스를 생성했지만 Odoo 선택기에 없음.", "cause": "dbfilter가 프로젝트 이름과 일치하는 데이터베이스만 표시.", "solution": "프로젝트 이름으로 시작하는 DB 이름을 사용하거나 dbfilter를 .*로 설정." },
+      "gitClone": { "title": "Git clone Odoo 시간 초과", "symptom": "Clone 단계가 매우 오래 걸리거나 실패.", "cause": "Odoo 저장소 ~2GB. 느린 인터넷 또는 방화벽.", "solution": "인터넷 연결 확인. 설치 프로그램은 --depth 1로 최소 다운로드." },
+      "venv": { "title": "가상 환경 Python 버전 불일치", "symptom": "Odoo 버전 전환 후 import 오류.", "cause": "다른 Python 버전으로 venv 생성됨.", "solution": "venv 폴더 삭제 후 \"가상 환경\" 단계 다시 실행." },
+      "wontStart": { "title": "Odoo 시작했지만 응답 없음", "symptom": "Start 클릭 후 브라우저가 계속 로딩.", "cause": "첫 시작 시 데이터베이스 초기화 (1-5분).", "solution": "첫 시작은 1-5분 대기. 설치 로그에서 오류 확인." },
+      "addonsPath": { "title": "애드온 경로가 올바르게 저장되지 않음", "symptom": "폴더 추가 후 Odoo가 애드온을 찾지 못함.", "cause": "Windows 백슬래시 vs odoo.conf 슬래시.", "solution": "앱이 자동으로 \\를 /로 변환. 필요 시 수동 편집." },
+      "slowDl": { "title": "다운로드가 매우 느리거나 멈춤", "symptom": "다운로드가 오래 걸리거나 실패.", "cause": "느린 인터넷, VPN 또는 방화벽 차단.", "solution": "VPN 해제. 방화벽 확인. python.org이나 postgresql.org에서 수동 다운로드." },
+      "compat": { "title": "이 PC에서 Odoo 버전이 작동하지 않음", "symptom": "Odoo 크래시 또는 설치 실패.", "cause": "Python 3.12는 Windows 10+ 필요. DLL 누락.", "solution": "Windows 업데이트. 이전 Odoo 버전 시도. Visual C++ Redistributable 설치." },
+      "antivirus": { "title": "바이러스 백신이 설치를 차단", "symptom": "설치 파일이 격리되거나 단계가 자동으로 실패.", "cause": "Windows Defender가 다운로드 파일을 플래그.", "solution": "설치 중 실시간 보호를 일시적으로 비활성화하세요." },
+      "disk": { "title": "디스크 공간 부족", "symptom": "설치가 중간에 실패.", "cause": "전체 설치에 ~5GB 필요.", "solution": "디스크 공간 확보. 기본 디렉토리를 더 큰 드라이브로 변경." },
+      "pgConflict": { "title": "여러 PostgreSQL 버전 충돌", "symptom": "잘못된 PostgreSQL 버전 사용 또는 DB 생성 실패.", "cause": "다른 포트의 여러 PG 버전.", "solution": "odoo.conf의 db_port가 올바른 PG 버전과 일치하는지 확인." },
+      "firstStart": { "title": "첫 Odoo 시작이 매우 오래 걸림", "symptom": "첫 시작 시 1-5분 로딩.", "cause": "첫 시작 시 데이터베이스 스키마 초기화.", "solution": "1-5분 대기. 이후 시작은 더 빠름 (~10-30초)." }
+    }
+  }
 }
