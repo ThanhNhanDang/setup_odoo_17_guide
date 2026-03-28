@@ -1235,9 +1235,11 @@ function togglePin() {
   window.electronAPI.invoke('log-window-pin', { pinned });
   const btn = document.getElementById('btnPin');
   btn.classList.remove('animate-in', 'animate-out');
-  void btn.offsetWidth; // force reflow to restart animation
   btn.classList.toggle('pinned', pinned);
-  btn.classList.add(pinned ? 'animate-in' : 'animate-out');
+  // Restart animation without forced reflow
+  requestAnimationFrame(() => {
+    btn.classList.add(pinned ? 'animate-in' : 'animate-out');
+  });
   btn.title = pinned ? ti('logViewer.pinnedOnTop') : ti('logViewer.alwaysOnTop');
 }
 

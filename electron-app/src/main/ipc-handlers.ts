@@ -826,7 +826,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   // Pin/unpin log window (always on top)
   ipcMain.handle('log-window-pin', async (event, data: { pinned: boolean }) => {
     const win = BrowserWindow.fromWebContents(event.sender);
-    if (win) win.setAlwaysOnTop(data.pinned);
+    if (win) {
+      // Use 'screen-saver' level on Windows to stay above other always-on-top windows
+      win.setAlwaysOnTop(data.pinned, 'screen-saver');
+    }
     return { ok: true };
   });
 
