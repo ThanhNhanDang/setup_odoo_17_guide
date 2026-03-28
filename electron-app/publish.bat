@@ -35,8 +35,8 @@ REM Get current LOCAL version
 for /f %%v in ('node -p "require('./package.json').version"') do set LOCAL_VER=%%v
 echo   Local version:   %LOCAL_VER%
 
-REM Get latest version from GitHub
-for /f %%v in ('gh release list --limit 1 --json tagName --jq ".[0].tagName" 2^>nul') do set GH_TAG=%%v
+REM Get latest PUBLISHED version from GitHub (exclude drafts and pre-releases)
+for /f %%v in ('gh release list --exclude-drafts --exclude-pre-releases --limit 1 --json tagName --jq ".[0].tagName" 2^>nul') do set GH_TAG=%%v
 if "%GH_TAG%"=="" (
     echo   GitHub version:  [none found]
     set GH_VER=0.0.0

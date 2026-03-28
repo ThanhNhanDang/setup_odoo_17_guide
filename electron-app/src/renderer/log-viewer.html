@@ -798,7 +798,7 @@ async function loadProjectList() {
     }
   } catch {}
 }
-loadProjectList();
+// loadProjectList() called inside loadI18n().then() to avoid double-init
 
 function switchProject(val) {
   try {
@@ -865,8 +865,8 @@ async function checkServerStatus() {
     }
   } catch {}
 }
-checkServerStatus();
-setInterval(checkServerStatus, 5000);
+// checkServerStatus() called inside loadI18n().then() to avoid running before UI is ready
+let _serverStatusInterval = null;
 
 let autoScroll = true;
 let lineCount = 0;
@@ -923,24 +923,73 @@ function ti(key, params) {
 }
 
 function applyI18n() {
-  // Titlebar & status bar
-  document.getElementById('btnPin').title = ti('logViewer.alwaysOnTop');
-  document.querySelector('[onclick="minimizeWindow()"]').title = ti('logViewer.minimize');
-  document.getElementById('btnMaximize').title = ti('logViewer.maximize');
-  document.getElementById('btnSidebar').title = ti('logViewer.toggleSidebar');
-  document.getElementById('statusText').textContent = ti('logViewer.waiting');
-  document.getElementById('serverStatus').textContent = ti('logViewer.checking');
+  // Batch: set textContent by id
+  const texts = {
+    statusText: ti('logViewer.waiting'),
+    serverStatus: ti('logViewer.checking'),
+    sidebarTitle: ti('logViewer.config'),
+    logLevelLabel: ti('logViewer.logLevel'),
+    upgradeLabel: ti('logViewer.upgradeModules'),
+    btnSelectAll: ti('logViewer.selectAll'),
+    btnDeselectAll: ti('logViewer.deselectAll'),
+    noModulesMsg: ti('logViewer.noCustomModules'),
+    createDbTitle: ti('monitor.createDb'),
+    createDbPasswdLabel: ti('monitor.adminPasswd'),
+    createDbNameLabel: ti('monitor.createDbName'),
+    createDbEmailLabel: ti('monitor.adminEmail'),
+    createDbPasswordLabel: ti('monitor.adminPasswordLabel'),
+    createDbPhoneLabel: ti('monitor.adminPhone'),
+    createDbLangLabel: ti('monitor.langLabel'),
+    createDbCountryLabel: ti('monitor.countryLabel'),
+    createDbDemoLabel: ti('monitor.demoData'),
+    createDbHint: ti('monitor.createHint'),
+    createDbToggleOutput: ti('monitor.viewOutput'),
+    btnDoCreateDb: ti('logViewer.create'),
+    createDbCancelBtn: ti('logViewer.cancel'),
+    restoreDbTitle: ti('monitor.restoreDb'),
+    restoreDbPasswdLabel: ti('monitor.adminPasswd'),
+    restoreDbNameLabel: ti('monitor.createDbName'),
+    restoreDbFileLabel: ti('monitor.restoreDbFile'),
+    restoreDbToggleOutput: ti('monitor.viewOutput'),
+    btnDoRestoreDb: ti('logViewer.restore'),
+    restoreDbCancelBtn: ti('logViewer.cancel'),
+    dropDbTitle: ti('monitor.dropDb'),
+    btnDoDropDb: ti('logViewer.drop'),
+    lineCount: ti('logViewer.linesCount', { count: lineCount }),
+  };
+  for (const id in texts) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = texts[id];
+  }
 
-  // Log tab - sidebar
-  document.getElementById('sidebarTitle').textContent = ti('logViewer.config');
-  document.getElementById('logLevelLabel').textContent = ti('logViewer.logLevel');
-  document.getElementById('upgradeLabel').textContent = ti('logViewer.upgradeModules');
-  document.getElementById('restartLabel').innerHTML = ti('logViewer.saveRestart');
-  document.getElementById('btnSelectAll').textContent = ti('logViewer.selectAll');
-  document.getElementById('btnDeselectAll').textContent = ti('logViewer.deselectAll');
-  document.getElementById('noModulesMsg').textContent = ti('logViewer.noCustomModules');
+  // Batch: set title by id
+  const titles = {
+    btnPin: ti('logViewer.alwaysOnTop'),
+    btnMaximize: ti('logViewer.maximize'),
+    btnSidebar: ti('logViewer.toggleSidebar'),
+  };
+  for (const id in titles) {
+    const el = document.getElementById(id);
+    if (el) el.title = titles[id];
+  }
 
-  // Log tab - floating buttons
+  // innerHTML updates
+  const el = document.getElementById('restartLabel');
+  if (el) el.innerHTML = ti('logViewer.saveRestart');
+  document.getElementById('dbConnLabel').textContent = ti('monitor.connInfo') + ':';
+  document.getElementById('dbRefreshLabel').textContent = ti('monitor.refresh');
+
+  // Minimize button (no id, use query)
+  const minBtn = document.querySelector('[onclick="minimizeWindow()"]');
+  if (minBtn) minBtn.title = ti('logViewer.minimize');
+
+  // Span children inside buttons
+  const createSpan = document.getElementById('btnCreateDb')?.querySelector('span');
+  if (createSpan) createSpan.textContent = ti('monitor.createDb');
+  const restoreSpan = document.getElementById('btnRestoreDb')?.querySelector('span');
+  if (restoreSpan) restoreSpan.textContent = ti('monitor.restoreDb');
+
+  // Floating buttons
   const clearBtn = document.querySelector('[onclick="clearLog()"]');
   if (clearBtn) { clearBtn.title = ti('logViewer.clearLog'); clearBtn.lastChild.textContent = '\n        ' + ti('logViewer.clear') + '\n      '; }
   const scrollBtn = document.getElementById('btnAutoScroll');
@@ -954,46 +1003,13 @@ function applyI18n() {
   if (tabLog) tabLog.textContent = ti('monitor.tabLog');
   if (tabDb) tabDb.textContent = ti('monitor.tabDatabase');
 
-  // Database tab - toolbar
-  document.getElementById('dbConnLabel').textContent = ti('monitor.connInfo') + ':';
-  document.getElementById('dbRefreshLabel').textContent = ti('monitor.refresh');
-  document.getElementById('btnCreateDb').querySelector('span').textContent = ti('monitor.createDb');
-  document.getElementById('btnRestoreDb').querySelector('span').textContent = ti('monitor.restoreDb');
+  // Modal query selectors
+  const restoreFileBtn = document.querySelector('#modalRestoreDb [onclick="pickRestoreFile()"]');
+  if (restoreFileBtn) restoreFileBtn.textContent = ti('logViewer.browse');
+  const dropCancelBtn = document.querySelector('#modalDropDb [onclick*="hideDbModal"]');
+  if (dropCancelBtn) dropCancelBtn.textContent = ti('logViewer.cancel');
 
-  // Create DB modal
-  document.getElementById('createDbTitle').textContent = ti('monitor.createDb');
-  document.getElementById('createDbPasswdLabel').textContent = ti('monitor.adminPasswd');
-  document.getElementById('createDbNameLabel').textContent = ti('monitor.createDbName');
-  document.getElementById('createDbEmailLabel').textContent = ti('monitor.adminEmail');
-  document.getElementById('createDbPasswordLabel').textContent = ti('monitor.adminPasswordLabel');
-  document.getElementById('createDbPhoneLabel').textContent = ti('monitor.adminPhone');
-  document.getElementById('createDbLangLabel').textContent = ti('monitor.langLabel');
-  document.getElementById('createDbCountryLabel').textContent = ti('monitor.countryLabel');
-  document.getElementById('createDbDemoLabel').textContent = ti('monitor.demoData');
-  document.getElementById('createDbHint').textContent = ti('monitor.createHint');
-  document.getElementById('createDbToggleOutput').textContent = ti('monitor.viewOutput');
-  document.getElementById('btnDoCreateDb').textContent = ti('logViewer.create');
-  document.getElementById('createDbCancelBtn').textContent = ti('logViewer.cancel');
-
-  // Restore DB modal
-  document.getElementById('restoreDbTitle').textContent = ti('monitor.restoreDb');
-  document.getElementById('restoreDbPasswdLabel').textContent = ti('monitor.adminPasswd');
-  document.getElementById('restoreDbNameLabel').textContent = ti('monitor.createDbName');
-  document.getElementById('restoreDbFileLabel').textContent = ti('monitor.restoreDbFile');
-  document.getElementById('restoreDbToggleOutput').textContent = ti('monitor.viewOutput');
-  document.getElementById('btnDoRestoreDb').textContent = ti('logViewer.restore');
-  document.getElementById('restoreDbCancelBtn').textContent = ti('logViewer.cancel');
-  document.querySelector('#modalRestoreDb [onclick="pickRestoreFile()"]').textContent = ti('logViewer.browse');
-
-  // Drop DB modal
-  document.getElementById('dropDbTitle').textContent = ti('monitor.dropDb');
-  document.getElementById('btnDoDropDb').textContent = ti('logViewer.drop');
-  document.querySelector('#modalDropDb [onclick*="hideDbModal"]').textContent = ti('logViewer.cancel');
-
-  // Line count
-  document.getElementById('lineCount').textContent = ti('logViewer.linesCount', { count: lineCount });
-
-  // Update database table headers in-place (no reload/spinner)
+  // Database table headers (no reload)
   if (dbLoaded) {
     const ths = document.querySelectorAll('.db-table th');
     if (ths.length >= 5) {
@@ -1228,12 +1244,14 @@ async function saveAndRestart() {
 if (window.electronAPI) {
   // Load i18n FIRST, then init everything else
   loadI18n().then(() => {
+    // Run all init tasks in parallel — none depend on each other
     loadProjectInfo();
+    loadProjectList();
+    checkServerStatus();
+    _serverStatusInterval = setInterval(checkServerStatus, 5000);
 
     // Start watching log file
-    console.log('[log-viewer] watch-log request:', currentLogPath);
     window.electronAPI.invoke('watch-log', { logPath: currentLogPath }).then(res => {
-      console.log('[log-viewer] watch-log response:', res?.ok, 'lines:', res?.lines?.length);
       if (res?.ok && res.lines?.length) {
         const box = document.getElementById('logBox');
         if (box.querySelector('.empty-state')) box.innerHTML = '';

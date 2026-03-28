@@ -182,43 +182,48 @@ export async function deleteProject(
 
   // Remove junction links first (Windows locks these, fs.rmSync fails on them)
   await emit('delete_files', false);
+  const junctionCmds: string[] = [];
   try {
     for (const entry of fs.readdirSync(proj)) {
       const entryPath = path.join(proj, entry);
       try {
         const stat = fs.lstatSync(entryPath);
         if (stat.isSymbolicLink() || (stat.isDirectory() && fs.realpathSync(entryPath) !== entryPath)) {
-          // Junction or symlink — remove with cmd /c rmdir (not fs.rmSync)
-          await runCmd(`cmd /c rmdir "${entryPath}"`);
+          junctionCmds.push(`rmdir "${entryPath}"`);
         }
       } catch { /* skip */ }
     }
   } catch { /* ignore */ }
+  // Batch-remove all junctions in a single cmd call
+  if (junctionCmds.length > 0) {
+    await runCmd(`cmd /c ${junctionCmds.join(' & ')}`);
+  }
 
-  // Kill any remaining processes locking files in this folder
-  try {
-    await runCmd(`powershell -Command "Get-Process | Where-Object { $_.Modules.FileName -like '${proj.replace(/\\/g, '\\\\')}*' } | Stop-Process -Force -ErrorAction SilentlyContinue"`);
-    await new Promise(r => setTimeout(r, 1000));
-  } catch { /* ignore */ }
-
-  // Retry delete up to 3 times (file locks may take a moment to release)
+  // Use rd /s /q as primary method — faster than fs.rmSync for large dirs on Windows
+  // Retry up to 3 times with short delay (file locks from previous steps may linger briefly)
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      fs.rmSync(proj, { recursive: true, force: true });
-      await emit('delete_files', true);
-      let dbMsg = 'Deleted';
-      if (droppedDbs.length > 0) dbMsg += ` (dropped DB: ${droppedDbs.join(', ')})`;
-      if (dropErrors.length > 0) dbMsg += ` [DB errors: ${dropErrors.join('; ')}]`;
-      return { ok: true, msg: dbMsg };
-    } catch (e) {
-      if (attempt < 2) {
-        // Force unlock with rd /s /q as fallback
-        await runCmd(`cmd /c rd /s /q "${proj}"`);
-        await new Promise(r => setTimeout(r, 2000));
-      } else {
-        return { ok: false, msg: 'DELETE_LOCKED' };
+      // Try fast native delete first
+      await runCmd(`cmd /c rd /s /q "${proj}"`);
+      // Verify folder is gone
+      if (!fs.existsSync(proj)) {
+        await emit('delete_files', true);
+        let dbMsg = 'Deleted';
+        if (droppedDbs.length > 0) dbMsg += ` (dropped DB: ${droppedDbs.join(', ')})`;
+        if (dropErrors.length > 0) dbMsg += ` [DB errors: ${dropErrors.join('; ')}]`;
+        return { ok: true, msg: dbMsg };
       }
-    }
+      // Folder still exists — fallback to Node recursive delete
+      fs.rmSync(proj, { recursive: true, force: true });
+      if (!fs.existsSync(proj)) {
+        await emit('delete_files', true);
+        let dbMsg = 'Deleted';
+        if (droppedDbs.length > 0) dbMsg += ` (dropped DB: ${droppedDbs.join(', ')})`;
+        if (dropErrors.length > 0) dbMsg += ` [DB errors: ${dropErrors.join('; ')}]`;
+        return { ok: true, msg: dbMsg };
+      }
+    } catch { /* retry */ }
+    if (attempt < 2) await new Promise(r => setTimeout(r, 500));
   }
   return { ok: false, msg: 'DELETE_LOCKED' };
 }

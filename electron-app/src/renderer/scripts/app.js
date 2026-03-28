@@ -1233,16 +1233,16 @@ function deleteProject(name) {
 async function confirmDelete(e) {
   if ($('deleteConfirmInput').value.trim() !== _deletingProject) { alert(t('toast.nameNoMatch')); return; }
   const btn = (e || event)?.target?.closest?.('button');
-  if (btn) _setBtnPending(btn);
   const data = getFormData();
   const dropDb = $('deleteDropDb')?.checked ? 'true' : 'false';
 
-  // Show progress in modal (save form for restore)
+  // Show progress in modal (save form BEFORE btn pending to avoid saving spinner state)
   const modal = $('modalDelete');
   const bodyEl = modal.querySelector('.modal-body');
   const footerEl = modal.querySelector('.modal-footer');
   if (!modal._origBody) modal._origBody = bodyEl.innerHTML;
   if (!modal._origFooter) modal._origFooter = footerEl?.innerHTML;
+  if (btn) _setBtnPending(btn);
   bodyEl.innerHTML = '<div id="deleteProgressSteps"></div>';
   if (footerEl) footerEl.style.display = 'none';
   const steps = dropDb === 'true' ? DELETE_STEPS : DELETE_STEPS.filter(s => s.id !== 'drop_databases');
@@ -2282,7 +2282,8 @@ async function resetIcon() {
   }
 })();
 
-refreshStatus();
+// NOTE: refreshStatus() is called in the startup chain after settings are loaded
+// (see loadOdooVersions → loadSettingsFromDisk → ... → refreshStatus)
 
 // ---------------------------------------------------------------------------
 // Help Panel — Documentation + Troubleshooting
@@ -2465,19 +2466,17 @@ function filterHelpContent() {
 // Auto-refresh status every 10 seconds (real-time running/stopped sync)
 setInterval(() => refreshStatus(), 10000);
 
-// Load app version + saved settings + default paths
+// Load app version + saved settings + default paths (parallelized where possible)
 if (window.electronAPI) {
+  // app-version runs independently in parallel with the version→settings chain
   api('app-version').then(v => {
     const ver = 'v' + v;
     const el = document.querySelector('.nav-version');
     if (el) el.textContent = ver;
     if ($('settingsVersion')) $('settingsVersion').textContent = ver;
   });
-  // Load versions first (populates selects), then restore settings, then defaults
-  loadOdooVersions().then(() => {
-    return loadSettingsFromDisk();
-  }).then(() => {
-    // Re-sync selects after settings restore (in case saved version differs from default)
+  // versions → settings → defaults → refreshStatus (sequential chain, but version+appVersion parallel)
+  loadOdooVersions().then(() => loadSettingsFromDisk()).then(() => {
     if (_odooVersions && $('odooVersion')?.value) {
       const ver = $('odooVersion').value;
       if ($('installVersion')) $('installVersion').value = ver;
@@ -2487,7 +2486,10 @@ if (window.electronAPI) {
   }).then(paths => {
     if ($('baseDir') && !$('baseDir').value) $('baseDir').value = paths.base_dir || '';
     if ($('projectsDir') && !$('projectsDir').value) $('projectsDir').value = paths.projects_dir || '';
-  }).catch(() => {});
+  }).catch(() => {}).finally(() => {
+    // Only call refreshStatus AFTER settings are loaded (so paths are correct)
+    refreshStatus();
+  });
 }
 
 // First-launch tour prompt

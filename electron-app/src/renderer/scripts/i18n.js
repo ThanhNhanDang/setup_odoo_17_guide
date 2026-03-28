@@ -49,11 +49,13 @@ function getCurrentLanguage() {
 /** Initialize i18n — load translations */
 async function initI18n(lang) {
   _currentLang = lang || getCurrentLanguage();
-  // Always load English as fallback
-  _fallback = await _loadLocale('en');
   if (_currentLang !== 'en') {
-    _translations = await _loadLocale(_currentLang);
+    // Load both locales in parallel
+    const [fallback, translations] = await Promise.all([_loadLocale('en'), _loadLocale(_currentLang)]);
+    _fallback = fallback;
+    _translations = translations;
   } else {
+    _fallback = await _loadLocale('en');
     _translations = _fallback;
   }
   document.documentElement.setAttribute('lang', _currentLang);
@@ -61,26 +63,28 @@ async function initI18n(lang) {
 
 /** Apply translations to all elements with data-i18n attributes */
 function applyTranslations() {
-  document.querySelectorAll('[data-i18n]').forEach(el => {
-    const key = el.getAttribute('data-i18n');
-    const val = t(key);
-    if (val !== key) el.textContent = val;
-  });
-  document.querySelectorAll('[data-i18n-html]').forEach(el => {
-    const key = el.getAttribute('data-i18n-html');
-    const val = t(key);
-    if (val !== key) el.innerHTML = val;
-  });
-  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
-    const key = el.getAttribute('data-i18n-placeholder');
-    const val = t(key);
-    if (val !== key) el.placeholder = val;
-  });
-  document.querySelectorAll('[data-i18n-title]').forEach(el => {
-    const key = el.getAttribute('data-i18n-title');
-    const val = t(key);
-    if (val !== key) el.title = val;
-  });
+  // Single query for all i18n elements — avoids 4 separate DOM scans
+  const els = document.querySelectorAll('[data-i18n],[data-i18n-html],[data-i18n-placeholder],[data-i18n-title]');
+  for (let i = 0, len = els.length; i < len; i++) {
+    const el = els[i];
+    let key, val;
+    if ((key = el.getAttribute('data-i18n'))) {
+      val = t(key);
+      if (val !== key) el.textContent = val;
+    }
+    if ((key = el.getAttribute('data-i18n-html'))) {
+      val = t(key);
+      if (val !== key) el.innerHTML = val;
+    }
+    if ((key = el.getAttribute('data-i18n-placeholder'))) {
+      val = t(key);
+      if (val !== key) el.placeholder = val;
+    }
+    if ((key = el.getAttribute('data-i18n-title'))) {
+      val = t(key);
+      if (val !== key) el.title = val;
+    }
+  }
 }
 
 /** Switch language — save, reload translations, re-render UI */
