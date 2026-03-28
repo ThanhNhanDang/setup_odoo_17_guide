@@ -872,10 +872,10 @@ let isRestarting = false;
 // Simple i18n for log viewer (fetches from main app's locale files)
 let _i18n = {};
 async function loadI18n() {
-  // Try to detect language from main window settings
+  // Read language from saved user settings
   try {
-    const settings = await window.electronAPI.invoke('load-settings', {});
-    const lang = settings?.language || 'en';
+    const res = await window.electronAPI.invoke('load-settings', {});
+    const lang = res?.settings?.language || res?.language || 'en';
     const resp = await fetch(`locales/${lang}.json`);
     if (resp.ok) _i18n = await resp.json();
   } catch {
@@ -885,6 +885,18 @@ async function loadI18n() {
     } catch { /* fallback to hardcoded */ }
   }
   applyI18n();
+}
+
+// Listen for language change from main app
+if (window.electronAPI) {
+  window.electronAPI.onEvent('language-changed', (data) => {
+    const lang = data?.language || data;
+    if (lang) {
+      fetch(`locales/${lang}.json`).then(r => r.ok ? r.json() : null).then(json => {
+        if (json) { _i18n = json; applyI18n(); }
+      }).catch(() => {});
+    }
+  });
 }
 
 function ti(key, params) {
@@ -969,6 +981,9 @@ function applyI18n() {
   document.getElementById('dropDbTitle').textContent = ti('monitor.dropDb');
   document.getElementById('btnDoDropDb').textContent = ti('logViewer.drop');
   document.querySelector('#modalDropDb [onclick*="hideDbModal"]').textContent = ti('logViewer.cancel');
+
+  // Line count
+  document.getElementById('lineCount').textContent = ti('logViewer.linesCount', { count: lineCount });
 }
 
 // Help tooltips
@@ -1191,25 +1206,29 @@ async function saveAndRestart() {
 
 // IPC: receive log lines from main process
 if (window.electronAPI) {
-  // Initial load
-  console.log('[log-viewer] watch-log request:', currentLogPath);
-  window.electronAPI.invoke('watch-log', { logPath: currentLogPath }).then(res => {
-    console.log('[log-viewer] watch-log response:', res?.ok, 'lines:', res?.lines?.length);
-    if (res?.ok && res.lines?.length) {
-      // Clear any empty state before appending
-      const box = document.getElementById('logBox');
-      if (box.querySelector('.empty-state')) box.innerHTML = '';
-      appendLines(res.lines);
-      document.getElementById('statusDot').className = 'status-dot watching';
-      document.getElementById('statusText').textContent = ti('logViewer.watching');
-    } else {
-      document.getElementById('logBox').innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg><div>' + ti('logViewer.noLogYet') + '</div></div>';
-    }
-  }).catch(err => {
-    console.error('[log-viewer] watch-log error:', err);
+  // Load i18n FIRST, then init everything else
+  loadI18n().then(() => {
+    loadProjectInfo();
+
+    // Start watching log file
+    console.log('[log-viewer] watch-log request:', currentLogPath);
+    window.electronAPI.invoke('watch-log', { logPath: currentLogPath }).then(res => {
+      console.log('[log-viewer] watch-log response:', res?.ok, 'lines:', res?.lines?.length);
+      if (res?.ok && res.lines?.length) {
+        const box = document.getElementById('logBox');
+        if (box.querySelector('.empty-state')) box.innerHTML = '';
+        appendLines(res.lines);
+        document.getElementById('statusDot').className = 'status-dot watching';
+        document.getElementById('statusText').textContent = ti('logViewer.watching');
+      } else {
+        document.getElementById('logBox').innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg><div>' + ti('logViewer.noLogYet') + '</div></div>';
+      }
+    }).catch(err => {
+      console.error('[log-viewer] watch-log error:', err);
+    });
   });
 
-  // Realtime updates
+  // Realtime updates (can register listener immediately)
   window.electronAPI.onEvent('project-log', (data) => {
     if (data.logPath === currentLogPath && data.lines?.length) {
       document.getElementById('statusDot').className = 'status-dot watching';
@@ -1217,9 +1236,6 @@ if (window.electronAPI) {
       appendLines(data.lines);
     }
   });
-
-  // Load sidebar data + i18n
-  loadI18n().then(() => loadProjectInfo());
 }
 
 // ======== Database Tab ========

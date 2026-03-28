@@ -1566,6 +1566,16 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       const dir = path.dirname(settingsFile);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(settingsFile, JSON.stringify(data, null, 2), 'utf8');
+
+      // Broadcast language change to all log/monitor windows
+      if (data.language) {
+        for (const [, win] of logWindows) {
+          if (!win.isDestroyed()) {
+            win.webContents.send('language-changed', { language: data.language });
+          }
+        }
+      }
+
       return { ok: true };
     } catch (e) {
       return { ok: false, msg: String(e) };
