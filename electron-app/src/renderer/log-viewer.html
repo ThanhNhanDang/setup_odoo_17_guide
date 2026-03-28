@@ -342,6 +342,19 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .db-table .db-size{color:var(--text-dim);font-family:'Cascadia Code',Consolas,monospace;font-size:0.7rem}
 .db-table .db-actions{white-space:nowrap}
 
+/* Inline progress rows */
+.db-row-progress td{background:rgba(255,255,255,0.03)!important;animation:dbRowPulse 1.5s ease-in-out infinite}
+.db-row-done td{background:rgba(63,185,80,0.06)!important}
+.db-row-error td{background:rgba(248,81,73,0.06)!important}
+@keyframes dbRowPulse{0%,100%{opacity:1}50%{opacity:0.7}}
+.db-job-badge{font-size:0.6rem;padding:1px 6px;border-radius:3px;margin-left:6px;font-weight:600;vertical-align:middle}
+.db-job-badge-create{background:rgba(63,185,80,0.15);color:var(--success)}
+.db-job-badge-restore{background:rgba(88,166,255,0.15);color:#58a6ff}
+.db-job-badge-drop{background:rgba(248,81,73,0.15);color:var(--danger)}
+.db-progress-cell{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.db-step-label{color:var(--text-dim);font-size:0.7rem}
+.db-elapsed{color:var(--text-dim);font-size:0.65rem;opacity:0.7;margin-left:4px}
+.db-error-msg{color:var(--danger);font-size:0.68rem;margin-left:6px}
 .db-empty{
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   flex:1;color:var(--text-dim);gap:8px;font-size:0.8rem;
@@ -753,15 +766,6 @@ body{display:flex;flex-direction:column}
       </div>
       <div style="font-size:0.68rem;color:var(--text-dim);margin-bottom:8px;line-height:1.4" id="createDbHint">Creates database and initializes Odoo schema. Takes 2-5 minutes.</div>
     </div>
-    <div id="createDbProgress" style="display:none">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <span class="restart-spinner"></span>
-        <span id="createDbStep" style="font-size:0.75rem"></span>
-      </div>
-      <div id="createDbElapsed" style="font-size:0.68rem;color:var(--text-dim);margin-bottom:6px"></div>
-      <div id="createDbOutput" style="max-height:120px;overflow-y:auto;font-family:'Cascadia Code',Consolas,monospace;font-size:0.65rem;color:var(--text-dim);background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:6px 8px;display:none"></div>
-      <button class="db-toolbar-btn" onclick="toggleOutput('createDbOutput')" style="margin-top:4px;font-size:0.65rem;padding:2px 8px" id="createDbToggleOutput">View Output</button>
-    </div>
     <div class="db-modal-actions" id="createDbActions">
       <button class="db-toolbar-btn" onclick="hideDbModal('modalCreateDb')" id="createDbCancelBtn">Cancel</button>
       <button class="db-toolbar-btn primary" onclick="doCreateDb()" id="btnDoCreateDb">Create</button>
@@ -792,15 +796,6 @@ body{display:flex;flex-direction:column}
         <input type="text" id="restoreDbFile" placeholder="Select file..." readonly style="margin-bottom:0;flex:1;cursor:pointer" onclick="pickRestoreFile()">
         <button class="db-toolbar-btn" onclick="pickRestoreFile()" style="flex-shrink:0">Browse</button>
       </div>
-    </div>
-    <div id="restoreDbProgress" style="display:none">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <span class="restart-spinner"></span>
-        <span id="restoreDbStep" style="font-size:0.75rem"></span>
-      </div>
-      <div id="restoreDbElapsed" style="font-size:0.68rem;color:var(--text-dim);margin-bottom:6px"></div>
-      <div id="restoreDbOutput" style="max-height:120px;overflow-y:auto;font-family:'Cascadia Code',Consolas,monospace;font-size:0.65rem;color:var(--text-dim);background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:6px 8px;display:none"></div>
-      <button class="db-toolbar-btn" onclick="toggleOutput('restoreDbOutput')" style="margin-top:4px;font-size:0.65rem;padding:2px 8px" id="restoreDbToggleOutput">View Output</button>
     </div>
     <div class="db-modal-actions" id="restoreDbActions">
       <button class="db-toolbar-btn" onclick="hideDbModal('modalRestoreDb')" id="restoreDbCancelBtn">Cancel</button>
@@ -891,7 +886,7 @@ function switchTab(tabId) {
   document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab' + tabId.charAt(0).toUpperCase() + tabId.slice(1)));
   if (tabId === 'database' && !dbLoaded) {
     dbLoaded = true;
-    loadDatabases().then(() => checkActiveJobs());
+    loadDatabases();
   }
 }
 
@@ -1065,14 +1060,12 @@ function applyI18n() {
     createDbCountryLabel: ti('monitor.countryLabel'),
     createDbDemoLabel: ti('monitor.demoData'),
     createDbHint: ti('monitor.createHint'),
-    createDbToggleOutput: ti('monitor.viewOutput'),
     btnDoCreateDb: ti('logViewer.create'),
     createDbCancelBtn: ti('logViewer.cancel'),
     restoreDbTitle: ti('monitor.restoreDb'),
     restoreDbPasswdLabel: ti('monitor.adminPasswd'),
     restoreDbNameLabel: ti('monitor.createDbName'),
     restoreDbFileLabel: ti('monitor.restoreDbFile'),
-    restoreDbToggleOutput: ti('monitor.viewOutput'),
     btnDoRestoreDb: ti('logViewer.restore'),
     restoreDbCancelBtn: ti('logViewer.cancel'),
     dropDbTitle: ti('monitor.dropDb'),
@@ -1430,11 +1423,6 @@ function formatElapsed(ms) {
   return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
 }
 
-function toggleOutput(id) {
-  const el = document.getElementById(id);
-  el.style.display = el.style.display === 'none' ? '' : 'none';
-}
-
 const stepLabels = {
   creating_db: () => ti('monitor.stepCreatingDb'),
   init_schema: () => ti('monitor.stepInitSchema'),
@@ -1443,143 +1431,163 @@ const stepLabels = {
   restoring_data: () => ti('monitor.stepRestoringData'),
   copying_filestore: () => ti('monitor.stepCopyingFilestore'),
   preparing: () => ti('monitor.restoring'),
+  terminating_connections: () => ti('monitor.stepTerminating'),
+  dropping_db: () => ti('monitor.stepDropping'),
+  interrupted: () => ti('monitor.interrupted'),
   done: () => ti('monitor.done'),
   error: () => ti('monitor.error'),
 };
 
-// Listen for db-job-progress events
+// --- Inline progress rows: track active jobs in frontend ---
+const _inlineJobs = new Map(); // key → { type, dbName, status, step, elapsed, output[], error }
+
+// --- Render a single inline progress row ---
+function renderProgressRow(job) {
+  const typeLabels = { create: ti('monitor.creating'), restore: ti('monitor.restoring'), drop: ti('monitor.dropping') };
+  const typeLabel = typeLabels[job.type] || job.type;
+  const stepLabel = (stepLabels[job.step] || (() => job.step))();
+  const elapsed = job.elapsed ? formatElapsed(job.elapsed) : (job.startTime ? formatElapsed(Date.now() - job.startTime) : '');
+
+  const statusCls = job.status === 'done' ? 'db-row-done' : job.status === 'error' ? 'db-row-error' : job.status === 'interrupted' ? 'db-row-error' : 'db-row-progress';
+  const spinner = job.status === 'running' ? '<span class="restart-spinner" style="width:12px;height:12px;margin-right:6px"></span>' : '';
+  const icon = job.status === 'done' ? '<span style="color:var(--success);margin-right:6px">&#10003;</span>' : job.status === 'error' || job.status === 'interrupted' ? '<span style="color:var(--danger);margin-right:6px">&#10007;</span>' : '';
+  const errorMsg = job.error ? (() => { const t = ti('monitor.' + job.error); return t !== 'monitor.' + job.error ? t : job.error; })() : '';
+  const dismissBtn = (job.status === 'done' || job.status === 'error' || job.status === 'interrupted') ? `<button class="db-toolbar-btn" onclick="dismissJob('${escJs(job.type)}','${escJs(job.dbName)}')" style="padding:2px 8px;font-size:0.65rem">${ti('monitor.dismiss')}</button>` : '';
+
+  return `<tr class="${statusCls}" data-job-type="${esc(job.type)}" data-job-db="${esc(job.dbName)}">
+    <td><strong>${esc(job.dbName)}</strong> <span class="db-job-badge db-job-badge-${job.type}">${typeLabel}</span></td>
+    <td colspan="3" class="db-progress-cell">${icon}${spinner}<span class="db-step-label">${stepLabel}</span>${elapsed ? `<span class="db-elapsed">${elapsed}</span>` : ''}${errorMsg ? `<span class="db-error-msg">${esc(errorMsg)}</span>` : ''}</td>
+    <td class="db-actions">${dismissBtn}</td>
+  </tr>`;
+}
+
+// --- Listen for db-job-progress events → update inline rows ---
 if (window.electronAPI) {
   window.electronAPI.onEvent('db-job-progress', (data) => {
-    const prefix = data.type === 'create' ? 'createDb' : 'restoreDb';
-    const stepEl = document.getElementById(prefix + 'Step');
-    const elapsedEl = document.getElementById(prefix + 'Elapsed');
-    const outputEl = document.getElementById(prefix + 'Output');
-    const msgEl = document.getElementById(prefix + 'Msg');
-    const progressEl = document.getElementById(prefix + 'Progress');
+    // Update _inlineJobs map
+    const key = data.type === 'drop' ? `${data.type}:${data.dbName}` : data.type;
+    let job = _inlineJobs.get(key);
+    if (!job) {
+      job = { type: data.type, dbName: data.dbName, status: 'running', step: '', elapsed: 0, output: [], error: null };
+      _inlineJobs.set(key, job);
+    }
+    job.status = data.status;
+    job.step = data.step;
+    job.elapsed = data.elapsed || 0;
+    if (data.error) job.error = data.error;
+    if (data.detail) {
+      job.output.push(data.detail);
+      if (job.output.length > 100) job.output.shift();
+    }
 
-    if (data.status === 'running') {
-      const label = (stepLabels[data.step] || (() => data.step))();
-      if (stepEl) stepEl.textContent = label + (data.objectCount ? ` (${data.objectCount} objects)` : '');
-      if (elapsedEl && data.elapsed) elapsedEl.textContent = formatElapsed(data.elapsed);
-      if (outputEl && data.detail) {
-        const line = document.createElement('div');
-        line.textContent = data.detail;
-        outputEl.appendChild(line);
-        outputEl.scrollTop = outputEl.scrollHeight;
-        // Trim to 100 lines
-        while (outputEl.childElementCount > 100) outputEl.removeChild(outputEl.firstChild);
+    // Find existing row in DOM
+    const row = document.querySelector(`tr[data-job-type="${data.type}"][data-job-db="${CSS.escape(data.dbName)}"]`);
+    if (row) {
+      // Update in place
+      const tmp = document.createElement('tbody');
+      tmp.innerHTML = renderProgressRow(job);
+      row.replaceWith(tmp.firstElementChild);
+    } else if (data.status === 'running') {
+      // Insert new row (e.g. table was rebuilt)
+      const tbody = document.querySelector('.db-table tbody');
+      if (tbody) {
+        tbody.insertAdjacentHTML('afterbegin', renderProgressRow(job));
       }
-    } else if (data.status === 'done') {
-      if (stepEl) stepEl.textContent = ti('monitor.' + data.type + 'Done', { time: formatElapsed(data.elapsed || 0) });
-      if (elapsedEl) elapsedEl.textContent = '';
-      // Replace spinner with checkmark
-      const spinner = progressEl?.querySelector('.restart-spinner');
-      if (spinner) { spinner.style.display = 'none'; }
-      if (msgEl) { msgEl.className = 'db-msg success'; msgEl.textContent = ti('monitor.db' + (data.type === 'create' ? 'Created' : 'Restored')); }
-      // Show close button and reload DBs after delay (silent — no spinner)
+    }
+
+    // On done: reload table after short delay
+    if (data.status === 'done') {
       setTimeout(() => {
-        hideDbModal(data.type === 'create' ? 'modalCreateDb' : 'modalRestoreDb');
+        _inlineJobs.delete(key);
         loadDatabases(true);
       }, 1500);
-    } else if (data.status === 'error') {
-      if (stepEl) stepEl.textContent = ti('monitor.' + data.type + 'Error');
-      const spinner = progressEl?.querySelector('.restart-spinner');
-      if (spinner) { spinner.style.display = 'none'; }
-      let errMsg = data.error || 'Unknown error';
-      const translated = ti('monitor.' + errMsg);
-      if (translated !== 'monitor.' + errMsg) errMsg = translated;
-      if (msgEl) { msgEl.className = 'db-msg error'; msgEl.textContent = errMsg; }
-      if (data.detail && outputEl) {
-        outputEl.style.display = '';
-        const line = document.createElement('div');
-        line.textContent = data.detail;
-        line.style.color = '#ff7b72';
-        outputEl.appendChild(line);
-      }
-      // Show close button
-      const cancelId = data.type === 'create' ? 'createDbCancelBtn' : 'restoreDbCancelBtn';
-      document.getElementById(cancelId).style.display = '';
     }
   });
 }
 
-// Check for active jobs when Database tab loads (reconnect after Monitor reopen)
-async function checkActiveJobs() {
-  if (!window.electronAPI) return;
-  try {
-    const res = await window.electronAPI.invoke('monitor-db-job-status', { projectName: currentProjectName });
-    if (!res?.ok || !res.jobs?.length) return;
-    for (const job of res.jobs) {
-      if (job.status === 'running') {
-        // Show progress modal for active job
-        if (job.type === 'create') {
-          showDbModal('modalCreateDb');
-          document.getElementById('createDbForm').style.display = 'none';
-          document.getElementById('createDbProgress').style.display = '';
-          document.getElementById('btnDoCreateDb').style.display = 'none';
-          document.getElementById('createDbCancelBtn').style.display = 'none';
-          document.getElementById('createDbStep').textContent = (stepLabels[job.step] || (() => job.step))();
-          document.getElementById('createDbElapsed').textContent = formatElapsed(Date.now() - job.startTime);
-        } else if (job.type === 'restore') {
-          showDbModal('modalRestoreDb');
-          document.getElementById('restoreDbForm').style.display = 'none';
-          document.getElementById('restoreDbProgress').style.display = '';
-          document.getElementById('btnDoRestoreDb').style.display = 'none';
-          document.getElementById('restoreDbCancelBtn').style.display = 'none';
-          document.getElementById('restoreDbStep').textContent = (stepLabels[job.step] || (() => job.step))();
-          document.getElementById('restoreDbElapsed').textContent = formatElapsed(Date.now() - job.startTime);
-        }
-      }
-    }
-  } catch {}
-}
-
+// --- Load databases + active jobs into table ---
 async function loadDatabases(silent) {
   const wrap = document.getElementById('dbTableWrap');
   if (!silent) wrap.innerHTML = '<div class="db-loading"><span class="restart-spinner"></span><span>' + ti('logViewer.loading') + '</span></div>';
-  try {
-    const res = await window.electronAPI.invoke('monitor-list-databases', {
-      projectName: currentProjectName, projectsDir, odooVersion,
-    });
-    if (!res?.ok) {
-      wrap.innerHTML = `<div class="db-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><div>${esc(res?.msg || 'Failed to load databases')}</div></div>`;
-      return;
-    }
-    // Connection info
-    if (res.connInfo) {
-      document.getElementById('dbHost').textContent = res.connInfo.host || '-';
-      document.getElementById('dbPort').textContent = res.connInfo.port || '-';
-      document.getElementById('dbUser').textContent = res.connInfo.user || '-';
-      if (res.connInfo.adminPasswd) _adminPasswd = res.connInfo.adminPasswd;
-    }
-    const dbs = res.databases || [];
-    if (dbs.length === 0) {
-      wrap.innerHTML = '<div class="db-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><div>' + ti('monitor.noDatabases') + '</div></div>';
-      return;
-    }
-    let html = '<table class="db-table"><thead><tr>';
-    html += `<th>${ti('monitor.dbName')}</th><th>${ti('monitor.dbSize')}</th><th>${ti('monitor.dbOwner')}</th><th>${ti('monitor.dbEncoding')}</th><th>${ti('monitor.dbActions')}</th>`;
-    html += '</tr></thead><tbody>';
-    for (const db of dbs) {
-      html += `<tr>
-        <td><strong>${esc(db.name)}</strong></td>
-        <td class="db-size">${esc(db.size)}</td>
-        <td>${esc(db.owner)}</td>
-        <td>${esc(db.encoding)}</td>
-        <td class="db-actions">${
-          ['postgres','template0','template1'].includes(db.name) ? '' :
-          `<button class="db-toolbar-btn danger" onclick="showDropDbModal('${escJs(db.name)}')" style="padding:3px 8px;font-size:0.68rem">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>
-            Drop
-          </button>`
-        }</td>
-      </tr>`;
-    }
-    html += '</tbody></table>';
-    wrap.innerHTML = html;
-  } catch (e) {
-    wrap.innerHTML = `<div class="db-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><div>${esc(e?.message || 'Error')}</div></div>`;
+
+  // Fetch DB list + active jobs in parallel
+  const [dbRes, jobRes] = await Promise.all([
+    window.electronAPI.invoke('monitor-list-databases', { projectName: currentProjectName, projectsDir, odooVersion }).catch(() => null),
+    window.electronAPI.invoke('monitor-db-job-status', { projectName: currentProjectName }).catch(() => null),
+  ]);
+
+  if (!dbRes?.ok) {
+    wrap.innerHTML = `<div class="db-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><div>${esc(dbRes?.msg || 'Failed to load databases')}</div></div>`;
+    return;
   }
+
+  // Connection info
+  if (dbRes.connInfo) {
+    document.getElementById('dbHost').textContent = dbRes.connInfo.host || '-';
+    document.getElementById('dbPort').textContent = dbRes.connInfo.port || '-';
+    document.getElementById('dbUser').textContent = dbRes.connInfo.user || '-';
+    if (dbRes.connInfo.adminPasswd) _adminPasswd = dbRes.connInfo.adminPasswd;
+  }
+
+  // Merge active jobs into _inlineJobs
+  if (jobRes?.ok && jobRes.jobs) {
+    for (const j of jobRes.jobs) {
+      if (j.status === 'running' || j.status === 'error' || j.status === 'interrupted') {
+        const key = j.type === 'drop' ? `drop:${j.dbName}` : j.type;
+        if (!_inlineJobs.has(key)) {
+          _inlineJobs.set(key, { type: j.type, dbName: j.dbName, status: j.status, step: j.step, elapsed: Date.now() - j.startTime, output: [], error: j.error || null });
+        }
+      }
+    }
+  }
+
+  const dbs = dbRes.databases || [];
+  // Build set of DB names with active drop jobs (these rows become progress rows)
+  const droppingDbs = new Set();
+  for (const [, j] of _inlineJobs) {
+    if (j.type === 'drop' && (j.status === 'running' || j.status === 'error' || j.status === 'interrupted')) droppingDbs.add(j.dbName);
+  }
+
+  const hasData = dbs.length > 0 || _inlineJobs.size > 0;
+  if (!hasData) {
+    wrap.innerHTML = '<div class="db-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><div>' + ti('monitor.noDatabases') + '</div></div>';
+    return;
+  }
+
+  let html = '<table class="db-table"><thead><tr>';
+  html += `<th>${ti('monitor.dbName')}</th><th>${ti('monitor.dbSize')}</th><th>${ti('monitor.dbOwner')}</th><th>${ti('monitor.dbEncoding')}</th><th>${ti('monitor.dbActions')}</th>`;
+  html += '</tr></thead><tbody>';
+
+  // Prepend create/restore progress rows
+  for (const [, j] of _inlineJobs) {
+    if (j.type !== 'drop' && (j.status === 'running' || j.status === 'error' || j.status === 'interrupted')) {
+      html += renderProgressRow(j);
+    }
+  }
+
+  // Normal DB rows (skip those being dropped)
+  for (const db of dbs) {
+    if (droppingDbs.has(db.name)) {
+      // Render as progress row instead
+      const j = [..._inlineJobs.values()].find(j => j.type === 'drop' && j.dbName === db.name);
+      if (j) { html += renderProgressRow(j); continue; }
+    }
+    html += `<tr>
+      <td><strong>${esc(db.name)}</strong></td>
+      <td class="db-size">${esc(db.size)}</td>
+      <td>${esc(db.owner)}</td>
+      <td>${esc(db.encoding)}</td>
+      <td class="db-actions">${
+        ['postgres','template0','template1'].includes(db.name) ? '' :
+        `<button class="db-toolbar-btn danger" onclick="showDropDbModal('${escJs(db.name)}')" style="padding:3px 8px;font-size:0.68rem">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>
+          ${ti('monitor.drop')}
+        </button>`
+      }</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
 }
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
@@ -1598,18 +1606,11 @@ function _getDbPrefix() {
 }
 
 function showCreateDbModal() {
-  // Show project name as readonly prefix so DB matches dbfilter (^projectName.*$)
   document.getElementById('createDbPrefix').textContent = _getDbPrefix();
   document.getElementById('createDbName').value = '';
   document.getElementById('createDbName').placeholder = '';
   document.getElementById('createDbMsg').className = 'db-msg';
-  document.getElementById('createDbForm').style.display = '';
-  document.getElementById('createDbProgress').style.display = 'none';
-  document.getElementById('createDbOutput').style.display = 'none';
-  document.getElementById('btnDoCreateDb').style.display = '';
-  document.getElementById('createDbCancelBtn').style.display = '';
   document.getElementById('btnDoCreateDb').disabled = false;
-  // Set admin password from connInfo
   document.getElementById('createDbPasswd').value = _adminPasswd || 'odoo';
   showDbModal('modalCreateDb');
   setTimeout(() => document.getElementById('createDbName').focus(), 100);
@@ -1627,52 +1628,37 @@ async function doCreateDb() {
   const lang = document.getElementById('createDbLang').value;
   const country = document.getElementById('createDbCountry').value.trim();
 
-  // Switch to progress mode
-  document.getElementById('createDbForm').style.display = 'none';
-  document.getElementById('createDbProgress').style.display = '';
-  document.getElementById('btnDoCreateDb').style.display = 'none';
-  document.getElementById('createDbCancelBtn').style.display = 'none';
-  document.getElementById('createDbStep').textContent = ti('monitor.creating');
-  document.getElementById('createDbElapsed').textContent = '';
-  document.getElementById('createDbOutput').innerHTML = '';
-  msgEl.className = 'db-msg';
-
+  document.getElementById('btnDoCreateDb').disabled = true;
   try {
     const res = await window.electronAPI.invoke('monitor-create-database', {
       projectName: currentProjectName, dbName: name, demoData,
       adminEmail, adminPassword, adminPhone, lang, country,
       projectsDir, baseDir, odooVersion, odooSourceDir,
     });
-    if (!res?.ok && res?.msg !== 'STARTED') {
+    if (res?.ok || res?.msg === 'STARTED') {
+      // Close modal → inline row will appear via db-job-progress event
+      hideDbModal('modalCreateDb');
+      _inlineJobs.set('create', { type: 'create', dbName: name, status: 'running', step: 'creating_db', elapsed: 0, output: [], error: null, startTime: Date.now() });
+      // Inject row immediately
+      const tbody = document.querySelector('.db-table tbody');
+      if (tbody) tbody.insertAdjacentHTML('afterbegin', renderProgressRow(_inlineJobs.get('create')));
+    } else {
       msgEl.className = 'db-msg error'; msgEl.textContent = ti('monitor.' + res?.msg) || res?.msg || 'Error';
-      document.getElementById('createDbProgress').style.display = 'none';
-      document.getElementById('createDbForm').style.display = '';
-      document.getElementById('btnDoCreateDb').style.display = '';
-      document.getElementById('createDbCancelBtn').style.display = '';
     }
-    // Progress updates come via db-job-progress event
   } catch (e) {
     msgEl.className = 'db-msg error'; msgEl.textContent = e?.message || 'Error';
-    document.getElementById('createDbProgress').style.display = 'none';
-    document.getElementById('createDbForm').style.display = '';
-    document.getElementById('btnDoCreateDb').style.display = '';
-    document.getElementById('createDbCancelBtn').style.display = '';
+  } finally {
+    document.getElementById('btnDoCreateDb').disabled = false;
   }
 }
 
 function showRestoreDbModal() {
-  // Show project name as readonly prefix so DB matches dbfilter (^projectName.*$)
   document.getElementById('restoreDbPrefix').textContent = _getDbPrefix();
   document.getElementById('restoreDbName').value = '';
   document.getElementById('restoreDbName').placeholder = '';
   document.getElementById('restoreDbFile').value = '';
   document.getElementById('restoreDbMsg').className = 'db-msg';
   document.getElementById('restoreDbPasswd').value = _adminPasswd || 'odoo';
-  document.getElementById('restoreDbForm').style.display = '';
-  document.getElementById('restoreDbProgress').style.display = 'none';
-  document.getElementById('restoreDbOutput').style.display = 'none';
-  document.getElementById('btnDoRestoreDb').style.display = '';
-  document.getElementById('restoreDbCancelBtn').style.display = '';
   document.getElementById('btnDoRestoreDb').disabled = false;
   showDbModal('modalRestoreDb');
   setTimeout(() => document.getElementById('restoreDbName').focus(), 100);
@@ -1696,34 +1682,24 @@ async function doRestoreDb() {
   const name = _getDbPrefix() + suffix;
   if (!filePath) { msgEl.className = 'db-msg error'; msgEl.textContent = ti('logViewer.backupRequired'); return; }
 
-  // Switch to progress mode
-  document.getElementById('restoreDbForm').style.display = 'none';
-  document.getElementById('restoreDbProgress').style.display = '';
-  document.getElementById('btnDoRestoreDb').style.display = 'none';
-  document.getElementById('restoreDbCancelBtn').style.display = 'none';
-  document.getElementById('restoreDbStep').textContent = ti('monitor.restoring');
-  document.getElementById('restoreDbElapsed').textContent = '';
-  document.getElementById('restoreDbOutput').innerHTML = '';
-  msgEl.className = 'db-msg';
-
+  document.getElementById('btnDoRestoreDb').disabled = true;
   try {
     const res = await window.electronAPI.invoke('monitor-restore-database', {
       projectName: currentProjectName, dbName: name, filePath,
       projectsDir, baseDir, odooVersion, odooSourceDir,
     });
-    if (!res?.ok && res?.msg !== 'STARTED') {
+    if (res?.ok || res?.msg === 'STARTED') {
+      hideDbModal('modalRestoreDb');
+      _inlineJobs.set('restore', { type: 'restore', dbName: name, status: 'running', step: 'preparing', elapsed: 0, output: [], error: null, startTime: Date.now() });
+      const tbody = document.querySelector('.db-table tbody');
+      if (tbody) tbody.insertAdjacentHTML('afterbegin', renderProgressRow(_inlineJobs.get('restore')));
+    } else {
       msgEl.className = 'db-msg error'; msgEl.textContent = ti('monitor.' + res?.msg) || res?.msg || 'Error';
-      document.getElementById('restoreDbProgress').style.display = 'none';
-      document.getElementById('restoreDbForm').style.display = '';
-      document.getElementById('btnDoRestoreDb').style.display = '';
-      document.getElementById('restoreDbCancelBtn').style.display = '';
     }
   } catch (e) {
     msgEl.className = 'db-msg error'; msgEl.textContent = e?.message || 'Error';
-    document.getElementById('restoreDbProgress').style.display = 'none';
-    document.getElementById('restoreDbForm').style.display = '';
-    document.getElementById('btnDoRestoreDb').style.display = '';
-    document.getElementById('restoreDbCancelBtn').style.display = '';
+  } finally {
+    document.getElementById('btnDoRestoreDb').disabled = false;
   }
 }
 
@@ -1740,21 +1716,42 @@ async function doDropDb() {
   const input = document.getElementById('dropDbConfirmInput').value.trim();
   const msgEl = document.getElementById('dropDbMsg');
   if (input !== _dbDropTarget) { msgEl.className = 'db-msg error'; msgEl.textContent = ti('logViewer.nameNotMatch'); return; }
-  const btn = document.getElementById('btnDoDropDb');
-  btn.disabled = true;
+  document.getElementById('btnDoDropDb').disabled = true;
   try {
     const res = await window.electronAPI.invoke('monitor-drop-database', {
       projectName: currentProjectName, dbName: _dbDropTarget, projectsDir, odooVersion,
     });
-    if (res?.ok) {
-      msgEl.className = 'db-msg success'; msgEl.textContent = ti('monitor.dbDropped');
-      setTimeout(() => { hideDbModal('modalDropDb'); loadDatabases(true); }, 800);
+    if (res?.ok || res?.msg === 'STARTED') {
+      hideDbModal('modalDropDb');
+      const key = `drop:${_dbDropTarget}`;
+      _inlineJobs.set(key, { type: 'drop', dbName: _dbDropTarget, status: 'running', step: 'terminating_connections', elapsed: 0, output: [], error: null, startTime: Date.now() });
+      // Transform existing row in-place
+      const existingRow = [...document.querySelectorAll('.db-table tbody tr')].find(r => r.querySelector('td strong')?.textContent === _dbDropTarget);
+      if (existingRow) {
+        const tmp = document.createElement('tbody');
+        tmp.innerHTML = renderProgressRow(_inlineJobs.get(key));
+        existingRow.replaceWith(tmp.firstElementChild);
+      }
     } else {
       msgEl.className = 'db-msg error'; msgEl.textContent = res?.msg || 'Error';
     }
   } catch (e) {
     msgEl.className = 'db-msg error'; msgEl.textContent = e?.message || 'Error';
-  } finally { btn.disabled = false; }
+  } finally {
+    document.getElementById('btnDoDropDb').disabled = false;
+  }
+}
+
+async function dismissJob(type, dbName) {
+  const key = type === 'drop' ? `drop:${dbName}` : type;
+  _inlineJobs.delete(key);
+  // Remove row from DOM
+  const row = document.querySelector(`tr[data-job-type="${type}"][data-job-db="${CSS.escape(dbName)}"]`);
+  if (row) row.remove();
+  // Tell backend to cleanup
+  if (window.electronAPI) {
+    window.electronAPI.invoke('monitor-dismiss-db-job', { projectName: currentProjectName, type, dbName });
+  }
 }
 
 // Cleanup on close

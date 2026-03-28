@@ -16,7 +16,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'log-viewer-info', 'log-viewer-restart', 'log-viewer-projects', 'log-viewer-server-status',
       'pick-file', 'broadcast-theme',
       'monitor-list-databases', 'monitor-create-database', 'monitor-drop-database', 'monitor-restore-database',
-      'monitor-db-job-status',
+      'monitor-db-job-status', 'monitor-dismiss-db-job',
     ];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, data);

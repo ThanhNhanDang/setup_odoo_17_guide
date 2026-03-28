@@ -1071,26 +1071,72 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     if (win && !win.isDestroyed()) {
       win.webContents.send(channel, data);
     }
+    // Auto-persist on status transitions (not every streaming detail line)
+    if (data.status === 'done' || data.status === 'error' || data.status === 'interrupted') {
+      persistJobs();
+    }
   }
 
-  // --- DB Job tracking (persists across Monitor close/reopen) ---
+  // --- DB Job tracking (persists across Monitor close/reopen AND app restart) ---
   interface DbJob {
-    type: 'create' | 'restore';
+    type: 'create' | 'restore' | 'drop';
     dbName: string;
     projectName: string;
-    status: 'running' | 'done' | 'error';
+    status: 'running' | 'done' | 'error' | 'interrupted';
     step: string;
     startTime: number;
     output: string[];
     error?: string;
   }
   const dbJobs = new Map<string, DbJob>();
+  const DB_JOBS_FILE = path.join(app.getPath('userData'), 'db-jobs.json');
 
-  function getJobKey(projectName: string, type: string) { return `${projectName}:${type}`; }
+  function getJobKey(projectName: string, type: string, dbName?: string) {
+    // Use dbName in key to allow multiple concurrent drops
+    return type === 'drop' ? `${projectName}:drop:${dbName}` : `${projectName}:${type}`;
+  }
 
-  // Cleanup completed jobs after 5 minutes
+  // Persist jobs to disk (only status transitions, not every output line)
+  let _persistTimer: ReturnType<typeof setTimeout> | null = null;
+  function persistJobs() {
+    if (_persistTimer) return; // debounce 500ms
+    _persistTimer = setTimeout(() => {
+      _persistTimer = null;
+      try {
+        const data: Record<string, Omit<DbJob, 'output'>> = {};
+        for (const [key, job] of dbJobs) {
+          // Don't persist output array (too large), only metadata
+          const { output, ...rest } = job;
+          data[key] = rest;
+        }
+        fs.writeFileSync(DB_JOBS_FILE, JSON.stringify(data, null, 2), 'utf8');
+      } catch { /* ignore write errors */ }
+    }, 500);
+  }
+
+  // Load persisted jobs on startup — mark running jobs as interrupted
+  try {
+    if (fs.existsSync(DB_JOBS_FILE)) {
+      const raw = JSON.parse(fs.readFileSync(DB_JOBS_FILE, 'utf8'));
+      for (const [key, job] of Object.entries(raw) as [string, DbJob][]) {
+        if (job.status === 'running') {
+          job.status = 'interrupted';
+          job.error = 'APP_RESTARTED';
+          job.step = 'interrupted';
+        }
+        job.output = [];
+        dbJobs.set(key, job);
+      }
+      persistJobs();
+    }
+  } catch { /* ignore read errors */ }
+
+  // Cleanup completed/error jobs after 5 minutes
   function scheduleJobCleanup(key: string) {
-    setTimeout(() => { dbJobs.delete(key); }, 5 * 60 * 1000);
+    setTimeout(() => {
+      dbJobs.delete(key);
+      persistJobs();
+    }, 5 * 60 * 1000);
   }
 
   ipcMain.handle('monitor-list-databases', async (_event, data: { projectName: string; projectsDir?: string; odooVersion?: string }) => {
@@ -1156,7 +1202,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       type: 'create', dbName, projectName: data.projectName,
       status: 'running', step: 'creating_db', startTime: Date.now(), output: [],
     };
-    dbJobs.set(jobKey, job);
+    dbJobs.set(jobKey, job); persistJobs();
 
     const emit = (step: string, detail?: string) => {
       job.step = step;
@@ -1284,44 +1330,91 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   });
 
   ipcMain.handle('monitor-drop-database', async (_event, data: { projectName: string; dbName: string; projectsDir?: string; odooVersion?: string }) => {
+    const dbName = data.dbName;
+    if (!dbName || !/^[a-zA-Z_][a-zA-Z0-9_\-]*$/.test(dbName)) return { ok: false, msg: 'INVALID_DB_NAME' };
+
+    // Protect system databases
+    const protectedDbs = ['postgres', 'template0', 'template1'];
+    if (protectedDbs.includes(dbName.toLowerCase())) return { ok: false, msg: 'PROTECTED_DB' };
+
+    const odooVersion = data.odooVersion || DEFAULT_ODOO_VERSION;
+    const projectsDir = data.projectsDir || getDefaultProjectsDir(odooVersion);
+    const dbConf = readDbConfig(data.projectName, projectsDir);
+    if (!dbConf) return { ok: false, msg: 'CONFIG_NOT_FOUND' };
+
+    let pgSuperPassword = 'postgres';
+    const sFile = path.join(app.getPath('userData'), 'user-settings.json');
     try {
-      const dbName = data.dbName;
-      if (!dbName || !/^[a-zA-Z_][a-zA-Z0-9_\-]*$/.test(dbName)) return { ok: false, msg: 'INVALID_DB_NAME' };
+      if (fs.existsSync(sFile)) {
+        const raw = JSON.parse(fs.readFileSync(sFile, 'utf8'));
+        if (raw.pgSuperPassword) pgSuperPassword = raw.pgSuperPassword;
+      }
+    } catch {}
 
-      // Protect system databases
-      const protectedDbs = ['postgres', 'template0', 'template1'];
-      if (protectedDbs.includes(dbName.toLowerCase())) return { ok: false, msg: 'PROTECTED_DB' };
+    const pg = getPgTools(pgSuperPassword);
+    if (!pg) return { ok: false, msg: 'PG_NOT_FOUND' };
 
-      const odooVersion = data.odooVersion || DEFAULT_ODOO_VERSION;
-      const projectsDir = data.projectsDir || getDefaultProjectsDir(odooVersion);
-      const dbConf = readDbConfig(data.projectName, projectsDir);
-      if (!dbConf) return { ok: false, msg: 'CONFIG_NOT_FOUND' };
+    // Start async job — return immediately
+    const jobKey = getJobKey(data.projectName, 'drop', dbName);
+    const job: DbJob = {
+      type: 'drop', dbName, projectName: data.projectName,
+      status: 'running', step: 'terminating_connections', startTime: Date.now(), output: [],
+    };
+    dbJobs.set(jobKey, job); persistJobs();
 
-      let pgSuperPassword = 'postgres';
-      const sFile = path.join(app.getPath('userData'), 'user-settings.json');
+    (async () => {
       try {
-        if (fs.existsSync(sFile)) {
-          const raw = JSON.parse(fs.readFileSync(sFile, 'utf8'));
-          if (raw.pgSuperPassword) pgSuperPassword = raw.pgSuperPassword;
+        // Step 1: Terminate connections
+        emitDbProgress(data.projectName, 'db-job-progress', {
+          type: 'drop', dbName, step: 'terminating_connections', status: 'running',
+          elapsed: 0,
+        });
+        const psql = path.join(pg.pgBin, 'psql.exe');
+        await runCmd(
+          `"${psql}" -h ${dbConf.host} -p ${dbConf.port} -U postgres -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${dbName}' AND pid <> pg_backend_pid()"`,
+          undefined, pg.env
+        ).catch(() => {});
+
+        // Step 2: Drop database
+        job.step = 'dropping_db';
+        emitDbProgress(data.projectName, 'db-job-progress', {
+          type: 'drop', dbName, step: 'dropping_db', status: 'running',
+          elapsed: Date.now() - job.startTime,
+        });
+        const dropdb = path.join(pg.pgBin, 'dropdb.exe');
+        const { code, output } = await runCmd(
+          `"${dropdb}" -h ${dbConf.host} -p ${dbConf.port} -U postgres "${dbName}"`,
+          undefined, pg.env
+        );
+
+        if (code !== 0) {
+          job.status = 'error'; job.error = 'DROP_FAILED'; job.step = 'error';
+          emitDbProgress(data.projectName, 'db-job-progress', {
+            type: 'drop', dbName, step: 'error', status: 'error', error: 'DROP_FAILED',
+            detail: output,
+          });
+          scheduleJobCleanup(jobKey);
+          return;
         }
-      } catch {}
 
-      const pg = getPgTools(pgSuperPassword);
-      if (!pg) return { ok: false, msg: 'PG_NOT_FOUND' };
+        // Done
+        job.status = 'done'; job.step = 'done';
+        logger.log(`[monitor] Database dropped: ${dbName}`);
+        emitDbProgress(data.projectName, 'db-job-progress', {
+          type: 'drop', dbName, step: 'done', status: 'done',
+          elapsed: Date.now() - job.startTime,
+        });
+        scheduleJobCleanup(jobKey);
+      } catch (e) {
+        job.status = 'error'; job.error = String(e); job.step = 'error';
+        emitDbProgress(data.projectName, 'db-job-progress', {
+          type: 'drop', dbName, step: 'error', status: 'error', error: String(e),
+        });
+        scheduleJobCleanup(jobKey);
+      }
+    })();
 
-      const psql = path.join(pg.pgBin, 'psql.exe');
-      await runCmd(
-        `"${psql}" -h ${dbConf.host} -p ${dbConf.port} -U postgres -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${dbName}' AND pid <> pg_backend_pid()"`,
-        undefined, pg.env
-      ).catch(() => {});
-
-      const dropdb = path.join(pg.pgBin, 'dropdb.exe');
-      await runCmd(`"${dropdb}" -h ${dbConf.host} -p ${dbConf.port} -U postgres "${dbName}"`, undefined, pg.env);
-      logger.log(`[monitor] Database dropped: ${dbName}`);
-      return { ok: true };
-    } catch (e) {
-      return { ok: false, msg: String(e) };
-    }
+    return { ok: true, msg: 'STARTED' };
   });
 
   ipcMain.handle('monitor-restore-database', async (_event, data: {
@@ -1499,6 +1592,14 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       if (job.projectName === data.projectName) jobs.push(job);
     }
     return { ok: true, jobs };
+  });
+
+  // --- Dismiss a completed/error/interrupted DB job ---
+  ipcMain.handle('monitor-dismiss-db-job', async (_event, data: { projectName: string; type: string; dbName?: string }) => {
+    const key = getJobKey(data.projectName, data.type, data.dbName);
+    dbJobs.delete(key);
+    persistJobs();
+    return { ok: true };
   });
 
   // --- Get current app icon as data URL ---
