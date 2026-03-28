@@ -1265,6 +1265,7 @@ async function confirmDelete(e) {
   }
 
   await new Promise(r => setTimeout(r, 400));
+  if (btn) _resetBtn(btn);
   // Restore form for next use
   if (modal._origBody) { bodyEl.innerHTML = modal._origBody; modal._origBody = null; }
   if (modal._origFooter && footerEl) { footerEl.innerHTML = modal._origFooter; footerEl.style.display = ''; modal._origFooter = null; }
