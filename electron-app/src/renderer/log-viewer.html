@@ -680,7 +680,7 @@ body{display:flex;flex-direction:column}
     <div id="createDbProgress" style="display:none">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <span class="restart-spinner"></span>
-        <span id="createDbStep" style="font-size:0.75rem">Initializing...</span>
+        <span id="createDbStep" style="font-size:0.75rem"></span>
       </div>
       <div id="createDbElapsed" style="font-size:0.68rem;color:var(--text-dim);margin-bottom:6px"></div>
       <div id="createDbOutput" style="max-height:120px;overflow-y:auto;font-family:'Cascadia Code',Consolas,monospace;font-size:0.65rem;color:var(--text-dim);background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:6px 8px;display:none"></div>
@@ -710,7 +710,7 @@ body{display:flex;flex-direction:column}
     <div id="restoreDbProgress" style="display:none">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <span class="restart-spinner"></span>
-        <span id="restoreDbStep" style="font-size:0.75rem">Preparing...</span>
+        <span id="restoreDbStep" style="font-size:0.75rem"></span>
       </div>
       <div id="restoreDbElapsed" style="font-size:0.68rem;color:var(--text-dim);margin-bottom:6px"></div>
       <div id="restoreDbOutput" style="max-height:120px;overflow-y:auto;font-family:'Cascadia Code',Consolas,monospace;font-size:0.65rem;color:var(--text-dim);background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:6px 8px;display:none"></div>
@@ -810,18 +810,18 @@ function switchProject(val) {
     // Clear log and start watching new file
     clearLog();
     lineCount = 0;
-    document.getElementById('lineCount').textContent = '0 lines';
+    document.getElementById('lineCount').textContent = ti('logViewer.linesCount', { count: 0 });
     window.electronAPI.invoke('watch-log', { logPath: currentLogPath }).then(res => {
       if (res?.ok && res.lines?.length) {
         const box = document.getElementById('logBox');
         if (box.querySelector('.empty-state')) box.innerHTML = '';
         appendLines(res.lines);
         document.getElementById('statusDot').className = 'status-dot watching';
-        document.getElementById('statusText').textContent = 'Watching...';
+        document.getElementById('statusText').textContent = ti('logViewer.watching');
       } else {
-        document.getElementById('logBox').innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg><div>No log file yet. Start Odoo to generate logs.</div></div>';
+        document.getElementById('logBox').innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg><div>' + ti('logViewer.noLogYet') + '</div></div>';
         document.getElementById('statusDot').className = 'status-dot idle';
-        document.getElementById('statusText').textContent = 'No log file';
+        document.getElementById('statusText').textContent = ti('logViewer.noLogFile');
       }
     });
     // Reset database tab so it reloads for new project
@@ -904,27 +904,47 @@ function ti(key, params) {
 }
 
 function applyI18n() {
-  // Log tab
-  document.getElementById('sidebarTitle').textContent = ti('logViewer.sidebar') !== 'logViewer.sidebar' ? 'Config' : 'Config';
+  // Titlebar & status bar
+  document.getElementById('btnPin').title = ti('logViewer.alwaysOnTop');
+  document.querySelector('[onclick="minimizeWindow()"]').title = ti('logViewer.minimize');
+  document.getElementById('btnMaximize').title = ti('logViewer.maximize');
+  document.getElementById('btnSidebar').title = ti('logViewer.toggleSidebar');
+  document.getElementById('statusText').textContent = ti('logViewer.waiting');
+  document.getElementById('serverStatus').textContent = ti('logViewer.checking');
+
+  // Log tab - sidebar
+  document.getElementById('sidebarTitle').textContent = ti('logViewer.config');
   document.getElementById('logLevelLabel').textContent = ti('logViewer.logLevel');
   document.getElementById('upgradeLabel').textContent = ti('logViewer.upgradeModules');
   document.getElementById('restartLabel').innerHTML = ti('logViewer.saveRestart');
   document.getElementById('btnSelectAll').textContent = ti('logViewer.selectAll');
   document.getElementById('btnDeselectAll').textContent = ti('logViewer.deselectAll');
   document.getElementById('noModulesMsg').textContent = ti('logViewer.noCustomModules');
+
+  // Log tab - floating buttons
+  const clearBtn = document.querySelector('[onclick="clearLog()"]');
+  if (clearBtn) { clearBtn.title = ti('logViewer.clearLog'); clearBtn.lastChild.textContent = '\n        ' + ti('logViewer.clear') + '\n      '; }
+  const scrollBtn = document.getElementById('btnAutoScroll');
+  if (scrollBtn) { scrollBtn.title = ti('logViewer.autoScroll'); scrollBtn.innerHTML = '<span class="fab-dot"></span> ' + ti('logViewer.scroll'); }
+  const hlBtn = document.getElementById('btnHighlight');
+  if (hlBtn) { hlBtn.title = ti('logViewer.highlightLevels'); hlBtn.innerHTML = '<span class="fab-dot"></span> ' + ti('logViewer.highlight'); }
+
   // Tab labels
   const tabLog = document.querySelector('[data-tab-label="log"]');
   const tabDb = document.querySelector('[data-tab-label="database"]');
   if (tabLog) tabLog.textContent = ti('monitor.tabLog');
   if (tabDb) tabDb.textContent = ti('monitor.tabDatabase');
-  // Database tab
+
+  // Database tab - toolbar
   document.getElementById('dbConnLabel').textContent = ti('monitor.connInfo') + ':';
   document.getElementById('dbRefreshLabel').textContent = ti('monitor.refresh');
   document.getElementById('btnCreateDb').querySelector('span').textContent = ti('monitor.createDb');
   document.getElementById('btnRestoreDb').querySelector('span').textContent = ti('monitor.restoreDb');
+
+  // Create DB modal
   document.getElementById('createDbTitle').textContent = ti('monitor.createDb');
-  document.getElementById('createDbNameLabel').textContent = ti('monitor.createDbName');
   document.getElementById('createDbPasswdLabel').textContent = ti('monitor.adminPasswd');
+  document.getElementById('createDbNameLabel').textContent = ti('monitor.createDbName');
   document.getElementById('createDbEmailLabel').textContent = ti('monitor.adminEmail');
   document.getElementById('createDbPasswordLabel').textContent = ti('monitor.adminPasswordLabel');
   document.getElementById('createDbPhoneLabel').textContent = ti('monitor.adminPhone');
@@ -933,11 +953,22 @@ function applyI18n() {
   document.getElementById('createDbDemoLabel').textContent = ti('monitor.demoData');
   document.getElementById('createDbHint').textContent = ti('monitor.createHint');
   document.getElementById('createDbToggleOutput').textContent = ti('monitor.viewOutput');
+  document.getElementById('btnDoCreateDb').textContent = ti('logViewer.create');
+  document.getElementById('createDbCancelBtn').textContent = ti('logViewer.cancel');
+
+  // Restore DB modal
   document.getElementById('restoreDbTitle').textContent = ti('monitor.restoreDb');
   document.getElementById('restoreDbNameLabel').textContent = ti('monitor.createDbName');
   document.getElementById('restoreDbFileLabel').textContent = ti('monitor.restoreDbFile');
   document.getElementById('restoreDbToggleOutput').textContent = ti('monitor.viewOutput');
+  document.getElementById('btnDoRestoreDb').textContent = ti('logViewer.restore');
+  document.getElementById('restoreDbCancelBtn').textContent = ti('logViewer.cancel');
+  document.querySelector('#modalRestoreDb [onclick="pickRestoreFile()"]').textContent = ti('logViewer.browse');
+
+  // Drop DB modal
   document.getElementById('dropDbTitle').textContent = ti('monitor.dropDb');
+  document.getElementById('btnDoDropDb').textContent = ti('logViewer.drop');
+  document.querySelector('#modalDropDb [onclick*="hideDbModal"]').textContent = ti('logViewer.cancel');
 }
 
 // Help tooltips
@@ -987,21 +1018,21 @@ function appendLines(lines) {
     box.removeChild(box.firstChild);
     lineCount--;
   }
-  document.getElementById('lineCount').textContent = lineCount + ' lines';
+  document.getElementById('lineCount').textContent = ti('logViewer.linesCount', { count: lineCount });
   if (autoScroll) box.scrollTop = box.scrollHeight;
 }
 
 function clearLog() {
   document.getElementById('logBox').innerHTML = '';
   lineCount = 0;
-  document.getElementById('lineCount').textContent = '0 lines';
+  document.getElementById('lineCount').textContent = ti('logViewer.linesCount', { count: 0 });
 }
 
 function toggleAutoScroll() {
   autoScroll = !autoScroll;
   const btn = document.getElementById('btnAutoScroll');
   btn.classList.toggle('active', autoScroll);
-  btn.innerHTML = '<span class="fab-dot"></span> Scroll';
+  btn.innerHTML = '<span class="fab-dot"></span> ' + ti('logViewer.scroll');
 }
 
 function toggleHighlight() {
@@ -1009,7 +1040,7 @@ function toggleHighlight() {
   document.body.classList.toggle('highlight-on', highlightOn);
   const btn = document.getElementById('btnHighlight');
   btn.classList.toggle('active', highlightOn);
-  btn.innerHTML = '<span class="fab-dot"></span> Highlight';
+  btn.innerHTML = '<span class="fab-dot"></span> ' + ti('logViewer.highlight');
 }
 
 function togglePin() {
@@ -1020,7 +1051,7 @@ function togglePin() {
   void btn.offsetWidth; // force reflow to restart animation
   btn.classList.toggle('pinned', pinned);
   btn.classList.add(pinned ? 'animate-in' : 'animate-out');
-  btn.title = pinned ? 'Pinned — always on top' : 'Always on top';
+  btn.title = pinned ? ti('logViewer.pinnedOnTop') : ti('logViewer.alwaysOnTop');
 }
 
 function toggleSidebar() {
@@ -1170,9 +1201,9 @@ if (window.electronAPI) {
       if (box.querySelector('.empty-state')) box.innerHTML = '';
       appendLines(res.lines);
       document.getElementById('statusDot').className = 'status-dot watching';
-      document.getElementById('statusText').textContent = 'Watching...';
+      document.getElementById('statusText').textContent = ti('logViewer.watching');
     } else {
-      document.getElementById('logBox').innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg><div>No log file yet. Start Odoo to generate logs.</div></div>';
+      document.getElementById('logBox').innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg><div>' + ti('logViewer.noLogYet') + '</div></div>';
     }
   }).catch(err => {
     console.error('[log-viewer] watch-log error:', err);
@@ -1182,7 +1213,7 @@ if (window.electronAPI) {
   window.electronAPI.onEvent('project-log', (data) => {
     if (data.logPath === currentLogPath && data.lines?.length) {
       document.getElementById('statusDot').className = 'status-dot watching';
-      document.getElementById('statusText').textContent = 'Watching...';
+      document.getElementById('statusText').textContent = ti('logViewer.watching');
       appendLines(data.lines);
     }
   });
@@ -1308,7 +1339,7 @@ async function checkActiveJobs() {
 
 async function loadDatabases() {
   const wrap = document.getElementById('dbTableWrap');
-  wrap.innerHTML = '<div class="db-loading"><span class="restart-spinner"></span><span>Loading databases...</span></div>';
+  wrap.innerHTML = '<div class="db-loading"><span class="restart-spinner"></span><span>' + ti('logViewer.loading') + '</span></div>';
   try {
     const res = await window.electronAPI.invoke('monitor-list-databases', {
       projectName: currentProjectName, projectsDir, odooVersion,
@@ -1383,7 +1414,7 @@ function showCreateDbModal() {
 async function doCreateDb() {
   const name = document.getElementById('createDbName').value.trim();
   const msgEl = document.getElementById('createDbMsg');
-  if (!name) { msgEl.className = 'db-msg error'; msgEl.textContent = 'Database name is required'; return; }
+  if (!name) { msgEl.className = 'db-msg error'; msgEl.textContent = ti('logViewer.dbNameRequired'); return; }
   const demoData = document.getElementById('createDbDemo').checked;
   const adminEmail = document.getElementById('createDbEmail').value.trim() || 'admin';
   const adminPassword = document.getElementById('createDbPassword').value.trim() || 'admin';
@@ -1452,8 +1483,8 @@ async function doRestoreDb() {
   const name = document.getElementById('restoreDbName').value.trim();
   const filePath = document.getElementById('restoreDbFile').value.trim();
   const msgEl = document.getElementById('restoreDbMsg');
-  if (!name) { msgEl.className = 'db-msg error'; msgEl.textContent = 'Database name is required'; return; }
-  if (!filePath) { msgEl.className = 'db-msg error'; msgEl.textContent = 'Backup file is required'; return; }
+  if (!name) { msgEl.className = 'db-msg error'; msgEl.textContent = ti('logViewer.dbNameRequired'); return; }
+  if (!filePath) { msgEl.className = 'db-msg error'; msgEl.textContent = ti('logViewer.backupRequired'); return; }
 
   // Switch to progress mode
   document.getElementById('restoreDbForm').style.display = 'none';
@@ -1498,7 +1529,7 @@ function showDropDbModal(dbName) {
 async function doDropDb() {
   const input = document.getElementById('dropDbConfirmInput').value.trim();
   const msgEl = document.getElementById('dropDbMsg');
-  if (input !== _dbDropTarget) { msgEl.className = 'db-msg error'; msgEl.textContent = 'Name does not match'; return; }
+  if (input !== _dbDropTarget) { msgEl.className = 'db-msg error'; msgEl.textContent = ti('logViewer.nameNotMatch'); return; }
   const btn = document.getElementById('btnDoDropDb');
   btn.disabled = true;
   try {
