@@ -956,16 +956,14 @@ async function createProject(e) {
     data.proxy_mode = $('newProxyMode')?.value || 'True';
     data.project_domain = $('newProjDomain')?.value || '';
 
-    // Button pending then switch to progress
+    // Show progress in modal (save form BEFORE btn pending to avoid saving spinner state)
     const btn = (e || event)?.target?.closest?.('button');
-    if (btn) _setBtnPending(btn);
-
-    // Show progress in modal (save form for restore)
     const modal = $('modalNewProject');
     const bodyEl = modal.querySelector('.modal-body');
     const footerEl = modal.querySelector('.modal-footer');
     if (!modal._origBody) modal._origBody = bodyEl.innerHTML;
     if (!modal._origFooter) modal._origFooter = footerEl?.innerHTML;
+    if (btn) _setBtnPending(btn);
     bodyEl.innerHTML = '<div id="createProgressSteps"></div>';
     if (footerEl) footerEl.style.display = 'none';
     _renderProgressSteps('createProgressSteps', CREATE_STEPS, 'modalNewProject');

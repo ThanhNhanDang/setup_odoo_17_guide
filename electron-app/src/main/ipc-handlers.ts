@@ -775,6 +775,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       height: 500,
       minWidth: 500,
       minHeight: 300,
+      show: false,              // Don't show until content is painted
       frame: false,
       title: `${projectName} — Monitor`,
       backgroundColor: '#0d1117',
@@ -787,6 +788,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       },
     });
 
+    logWin.once('ready-to-show', () => logWin.show());
     logWin.loadFile(logViewerPath, { search: queryParams });
 
     logWindows.set(windowKey, logWin);
