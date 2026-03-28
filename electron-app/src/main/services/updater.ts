@@ -21,6 +21,8 @@ export class UpdaterService {
   private updateAvailable = false;
   private updateInfo: UpdateInfo | null = null;
   private checkInterval: ReturnType<typeof setInterval> | null = null;
+  /** Tracks whether the autoUpdater event already sent a status for this check */
+  private eventFiredForCurrentCheck = false;
 
   constructor(private readonly window: BrowserWindow) {
     // Don't auto-download — wait for user confirmation
@@ -61,6 +63,7 @@ export class UpdaterService {
       console.log('[updater] Update available: v' + info.version);
       this.updateAvailable = true;
       this.updateInfo = info;
+      this.eventFiredForCurrentCheck = true;
       this.sendToRenderer('update-status', {
         status: 'available',
         version: info.version,
@@ -73,6 +76,7 @@ export class UpdaterService {
 
     autoUpdater.on('update-not-available', (info: UpdateInfo) => {
       console.log('[updater] Up to date: v' + info.version);
+      this.eventFiredForCurrentCheck = true;
       this.sendToRenderer('update-status', { status: 'up-to-date' });
     });
 
@@ -111,10 +115,12 @@ export class UpdaterService {
   /** Check for updates (returns result for manual checks) */
   async checkForUpdates(): Promise<void> {
     console.log('[updater] Starting update check (packaged: ' + app.isPackaged + ')');
+    this.eventFiredForCurrentCheck = false;
     try {
       const result = await autoUpdater.checkForUpdates();
-      // electron-updater may not fire events if result is cached
-      // Force-send the status to renderer for manual checks
+      // Only send status if the autoUpdater event didn't already fire
+      // (avoids double update-status → double showUpdateCard in renderer)
+      if (this.eventFiredForCurrentCheck) return;
       if (result?.updateInfo) {
         const currentVersion = app.getVersion();
         const latestVersion = result.updateInfo.version;

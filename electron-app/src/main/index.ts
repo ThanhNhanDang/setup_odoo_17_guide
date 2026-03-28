@@ -8,13 +8,15 @@ import { UpdaterService } from './services/updater';
 // Self-elevate to Admin if not already (Windows only)
 // In dev mode (--dev flag or VS Code F5), skip elevation so the app still launches.
 // Some operations (PostgreSQL install, Nginx) require admin — those will fail gracefully.
-function ensureAdmin(): void {
-  if (process.platform !== 'win32') return;
+/** @returns true if we can continue, false if app is quitting (re-launching as admin) */
+function ensureAdmin(): boolean {
+  if (process.platform !== 'win32') return true;
   // Skip admin elevation in dev mode — allows F5 from VS Code
-  if (process.argv.includes('--dev') || !app.isPackaged) return;
+  if (process.argv.includes('--dev') || !app.isPackaged) return true;
   try {
     execSync('net session', { stdio: 'ignore', windowsHide: true });
     // Already admin
+    return true;
   } catch {
     // Not admin - relaunch with elevation (packaged app only)
     const args = process.argv.slice(1).join('" "');
@@ -23,6 +25,7 @@ function ensureAdmin(): void {
       { windowsHide: true }
     );
     app.quit();
+    return false;
   }
 }
 
@@ -191,7 +194,7 @@ if (!gotTheLock) {
   });
 
   app.whenReady().then(() => {
-    ensureAdmin();
+    if (!ensureAdmin()) return; // Re-launching as admin — don't create window
     createTray();
     createWindow();
   });
