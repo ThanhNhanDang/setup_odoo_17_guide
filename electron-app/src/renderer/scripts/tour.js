@@ -16,6 +16,7 @@ function startTourAtStep(index) {
 function startTour(startIndex) {
   if (_tourActive) return;
   _tourActive = true;
+  document.body.classList.add('tour-active');
   _tourStep = startIndex || 0;
 
   // Create overlay panels (top, bottom, left, right)
@@ -67,6 +68,7 @@ function startTour(startIndex) {
 function endTour() {
   if (!_tourActive) return;
   _tourActive = false;
+  document.body.classList.remove('tour-active');
 
   // Remove highlight from previous element
   if (_tourPrevHighlight) {

@@ -2,11 +2,12 @@
 // Odoo Version Registry — single source of truth for version-specific config
 // ---------------------------------------------------------------------------
 
-export type OdooVersionKey = '15' | '17' | '19';
+export type OdooVersionKey = '15' | '17' | '18' | '19';
 
 export interface OdooVersionConfig {
   readonly key: OdooVersionKey;
   readonly label: string;
+  readonly settingsLabel: string;          // e.g. 'Odoo 17 (Python 3.11, PG 16)'
   readonly branch: string;
   readonly pythonVersion: string;
   readonly pythonUrl: string;
@@ -31,6 +32,7 @@ export const ODOO_VERSIONS: Readonly<Record<OdooVersionKey, OdooVersionConfig>> 
   '15': {
     key: '15',
     label: 'Odoo 15',
+    settingsLabel: 'Odoo 15 (Python 3.10, PG 14)',
     branch: '15.0',
     pythonVersion: 'Python 3.10',
     pythonUrl: 'https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe',
@@ -48,6 +50,7 @@ export const ODOO_VERSIONS: Readonly<Record<OdooVersionKey, OdooVersionConfig>> 
   '17': {
     key: '17',
     label: 'Odoo 17',
+    settingsLabel: 'Odoo 17 (Python 3.11, PG 16)',
     branch: '17.0',
     pythonVersion: 'Python 3.11',
     pythonUrl: 'https://www.python.org/ftp/python/3.11.4/python-3.11.4-amd64.exe',
@@ -62,9 +65,28 @@ export const ODOO_VERSIONS: Readonly<Record<OdooVersionKey, OdooVersionConfig>> 
     color: '#f0883e',   // orange (current accent)
     extraPipPackages: [...COMMON_EXTRA_PACKAGES, 'PyPDF2>=3.0'],
   },
+  '18': {
+    key: '18',
+    label: 'Odoo 18',
+    settingsLabel: 'Odoo 18 (Python 3.12, PG 16)',
+    branch: '18.0',
+    pythonVersion: 'Python 3.12',
+    pythonUrl: 'https://www.python.org/ftp/python/3.12.7/python-3.12.7-amd64.exe',
+    pythonVersionPrefix: '3.12',
+    pythonDirName: 'Python312',
+    postgresVersion: '16',
+    postgresUrl: 'https://get.enterprisedb.com/postgresql/postgresql-16.6-1-windows-x64.exe',
+    postgresDockerImage: 'postgres:16',
+    pgvector: false,
+    baseDirSuffix: 'odoo_18_base',
+    defaultProjectsSubdir: 'odoo18',
+    color: '#a855f7',   // purple
+    extraPipPackages: [...COMMON_EXTRA_PACKAGES],
+  },
   '19': {
     key: '19',
     label: 'Odoo 19',
+    settingsLabel: 'Odoo 19 (Python 3.12, PG 16 + pgvector)',
     branch: 'master',   // Update to '19.0' when branch is created
     pythonVersion: 'Python 3.12',
     pythonUrl: 'https://www.python.org/ftp/python/3.12.7/python-3.12.7-amd64.exe',
@@ -83,7 +105,18 @@ export const ODOO_VERSIONS: Readonly<Record<OdooVersionKey, OdooVersionConfig>> 
 
 export const DEFAULT_ODOO_VERSION: OdooVersionKey = '17';
 
-export const ALL_VERSIONS: readonly OdooVersionKey[] = ['15', '17', '19'];
+export const ALL_VERSIONS: readonly OdooVersionKey[] = ['15', '17', '18', '19'];
+
+/**
+ * PostgreSQL versions to scan when detecting native installs.
+ * Derived from registry — unique PG versions (sorted desc), plus common older ones.
+ */
+export const PG_SCAN_VERSIONS: readonly string[] = (() => {
+  const fromRegistry = new Set(ALL_VERSIONS.map(v => ODOO_VERSIONS[v].postgresVersion));
+  // Also scan older PG versions that users might have installed manually
+  for (const older of ['15', '14', '13']) fromRegistry.add(older);
+  return [...fromRegistry].sort((a, b) => Number(b) - Number(a));
+})();
 
 export function getVersionConfig(version: string): OdooVersionConfig {
   const config = ODOO_VERSIONS[version as OdooVersionKey];
@@ -95,6 +128,24 @@ export function getVersionConfig(version: string): OdooVersionConfig {
 
 export function isValidVersion(version: string): version is OdooVersionKey {
   return version in ODOO_VERSIONS;
+}
+
+/**
+ * Merge registry defaults with user URL overrides.
+ * Only pythonUrl and postgresUrl are overridable.
+ */
+export function getEffectiveVersionConfig(
+  version: string,
+  urlOverrides?: Record<string, { pythonUrl?: string; postgresUrl?: string }>
+): OdooVersionConfig {
+  const config = getVersionConfig(version);
+  const overrides = urlOverrides?.[version];
+  if (!overrides) return config;
+  return {
+    ...config,
+    ...(overrides.pythonUrl ? { pythonUrl: overrides.pythonUrl } : {}),
+    ...(overrides.postgresUrl ? { postgresUrl: overrides.postgresUrl } : {}),
+  };
 }
 
 /**

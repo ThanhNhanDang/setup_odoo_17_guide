@@ -879,6 +879,10 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   transition:border 0.2s;caret-color:var(--accent);
 }
 .form-group input:focus,.form-group select:focus{border-color:var(--accent)}
+.version-url-input{font-size:0.8rem;font-family:monospace}
+.version-url-locked{opacity:0.6;cursor:not-allowed;background:var(--bg-surface)}
+.kanban-card-demo{opacity:0.55;pointer-events:none;border-style:dashed}
+.tour-active .kanban-card-demo{opacity:0.85}
 
 /* ===== Buttons ===== */
 .btn{

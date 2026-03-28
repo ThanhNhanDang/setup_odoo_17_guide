@@ -8,7 +8,9 @@ import {
   PROJECT_DEFAULTS,
   getTemplatesDir,
 } from './config';
-import { getVersionConfig, getPythonCandidates, DEFAULT_ODOO_VERSION } from './odoo-versions';
+import { getVersionConfig, getEffectiveVersionConfig, getPythonCandidates, DEFAULT_ODOO_VERSION } from './odoo-versions';
+
+export type UrlOverrides = Record<string, { pythonUrl?: string; postgresUrl?: string }>;
 import { findPython, findPythonViaLauncher, findPostgresBin, findDocker, findDockerPostgres, findVSCode, findGit } from './detection';
 import { runCmd, runCmdStreaming } from '../utils/shell';
 import { downloadFile } from '../utils/download';
@@ -111,8 +113,8 @@ export async function stepInstallVSCode(baseDir: string, logger: LoggerService):
   return { ok: false, msg: 'Install may need admin rights.' };
 }
 
-export async function stepInstallPython(baseDir: string, logger: LoggerService, odooVersion: string = DEFAULT_ODOO_VERSION): Promise<StepResult> {
-  const vCfg = getVersionConfig(odooVersion);
+export async function stepInstallPython(baseDir: string, logger: LoggerService, odooVersion: string = DEFAULT_ODOO_VERSION, urlOverrides?: UrlOverrides): Promise<StepResult> {
+  const vCfg = getEffectiveVersionConfig(odooVersion, urlOverrides);
   const candidates = getPythonCandidates(odooVersion);
   if (findPython(candidates)) {
     logger.log(`${vCfg.pythonVersion} already installed.`);
@@ -175,8 +177,9 @@ export async function stepInstallPostgres(
   dbPassword: string = 'odoo',
   pgMode: string = 'auto',
   odooVersion: string = DEFAULT_ODOO_VERSION,
+  urlOverrides?: UrlOverrides,
 ): Promise<StepResult> {
-  const vCfg = getVersionConfig(odooVersion);
+  const vCfg = getEffectiveVersionConfig(odooVersion, urlOverrides);
   const pgVer = vCfg.postgresVersion;
 
   // Check if the required PG version is already installed
@@ -719,6 +722,7 @@ export async function stepFullInstall(
   opts: Record<string, string> = {},
   lock: StepLockManager = new StepLockManager(),
   odooVersion: string = DEFAULT_ODOO_VERSION,
+  urlOverrides?: UrlOverrides,
 ): Promise<readonly FullInstallResult[]> {
   fs.mkdirSync(baseDir, { recursive: true });
   fs.mkdirSync(projectsDir, { recursive: true });
@@ -736,13 +740,13 @@ export async function stepFullInstall(
   logger.log('Starting parallel installation pipeline...');
   logger.log('==================================================');
 
-  const vCfg = getVersionConfig(odooVersion);
+  const vCfg = getEffectiveVersionConfig(odooVersion, urlOverrides);
 
   // Fire all independent tasks simultaneously (with lock support)
   const gitPromise = runNamedStep('Installing Git...', 'install_git', () => stepInstallGit(baseDir, logger), logger, lock);
   const vscodePromise = runNamedStep('Installing VS Code...', 'install_vscode', () => stepInstallVSCode(baseDir, logger), logger, lock);
-  const pythonPromise = runNamedStep(`Installing ${vCfg.pythonVersion}...`, 'install_python', () => stepInstallPython(baseDir, logger, odooVersion), logger, lock);
-  const pgPromise = runNamedStep(`Installing PostgreSQL ${vCfg.postgresVersion}...`, 'install_postgres', () => stepInstallPostgres(baseDir, logger, pgSuperPassword, dbPort, dbUser, dbPassword, pgMode, odooVersion), logger, lock);
+  const pythonPromise = runNamedStep(`Installing ${vCfg.pythonVersion}...`, 'install_python', () => stepInstallPython(baseDir, logger, odooVersion, urlOverrides), logger, lock);
+  const pgPromise = runNamedStep(`Installing PostgreSQL ${vCfg.postgresVersion}...`, 'install_postgres', () => stepInstallPostgres(baseDir, logger, pgSuperPassword, dbPort, dbUser, dbPassword, pgMode, odooVersion, urlOverrides), logger, lock);
   const nginxPromise = runNamedStep('Installing Nginx (HTTPS)...', 'install_nginx', () => stepInstallNginx(baseDir, logger), logger, lock);
 
   // ── Chain: Git done → Clone Odoo ──

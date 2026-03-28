@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execFileSync, execSync, execFile, exec } from 'child_process';
+import { PG_SCAN_VERSIONS } from './odoo-versions';
 
 // ---------------------------------------------------------------------------
 // Async exec helper — wraps callback exec into Promise with timeout
@@ -142,7 +143,7 @@ export function findPython311(): string | null {
  * Find PostgreSQL bin directory (checks versions 17 down to 14).
  */
 export function findPostgresBin(): string | null {
-  for (const ver of ['17', '16', '15', '14']) {
+  for (const ver of PG_SCAN_VERSIONS) {
     const binDir = `C:\\Program Files\\PostgreSQL\\${ver}\\bin`;
     if (fs.existsSync(path.join(binDir, 'psql.exe'))) {
       return binDir;
@@ -156,7 +157,7 @@ export function findPostgresBin(): string | null {
  * Returns bin path and data_dir, or null if not found.
  */
 export function findPostgresForPort(targetPort: string): { binPath: string; dataDir: string; version: string; serviceName: string } | null {
-  for (const ver of ['17', '16', '15', '14']) {
+  for (const ver of PG_SCAN_VERSIONS) {
     const binDir = `C:\\Program Files\\PostgreSQL\\${ver}\\bin`;
     const dataDir = `C:\\Program Files\\PostgreSQL\\${ver}\\data`;
     if (!fs.existsSync(path.join(binDir, 'psql.exe'))) continue;
@@ -389,7 +390,7 @@ export function detectNativePostgresDetails(): NativePostgresDetails | null {
   };
 
   // Find data dir and port from postgresql.conf
-  for (const ver of ['17', '16', '15', '14']) {
+  for (const ver of PG_SCAN_VERSIONS) {
     const dataDir = `C:\\Program Files\\PostgreSQL\\${ver}\\data`;
     if (fs.existsSync(dataDir) && fs.statSync(dataDir).isDirectory()) {
       result.data_dir = dataDir;
@@ -573,7 +574,7 @@ export async function detectNativePostgresDetailsAsync(): Promise<NativePostgres
   };
 
   // Find data dir + port (fast, file reads only)
-  for (const ver of ['17', '16', '15', '14']) {
+  for (const ver of PG_SCAN_VERSIONS) {
     const dataDir = `C:\\Program Files\\PostgreSQL\\${ver}\\data`;
     if (fs.existsSync(dataDir) && fs.statSync(dataDir).isDirectory()) {
       result.data_dir = dataDir;
