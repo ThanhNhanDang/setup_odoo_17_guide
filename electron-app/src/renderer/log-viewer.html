@@ -61,10 +61,12 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .sidebar{
   width:var(--sidebar-w);min-width:var(--sidebar-w);max-width:var(--sidebar-w);
   background:var(--bg-surface);border-right:1px solid var(--border);
-  display:flex;flex-direction:column;overflow:hidden;
+  display:flex;flex-direction:column;overflow:visible;position:relative;
   transition:margin-left 0.25s ease,opacity 0.25s ease;
 }
-.sidebar.collapsed{margin-left:calc(var(--sidebar-w) * -1);opacity:0;pointer-events:none}
+.sidebar>*:not(.sidebar-edge-toggle){overflow:hidden}
+.sidebar.collapsed{margin-left:calc(var(--sidebar-w) * -1)}
+.sidebar.collapsed>*:not(.sidebar-edge-toggle){opacity:0;pointer-events:none}
 
 .sidebar-header{
   padding:8px 10px;border-bottom:1px solid var(--border);
@@ -177,21 +179,18 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .log-fab svg{width:12px;height:12px;flex-shrink:0}
 
 /* Sidebar toggle in status bar */
-.sidebar-toggle-btn{
-  background:none;border:1px solid var(--border);color:var(--text-dim);
-  cursor:pointer;display:flex;align-items:center;justify-content:center;
-  padding:3px 5px;border-radius:4px;transition:color 0.15s,background 0.15s;
-}
-.sidebar-toggle-btn:hover{color:var(--text);background:var(--border)}
-/* Floating expand button: visible only when sidebar is collapsed */
-.sidebar-expand-btn{
-  display:none;position:absolute;top:6px;left:6px;z-index:10;
-  background:var(--bg-surface);border:1px solid var(--border);color:var(--text-dim);
-  cursor:pointer;padding:4px 6px;border-radius:4px;
+/* Edge toggle button — docked on right border of sidebar, vertically centered */
+.sidebar-edge-toggle{
+  position:absolute;top:50%;right:0;transform:translate(50%,-50%);z-index:20;
+  width:18px;height:36px;border-radius:0 6px 6px 0;
+  background:var(--bg-surface);border:1px solid var(--border);border-left:none;
+  color:var(--text-dim);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
   transition:color 0.15s,background 0.15s;
 }
-.sidebar-expand-btn:hover{color:var(--text);background:var(--border)}
-.sidebar.collapsed ~ .log-panel .sidebar-expand-btn{display:flex}
+.sidebar-edge-toggle:hover{color:var(--text);background:var(--border)}
+.sidebar-edge-toggle svg{width:10px;height:10px;transition:transform 0.25s}
+.sidebar.collapsed .sidebar-edge-toggle svg{transform:rotate(180deg)}
 
 .log-container{
   flex:1;overflow-y:auto;padding:8px 12px;font-family:'Cascadia Code',Consolas,'Courier New',monospace;
@@ -409,11 +408,12 @@ body{display:flex;flex-direction:column}
 <div class="main-content">
   <!-- Sidebar -->
   <div class="sidebar" id="sidebar">
+    <!-- Edge toggle button — docked on right border -->
+    <button onclick="toggleSidebar()" class="sidebar-edge-toggle" id="btnSidebar" title="Toggle sidebar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
     <div class="sidebar-header">
       <span class="sidebar-header-title" id="sidebarTitle">Config</span>
-      <button onclick="toggleSidebar()" class="sidebar-toggle-btn" id="btnSidebar" title="Toggle sidebar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
-      </button>
     </div>
 
     <!-- Action buttons -->
@@ -472,10 +472,6 @@ body{display:flex;flex-direction:column}
 
   <!-- Log panel -->
   <div class="log-panel">
-    <!-- Floating expand button — visible only when sidebar collapsed -->
-    <button onclick="toggleSidebar()" class="sidebar-expand-btn" title="Show sidebar">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
-    </button>
     <!-- Floating controls — top-right -->
     <div class="log-fab-group">
       <button onclick="clearLog()" class="log-fab" title="Clear log">
@@ -1172,7 +1168,6 @@ function togglePin() {
 function toggleSidebar() {
   sidebarOpen = !sidebarOpen;
   document.getElementById('sidebar').classList.toggle('collapsed', !sidebarOpen);
-  document.getElementById('btnSidebar').classList.toggle('active', sidebarOpen);
 }
 
 // --- Sidebar: Load project info ---
