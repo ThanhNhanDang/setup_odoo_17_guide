@@ -31,9 +31,30 @@ echo   Publishing %TYPE% release...
 echo ============================================================
 echo.
 
-REM Get current version using node (reliable)
-for /f %%v in ('node -p "require('./package.json').version"') do set CURRENT_VER=%%v
-echo   Current version: %CURRENT_VER%
+REM Get current LOCAL version
+for /f %%v in ('node -p "require('./package.json').version"') do set LOCAL_VER=%%v
+echo   Local version:   %LOCAL_VER%
+
+REM Get latest version from GitHub
+for /f %%v in ('gh release list --limit 1 --json tagName --jq ".[0].tagName" 2^>nul') do set GH_TAG=%%v
+if "%GH_TAG%"=="" (
+    echo   GitHub version:  [none found]
+    set GH_VER=0.0.0
+) else (
+    REM Strip leading 'v' from tag (v1.4.1 -> 1.4.1)
+    set GH_VER=%GH_TAG:~1%
+    echo   GitHub version:  %GH_VER%
+)
+
+REM Compare: if local < GitHub, sync local to GitHub version first
+for /f %%r in ('node -e "const [a,b]=['%LOCAL_VER%','%GH_VER%'].map(v=>v.split('.').map(Number));const c=a[0]-b[0]||a[1]-b[1]||a[2]-b[2];console.log(c<0?'behind':c>0?'ahead':'same')"') do set CMP=%%r
+
+if "%CMP%"=="behind" (
+    echo.
+    echo   [WARNING] Local v%LOCAL_VER% is behind GitHub v%GH_VER%
+    echo   Syncing local version to v%GH_VER% before bumping...
+    call npm version %GH_VER% --no-git-tag-version --allow-same-version >nul 2>&1
+)
 
 REM Bump version
 call npm version %TYPE% --no-git-tag-version >nul 2>&1
@@ -41,6 +62,16 @@ call npm version %TYPE% --no-git-tag-version >nul 2>&1
 REM Get new version
 for /f %%v in ('node -p "require('./package.json').version"') do set NEW_VER=%%v
 echo   New version:     %NEW_VER%
+
+REM Final safety check: new version must be > GitHub version
+for /f %%r in ('node -e "const [a,b]=['%NEW_VER%','%GH_VER%'].map(v=>v.split('.').map(Number));console.log((a[0]-b[0]||a[1]-b[1]||a[2]-b[2])>0?'ok':'fail')"') do set FINAL_CMP=%%r
+if "%FINAL_CMP%"=="fail" (
+    echo.
+    echo   [ERROR] New version v%NEW_VER% is not greater than GitHub v%GH_VER%!
+    echo   Aborting publish.
+    pause
+    exit /b 1
+)
 echo.
 
 echo   Cleaning old builds...
