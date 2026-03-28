@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Odoo Log</title>
+<title>Project Monitor</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -226,6 +226,99 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   z-index:100;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.3);
 }
 
+/* Tab bar */
+.tab-bar{
+  display:flex;align-items:stretch;background:var(--bg-surface);
+  border-bottom:1px solid var(--border);flex-shrink:0;padding:0 8px;gap:2px;
+}
+.tab-btn{
+  padding:6px 14px;border:none;background:transparent;color:var(--text-dim);
+  font-size:0.72rem;font-weight:600;cursor:pointer;position:relative;
+  display:flex;align-items:center;gap:5px;transition:color 0.15s,background 0.15s;
+  border-radius:4px 4px 0 0;
+}
+.tab-btn:hover{color:var(--text);background:rgba(255,255,255,0.04)}
+.tab-btn.active{color:var(--text)}
+.tab-btn.active::after{
+  content:'';position:absolute;bottom:0;left:4px;right:4px;height:2px;
+  background:var(--header-bg);border-radius:2px 2px 0 0;
+}
+.tab-btn svg{width:13px;height:13px;flex-shrink:0}
+.tab-content{display:none;flex:1;min-height:0;flex-direction:column;overflow:hidden}
+.tab-content.active{display:flex}
+
+/* Database tab */
+.db-container{display:flex;flex-direction:column;flex:1;min-height:0;padding:0}
+.db-toolbar{
+  display:flex;align-items:center;gap:6px;padding:8px 12px;
+  border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;
+}
+.db-toolbar-btn{
+  padding:5px 12px;border-radius:5px;border:1px solid var(--border);
+  background:var(--bg);color:var(--text);font-size:0.72rem;cursor:pointer;
+  display:flex;align-items:center;gap:5px;transition:all 0.15s;
+}
+.db-toolbar-btn:hover{background:var(--border);border-color:var(--text-dim)}
+.db-toolbar-btn:disabled{opacity:0.4;cursor:not-allowed}
+.db-toolbar-btn.primary{background:var(--header-bg);color:#fff;border-color:var(--header-bg)}
+.db-toolbar-btn.primary:hover{filter:brightness(1.1)}
+.db-toolbar-btn.danger{color:#ff7b72;border-color:rgba(255,123,114,0.3)}
+.db-toolbar-btn.danger:hover{background:rgba(255,123,114,0.1);border-color:#ff7b72}
+.db-toolbar-btn svg{width:13px;height:13px}
+
+.db-conn-info{
+  display:flex;align-items:center;gap:12px;padding:8px 12px;
+  background:rgba(255,255,255,0.02);border-bottom:1px solid var(--border);
+  font-size:0.7rem;color:var(--text-dim);flex-shrink:0;
+}
+.db-conn-tag{
+  display:flex;align-items:center;gap:4px;padding:2px 8px;
+  background:var(--bg);border:1px solid var(--border);border-radius:4px;
+}
+.db-conn-tag strong{color:var(--text);font-weight:600}
+
+.db-table-wrap{flex:1;overflow:auto;padding:0}
+.db-table{width:100%;border-collapse:collapse;font-size:0.72rem}
+.db-table th{
+  position:sticky;top:0;background:var(--bg-surface);color:var(--text-dim);
+  font-weight:600;text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);
+  font-size:0.68rem;text-transform:uppercase;letter-spacing:0.3px;z-index:1;
+}
+.db-table td{padding:7px 12px;border-bottom:1px solid rgba(48,54,61,0.5);color:var(--text)}
+.db-table tr:hover td{background:rgba(255,255,255,0.02)}
+.db-table .db-size{color:var(--text-dim);font-family:'Cascadia Code',Consolas,monospace;font-size:0.7rem}
+.db-table .db-actions{white-space:nowrap}
+
+.db-empty{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  flex:1;color:var(--text-dim);gap:8px;font-size:0.8rem;
+}
+.db-empty svg{width:36px;height:36px;opacity:0.3}
+.db-loading{display:flex;align-items:center;justify-content:center;flex:1;color:var(--text-dim);gap:8px;font-size:0.75rem}
+.db-loading .restart-spinner{border-top-color:var(--text-dim)}
+
+/* DB modal (create/restore) */
+.db-modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;
+  display:none;align-items:center;justify-content:center;
+}
+.db-modal-overlay.show{display:flex}
+.db-modal{
+  background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;
+  padding:20px;min-width:320px;max-width:420px;width:90%;
+}
+.db-modal h3{font-size:0.85rem;margin-bottom:12px;color:var(--text)}
+.db-modal label{font-size:0.72rem;color:var(--text-dim);display:block;margin-bottom:4px}
+.db-modal input,.db-modal select{
+  width:100%;padding:7px 10px;border-radius:5px;border:1px solid var(--border);
+  background:var(--bg);color:var(--text);font-size:0.75rem;margin-bottom:10px;outline:none;
+}
+.db-modal input:focus{border-color:var(--header-bg)}
+.db-modal .db-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
+.db-modal .db-msg{font-size:0.7rem;padding:6px 8px;border-radius:4px;margin-bottom:8px;display:none}
+.db-modal .db-msg.error{display:block;background:rgba(255,123,114,0.1);color:#ff7b72;border:1px solid rgba(255,123,114,0.2)}
+.db-modal .db-msg.success{display:block;background:rgba(63,185,80,0.1);color:#3fb950;border:1px solid rgba(63,185,80,0.2)}
+
 /* Layout */
 body{display:flex;flex-direction:column}
 </style>
@@ -233,9 +326,9 @@ body{display:flex;flex-direction:column}
 <body>
 <div class="titlebar">
   <span class="titlebar-title">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
     <select id="projectSelect" class="project-select" onchange="switchProject(this.value)" title="Switch project">
-      <option id="windowTitle">Odoo Log</option>
+      <option id="windowTitle">Project Monitor</option>
     </select>
   </span>
   <div class="titlebar-controls">
@@ -267,6 +360,20 @@ body{display:flex;flex-direction:column}
   </div>
 </div>
 
+<!-- Tab bar -->
+<div class="tab-bar">
+  <button class="tab-btn active" id="tabBtnLog" onclick="switchTab('log')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+    <span data-tab-label="log">Log</span>
+  </button>
+  <button class="tab-btn" id="tabBtnDatabase" onclick="switchTab('database')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+    <span data-tab-label="database">Database</span>
+  </button>
+</div>
+
+<!-- Tab: Log -->
+<div class="tab-content active" id="tabLog">
 <div class="main-content">
   <!-- Sidebar -->
   <div class="sidebar" id="sidebar">
@@ -343,6 +450,87 @@ body{display:flex;flex-direction:column}
 </div>
 
 
+</div><!-- /tabLog -->
+
+<!-- Tab: Database -->
+<div class="tab-content" id="tabDatabase">
+<div class="db-container">
+  <div class="db-conn-info" id="dbConnInfo">
+    <span id="dbConnLabel">Connection:</span>
+    <div class="db-conn-tag"><strong>host</strong>&nbsp;<span id="dbHost">-</span></div>
+    <div class="db-conn-tag"><strong>port</strong>&nbsp;<span id="dbPort">-</span></div>
+    <div class="db-conn-tag"><strong>user</strong>&nbsp;<span id="dbUser">-</span></div>
+  </div>
+  <div class="db-toolbar">
+    <button class="db-toolbar-btn primary" onclick="showCreateDbModal()" id="btnCreateDb">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <span>Create DB</span>
+    </button>
+    <button class="db-toolbar-btn" onclick="showRestoreDbModal()" id="btnRestoreDb">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <span>Restore DB</span>
+    </button>
+    <button class="db-toolbar-btn" onclick="loadDatabases()" id="btnRefreshDb" title="Refresh">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+      <span id="dbRefreshLabel">Refresh</span>
+    </button>
+  </div>
+  <div class="db-table-wrap" id="dbTableWrap">
+    <div class="db-empty" id="dbEmpty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+      <div id="dbEmptyMsg">Switch to Database tab to load databases</div>
+    </div>
+  </div>
+</div>
+</div><!-- /tabDatabase -->
+
+<!-- Create DB Modal -->
+<div class="db-modal-overlay" id="modalCreateDb">
+  <div class="db-modal">
+    <h3 id="createDbTitle">Create Database</h3>
+    <div class="db-msg" id="createDbMsg"></div>
+    <label id="createDbNameLabel">Database name</label>
+    <input type="text" id="createDbName" placeholder="my_database" autocomplete="off">
+    <div class="db-modal-actions">
+      <button class="db-toolbar-btn" onclick="hideDbModal('modalCreateDb')">Cancel</button>
+      <button class="db-toolbar-btn primary" onclick="doCreateDb()" id="btnDoCreateDb">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Restore DB Modal -->
+<div class="db-modal-overlay" id="modalRestoreDb">
+  <div class="db-modal">
+    <h3 id="restoreDbTitle">Restore Database</h3>
+    <div class="db-msg" id="restoreDbMsg"></div>
+    <label id="restoreDbNameLabel">Database name</label>
+    <input type="text" id="restoreDbName" placeholder="my_database" autocomplete="off">
+    <label id="restoreDbFileLabel">Backup file (.dump, .sql)</label>
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <input type="text" id="restoreDbFile" placeholder="Select file..." readonly style="margin-bottom:0;flex:1;cursor:pointer" onclick="pickRestoreFile()">
+      <button class="db-toolbar-btn" onclick="pickRestoreFile()" style="flex-shrink:0">Browse</button>
+    </div>
+    <div class="db-modal-actions">
+      <button class="db-toolbar-btn" onclick="hideDbModal('modalRestoreDb')">Cancel</button>
+      <button class="db-toolbar-btn primary" onclick="doRestoreDb()" id="btnDoRestoreDb">Restore</button>
+    </div>
+  </div>
+</div>
+
+<!-- Drop DB Confirm Modal -->
+<div class="db-modal-overlay" id="modalDropDb">
+  <div class="db-modal">
+    <h3 id="dropDbTitle">Drop Database</h3>
+    <div class="db-msg" id="dropDbMsg"></div>
+    <p style="font-size:0.75rem;color:var(--text);margin-bottom:12px" id="dropDbConfirmText">Are you sure?</p>
+    <input type="text" id="dropDbConfirmInput" placeholder="Type database name to confirm" autocomplete="off">
+    <div class="db-modal-actions">
+      <button class="db-toolbar-btn" onclick="hideDbModal('modalDropDb')">Cancel</button>
+      <button class="db-toolbar-btn danger" onclick="doDropDb()" id="btnDoDropDb">Drop</button>
+    </div>
+  </div>
+</div>
+
 <!-- Tooltip element -->
 <div class="tooltip" id="tooltip" style="display:none"></div>
 
@@ -359,8 +547,23 @@ const odooSourceDir = params.get('odooSourceDir') || '';
 
 // Apply accent color to header
 document.documentElement.style.setProperty('--accent-color', accentColor);
-document.title = `${projectName} — Odoo Log`;
+document.title = `${projectName} — Monitor`;
 document.getElementById('logPath').textContent = logFilePath;
+
+// --- Tab switching ---
+let activeTab = 'log';
+let dbLoaded = false;
+
+function switchTab(tabId) {
+  if (tabId === activeTab) return;
+  activeTab = tabId;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.id === 'tabBtn' + tabId.charAt(0).toUpperCase() + tabId.slice(1)));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab' + tabId.charAt(0).toUpperCase() + tabId.slice(1)));
+  if (tabId === 'database' && !dbLoaded) {
+    dbLoaded = true;
+    loadDatabases();
+  }
+}
 
 // Populate project switcher dropdown
 let currentProjectName = projectName;
@@ -376,7 +579,7 @@ async function loadProjectList() {
     for (const p of res.projects) {
       const opt = document.createElement('option');
       opt.value = JSON.stringify({ name: p.name, logPath: p.logPath, httpPort: p.httpPort });
-      opt.textContent = `${p.name} — Log`;
+      opt.textContent = p.name;
       if (p.name === currentProjectName) opt.selected = true;
       select.appendChild(opt);
     }
@@ -396,7 +599,7 @@ function switchProject(val) {
     currentProjectName = parsed.name;
     currentLogPath = parsed.logPath;
     httpPort = parsed.httpPort || '';
-    document.title = `${parsed.name} — Odoo Log`;
+    document.title = `${parsed.name} — Monitor`;
     document.getElementById('logPath').textContent = parsed.logPath;
     // Clear log and start watching new file
     clearLog();
@@ -415,6 +618,9 @@ function switchProject(val) {
         document.getElementById('statusText').textContent = 'No log file';
       }
     });
+    // Reset database tab so it reloads for new project
+    dbLoaded = false;
+    if (activeTab === 'database') { dbLoaded = true; loadDatabases(); }
     // Reload sidebar info + server status for new project
     loadProjectInfo();
     checkServerStatus();
@@ -492,6 +698,7 @@ function ti(key, params) {
 }
 
 function applyI18n() {
+  // Log tab
   document.getElementById('sidebarTitle').textContent = ti('logViewer.sidebar') !== 'logViewer.sidebar' ? 'Config' : 'Config';
   document.getElementById('logLevelLabel').textContent = ti('logViewer.logLevel');
   document.getElementById('upgradeLabel').textContent = ti('logViewer.upgradeModules');
@@ -499,6 +706,22 @@ function applyI18n() {
   document.getElementById('btnSelectAll').textContent = ti('logViewer.selectAll');
   document.getElementById('btnDeselectAll').textContent = ti('logViewer.deselectAll');
   document.getElementById('noModulesMsg').textContent = ti('logViewer.noCustomModules');
+  // Tab labels
+  const tabLog = document.querySelector('[data-tab-label="log"]');
+  const tabDb = document.querySelector('[data-tab-label="database"]');
+  if (tabLog) tabLog.textContent = ti('monitor.tabLog');
+  if (tabDb) tabDb.textContent = ti('monitor.tabDatabase');
+  // Database tab
+  document.getElementById('dbConnLabel').textContent = ti('monitor.connInfo') + ':';
+  document.getElementById('dbRefreshLabel').textContent = ti('monitor.refresh');
+  document.getElementById('btnCreateDb').querySelector('span').textContent = ti('monitor.createDb');
+  document.getElementById('btnRestoreDb').querySelector('span').textContent = ti('monitor.restoreDb');
+  document.getElementById('createDbTitle').textContent = ti('monitor.createDb');
+  document.getElementById('createDbNameLabel').textContent = ti('monitor.createDbName');
+  document.getElementById('restoreDbTitle').textContent = ti('monitor.restoreDb');
+  document.getElementById('restoreDbNameLabel').textContent = ti('monitor.createDbName');
+  document.getElementById('restoreDbFileLabel').textContent = ti('monitor.restoreDbFile');
+  document.getElementById('dropDbTitle').textContent = ti('monitor.dropDb');
 }
 
 // Help tooltips
@@ -750,6 +973,165 @@ if (window.electronAPI) {
 
   // Load sidebar data + i18n
   loadI18n().then(() => loadProjectInfo());
+}
+
+// ======== Database Tab ========
+let _dbDropTarget = '';
+
+async function loadDatabases() {
+  const wrap = document.getElementById('dbTableWrap');
+  wrap.innerHTML = '<div class="db-loading"><span class="restart-spinner"></span><span>Loading databases...</span></div>';
+  try {
+    const res = await window.electronAPI.invoke('monitor-list-databases', {
+      projectName: currentProjectName, projectsDir, odooVersion,
+    });
+    if (!res?.ok) {
+      wrap.innerHTML = `<div class="db-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><div>${esc(res?.msg || 'Failed to load databases')}</div></div>`;
+      return;
+    }
+    // Connection info
+    if (res.connInfo) {
+      document.getElementById('dbHost').textContent = res.connInfo.host || '-';
+      document.getElementById('dbPort').textContent = res.connInfo.port || '-';
+      document.getElementById('dbUser').textContent = res.connInfo.user || '-';
+    }
+    const dbs = res.databases || [];
+    if (dbs.length === 0) {
+      wrap.innerHTML = '<div class="db-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><div>' + ti('monitor.noDatabases') + '</div></div>';
+      return;
+    }
+    let html = '<table class="db-table"><thead><tr>';
+    html += `<th>${ti('monitor.dbName')}</th><th>${ti('monitor.dbSize')}</th><th>${ti('monitor.dbOwner')}</th><th>${ti('monitor.dbEncoding')}</th><th>${ti('monitor.dbActions')}</th>`;
+    html += '</tr></thead><tbody>';
+    for (const db of dbs) {
+      html += `<tr>
+        <td><strong>${esc(db.name)}</strong></td>
+        <td class="db-size">${esc(db.size)}</td>
+        <td>${esc(db.owner)}</td>
+        <td>${esc(db.encoding)}</td>
+        <td class="db-actions">
+          <button class="db-toolbar-btn danger" onclick="showDropDbModal('${escJs(db.name)}')" style="padding:3px 8px;font-size:0.68rem">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>
+            Drop
+          </button>
+        </td>
+      </tr>`;
+    }
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+  } catch (e) {
+    wrap.innerHTML = `<div class="db-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><div>${esc(e?.message || 'Error')}</div></div>`;
+  }
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+function escJs(s) { return (s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"'); }
+
+function showDbModal(id) { document.getElementById(id).classList.add('show'); }
+function hideDbModal(id) {
+  document.getElementById(id).classList.remove('show');
+  // Clear messages
+  const msg = document.getElementById(id)?.querySelector('.db-msg');
+  if (msg) { msg.className = 'db-msg'; msg.textContent = ''; }
+}
+
+function showCreateDbModal() {
+  document.getElementById('createDbName').value = '';
+  document.getElementById('createDbMsg').className = 'db-msg';
+  showDbModal('modalCreateDb');
+  setTimeout(() => document.getElementById('createDbName').focus(), 100);
+}
+
+async function doCreateDb() {
+  const name = document.getElementById('createDbName').value.trim();
+  const msgEl = document.getElementById('createDbMsg');
+  if (!name) { msgEl.className = 'db-msg error'; msgEl.textContent = 'Database name is required'; return; }
+  const btn = document.getElementById('btnDoCreateDb');
+  btn.disabled = true;
+  try {
+    const res = await window.electronAPI.invoke('monitor-create-database', {
+      projectName: currentProjectName, dbName: name, projectsDir, odooVersion,
+    });
+    if (res?.ok) {
+      msgEl.className = 'db-msg success'; msgEl.textContent = ti('monitor.dbCreated');
+      setTimeout(() => { hideDbModal('modalCreateDb'); loadDatabases(); }, 800);
+    } else {
+      msgEl.className = 'db-msg error'; msgEl.textContent = res?.msg || 'Error';
+    }
+  } catch (e) {
+    msgEl.className = 'db-msg error'; msgEl.textContent = e?.message || 'Error';
+  } finally { btn.disabled = false; }
+}
+
+function showRestoreDbModal() {
+  document.getElementById('restoreDbName').value = '';
+  document.getElementById('restoreDbFile').value = '';
+  document.getElementById('restoreDbMsg').className = 'db-msg';
+  showDbModal('modalRestoreDb');
+  setTimeout(() => document.getElementById('restoreDbName').focus(), 100);
+}
+
+async function pickRestoreFile() {
+  try {
+    const res = await window.electronAPI.invoke('pick-file', {
+      title: 'Select database backup',
+      filters: [{ name: 'Database backup', extensions: ['dump', 'sql'] }],
+    });
+    if (res?.path) document.getElementById('restoreDbFile').value = res.path;
+  } catch {}
+}
+
+async function doRestoreDb() {
+  const name = document.getElementById('restoreDbName').value.trim();
+  const filePath = document.getElementById('restoreDbFile').value.trim();
+  const msgEl = document.getElementById('restoreDbMsg');
+  if (!name) { msgEl.className = 'db-msg error'; msgEl.textContent = 'Database name is required'; return; }
+  if (!filePath) { msgEl.className = 'db-msg error'; msgEl.textContent = 'Backup file is required'; return; }
+  const btn = document.getElementById('btnDoRestoreDb');
+  btn.disabled = true;
+  try {
+    const res = await window.electronAPI.invoke('monitor-restore-database', {
+      projectName: currentProjectName, dbName: name, filePath, projectsDir, odooVersion,
+    });
+    if (res?.ok) {
+      msgEl.className = 'db-msg success'; msgEl.textContent = ti('monitor.dbRestored');
+      setTimeout(() => { hideDbModal('modalRestoreDb'); loadDatabases(); }, 800);
+    } else {
+      msgEl.className = 'db-msg error'; msgEl.textContent = res?.msg || 'Error';
+    }
+  } catch (e) {
+    msgEl.className = 'db-msg error'; msgEl.textContent = e?.message || 'Error';
+  } finally { btn.disabled = false; }
+}
+
+function showDropDbModal(dbName) {
+  _dbDropTarget = dbName;
+  document.getElementById('dropDbConfirmText').textContent = ti('monitor.dropConfirm', { name: dbName });
+  document.getElementById('dropDbConfirmInput').value = '';
+  document.getElementById('dropDbMsg').className = 'db-msg';
+  showDbModal('modalDropDb');
+  setTimeout(() => document.getElementById('dropDbConfirmInput').focus(), 100);
+}
+
+async function doDropDb() {
+  const input = document.getElementById('dropDbConfirmInput').value.trim();
+  const msgEl = document.getElementById('dropDbMsg');
+  if (input !== _dbDropTarget) { msgEl.className = 'db-msg error'; msgEl.textContent = 'Name does not match'; return; }
+  const btn = document.getElementById('btnDoDropDb');
+  btn.disabled = true;
+  try {
+    const res = await window.electronAPI.invoke('monitor-drop-database', {
+      projectName: currentProjectName, dbName: _dbDropTarget, projectsDir, odooVersion,
+    });
+    if (res?.ok) {
+      msgEl.className = 'db-msg success'; msgEl.textContent = ti('monitor.dbDropped');
+      setTimeout(() => { hideDbModal('modalDropDb'); loadDatabases(); }, 800);
+    } else {
+      msgEl.className = 'db-msg error'; msgEl.textContent = res?.msg || 'Error';
+    }
+  } catch (e) {
+    msgEl.className = 'db-msg error'; msgEl.textContent = e?.message || 'Error';
+  } finally { btn.disabled = false; }
 }
 
 // Cleanup on close

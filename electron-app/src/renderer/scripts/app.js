@@ -1140,7 +1140,7 @@ async function withBtnPending(e, guardKey, label, asyncFn, cooldown) {
   }
 }
 async function openLogWindow(projectName, logPath, e, httpPort) {
-  await withBtnPending(e, 'log-' + projectName, t('project.log'), () => api('open-log-window', {
+  await withBtnPending(e, 'log-' + projectName, t('project.monitor'), () => api('open-log-window', {
     projectName, logPath,
     odooVersion: $('odooVersion')?.value || '17',
     baseDir: $('baseDir')?.value || '',
@@ -1504,8 +1504,8 @@ function renderKanbanCard(p, isDemo) {
           ${statusTag}
           ${p.custom_modules > 0 ? `<span class="kanban-tag kanban-tag-modules">${p.custom_modules} modules</span>` : ''}
         </div>
-        <button class="kanban-log-btn" ${onclick(`openLogWindow('${escAttr(p.name)}','${escAttr(p.logfile || (p.path + '\\\\odoo.log'))}',event,'${escAttr(p.http_port || '8069')}')`)} title="${t('project.log')}"${btnDisabled}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+        <button class="kanban-log-btn" ${onclick(`openLogWindow('${escAttr(p.name)}','${escAttr(p.logfile || (p.path + '\\\\odoo.log'))}',event,'${escAttr(p.http_port || '8069')}')`)} title="${t('project.monitor')}"${btnDisabled}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
         </button>
       </div>
       <div class="kanban-card-actions">

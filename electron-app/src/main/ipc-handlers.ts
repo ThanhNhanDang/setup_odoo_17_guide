@@ -776,7 +776,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       minWidth: 500,
       minHeight: 300,
       frame: false,
-      title: `${projectName} — Log`,
+      title: `${projectName} — Monitor`,
       backgroundColor: '#0d1117',
       alwaysOnTop: false,
       webPreferences: {
@@ -991,6 +991,169 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
       // Use shared function: ensure PG ready + start Odoo
       return await ensurePgAndStartOdoo({ baseDir, projectPath, confFile, odooSourceDir, cmd });
+    } catch (e) {
+      return { ok: false, msg: String(e) };
+    }
+  });
+
+  // --- Pick a file (for restore DB etc.) ---
+  ipcMain.handle('pick-file', async (event, data: { title?: string; filters?: { name: string; extensions: string[] }[] }) => {
+    const parentWin = BrowserWindow.fromWebContents(event.sender) || mainWindow;
+    const result = await dialog.showOpenDialog(parentWin, {
+      properties: ['openFile'],
+      title: data?.title || 'Select File',
+      filters: data?.filters || [],
+    });
+    if (result.canceled || result.filePaths.length === 0) return { path: '' };
+    return { path: result.filePaths[0] };
+  });
+
+  // ========== Project Monitor: Database Tab ==========
+
+  /** Read DB connection config from project's odoo.conf */
+  function readDbConfig(projectName: string, projectsDir: string) {
+    if (!projectName || !/^[a-z_][a-z0-9_\-]*$/.test(projectName)) return null;
+    const confFile = path.join(projectsDir, projectName, 'odoo.conf');
+    if (!fs.existsSync(confFile)) return null;
+    const { parseIniFile, iniGet } = require('./services/ini-parser');
+    const ini = parseIniFile(confFile);
+    return {
+      host: iniGet(ini, 'options', 'db_host', 'localhost'),
+      port: iniGet(ini, 'options', 'db_port', '5432'),
+      user: iniGet(ini, 'options', 'db_user', 'odoo'),
+      password: iniGet(ini, 'options', 'db_password', 'odoo'),
+    };
+  }
+
+  /** Find psql bin dir, return { pgBin, env } or null */
+  function getPgTools(dbPassword: string) {
+    const { findPostgresBin } = require('./services/detection');
+    const pgBin = findPostgresBin();
+    if (!pgBin) return null;
+    return { pgBin, env: { ...process.env, PGPASSWORD: dbPassword } };
+  }
+
+  ipcMain.handle('monitor-list-databases', async (_event, data: { projectName: string; projectsDir?: string; odooVersion?: string }) => {
+    try {
+      const odooVersion = data.odooVersion || DEFAULT_ODOO_VERSION;
+      const projectsDir = data.projectsDir || getDefaultProjectsDir(odooVersion);
+      const dbConf = readDbConfig(data.projectName, projectsDir);
+      if (!dbConf) return { ok: false, msg: 'CONFIG_NOT_FOUND' };
+
+      const connInfo = { host: dbConf.host, port: dbConf.port, user: dbConf.user };
+      const pg = getPgTools(dbConf.password);
+      if (!pg) return { ok: false, msg: 'PG_NOT_FOUND', connInfo };
+
+      const psql = path.join(pg.pgBin, 'psql.exe');
+
+      // List databases with size, owner, encoding
+      const query = `SELECT d.datname, pg_size_pretty(pg_database_size(d.datname)) as size, r.rolname as owner, d.encoding, pg_encoding_to_char(d.encoding) as enc_name FROM pg_database d JOIN pg_roles r ON d.datdba = r.oid WHERE d.datistemplate = false ORDER BY d.datname`;
+      const { output } = await runCmd(
+        `"${psql}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -d postgres -tAF "|" -c "${query.replace(/"/g, '\\"')}"`,
+        undefined, pg.env
+      );
+
+      const databases = output.trim().split('\n').filter(Boolean).map(line => {
+        const parts = line.split('|');
+        return {
+          name: (parts[0] || '').trim(),
+          size: (parts[1] || '').trim(),
+          owner: (parts[2] || '').trim(),
+          encoding: (parts[4] || parts[3] || '').trim(),
+        };
+      }).filter(db => db.name);
+
+      return { ok: true, databases, connInfo };
+    } catch (e) {
+      return { ok: false, msg: String(e) };
+    }
+  });
+
+  ipcMain.handle('monitor-create-database', async (_event, data: { projectName: string; dbName: string; projectsDir?: string; odooVersion?: string }) => {
+    try {
+      const dbName = data.dbName;
+      if (!dbName || !/^[a-zA-Z_][a-zA-Z0-9_\-]*$/.test(dbName)) return { ok: false, msg: 'INVALID_DB_NAME' };
+
+      const odooVersion = data.odooVersion || DEFAULT_ODOO_VERSION;
+      const projectsDir = data.projectsDir || getDefaultProjectsDir(odooVersion);
+      const dbConf = readDbConfig(data.projectName, projectsDir);
+      if (!dbConf) return { ok: false, msg: 'CONFIG_NOT_FOUND' };
+
+      const pg = getPgTools(dbConf.password);
+      if (!pg) return { ok: false, msg: 'PG_NOT_FOUND' };
+
+      const createdb = path.join(pg.pgBin, 'createdb.exe');
+      await runCmd(`"${createdb}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -E UTF8 "${dbName}"`, undefined, pg.env);
+      logger.log(`[monitor] Database created: ${dbName}`);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, msg: String(e) };
+    }
+  });
+
+  ipcMain.handle('monitor-drop-database', async (_event, data: { projectName: string; dbName: string; projectsDir?: string; odooVersion?: string }) => {
+    try {
+      const dbName = data.dbName;
+      if (!dbName || !/^[a-zA-Z_][a-zA-Z0-9_\-]*$/.test(dbName)) return { ok: false, msg: 'INVALID_DB_NAME' };
+
+      const odooVersion = data.odooVersion || DEFAULT_ODOO_VERSION;
+      const projectsDir = data.projectsDir || getDefaultProjectsDir(odooVersion);
+      const dbConf = readDbConfig(data.projectName, projectsDir);
+      if (!dbConf) return { ok: false, msg: 'CONFIG_NOT_FOUND' };
+
+      const pg = getPgTools(dbConf.password);
+      if (!pg) return { ok: false, msg: 'PG_NOT_FOUND' };
+
+      const dropdb = path.join(pg.pgBin, 'dropdb.exe');
+      await runCmd(`"${dropdb}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} "${dbName}"`, undefined, pg.env);
+      logger.log(`[monitor] Database dropped: ${dbName}`);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, msg: String(e) };
+    }
+  });
+
+  ipcMain.handle('monitor-restore-database', async (_event, data: { projectName: string; dbName: string; filePath: string; projectsDir?: string; odooVersion?: string }) => {
+    try {
+      const dbName = data.dbName;
+      const filePath = data.filePath;
+      if (!dbName || !/^[a-zA-Z_][a-zA-Z0-9_\-]*$/.test(dbName)) return { ok: false, msg: 'INVALID_DB_NAME' };
+      if (!filePath || !fs.existsSync(filePath)) return { ok: false, msg: 'FILE_NOT_FOUND' };
+
+      // Path safety: ensure filePath is a file (not directory traversal)
+      const resolvedFile = path.resolve(filePath);
+      if (!fs.statSync(resolvedFile).isFile()) return { ok: false, msg: 'FILE_NOT_FOUND' };
+
+      const odooVersion = data.odooVersion || DEFAULT_ODOO_VERSION;
+      const projectsDir = data.projectsDir || getDefaultProjectsDir(odooVersion);
+      const dbConf = readDbConfig(data.projectName, projectsDir);
+      if (!dbConf) return { ok: false, msg: 'CONFIG_NOT_FOUND' };
+
+      const pg = getPgTools(dbConf.password);
+      if (!pg) return { ok: false, msg: 'PG_NOT_FOUND' };
+
+      const ext = path.extname(filePath).toLowerCase();
+
+      // Create database first
+      const createdb = path.join(pg.pgBin, 'createdb.exe');
+      try {
+        await runCmd(`"${createdb}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -E UTF8 "${dbName}"`, undefined, pg.env);
+      } catch {
+        // DB may already exist, continue with restore
+      }
+
+      if (ext === '.dump') {
+        // Binary format: use pg_restore
+        const pgRestore = path.join(pg.pgBin, 'pg_restore.exe');
+        await runCmd(`"${pgRestore}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -d "${dbName}" --no-owner --no-privileges "${resolvedFile}"`, undefined, pg.env);
+      } else {
+        // SQL format: use psql
+        const psql = path.join(pg.pgBin, 'psql.exe');
+        await runCmd(`"${psql}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -d "${dbName}" -f "${resolvedFile}"`, undefined, pg.env);
+      }
+
+      logger.log(`[monitor] Database restored: ${dbName} from ${path.basename(filePath)}`);
+      return { ok: true };
     } catch (e) {
       return { ok: false, msg: String(e) };
     }
