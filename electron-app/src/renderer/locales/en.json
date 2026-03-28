@@ -180,6 +180,7 @@
     "selectModules": "Select modules to upgrade on restart",
     "noCustomModules": "No custom modules found",
     "saveRestart": "Save & Restart",
+    "openBrowser": "Open in Browser",
     "restarting": "Restarting...",
     "restartSuccess": "Odoo restarted!",
     "restartFail": "Restart failed",

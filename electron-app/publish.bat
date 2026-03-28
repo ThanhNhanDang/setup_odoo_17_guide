@@ -24,6 +24,13 @@ if "%GH_TOKEN%"=="" (
 
 set TYPE=%1
 if "%TYPE%"=="" set TYPE=patch
+if /i "%TYPE%"=="pack" set TYPE=patch
+if not "%TYPE%"=="patch" if not "%TYPE%"=="minor" if not "%TYPE%"=="major" (
+    echo   [ERROR] Invalid version type: %TYPE%
+    echo   Usage: publish.bat [patch^|minor^|major]
+    pause
+    exit /b 1
+)
 
 echo.
 echo ============================================================
@@ -36,15 +43,17 @@ for /f %%v in ('node -p "require('./package.json').version"') do set LOCAL_VER=%
 echo   Local version:   %LOCAL_VER%
 
 REM Get latest PUBLISHED version from GitHub (exclude drafts and pre-releases)
+set GH_TAG=
 for /f %%v in ('gh release list --exclude-drafts --exclude-pre-releases --limit 1 --json tagName --jq ".[0].tagName" 2^>nul') do set GH_TAG=%%v
 if "%GH_TAG%"=="" (
     echo   GitHub version:  [none found]
     set GH_VER=0.0.0
-) else (
-    REM Strip leading 'v' from tag (v1.4.1 -> 1.4.1)
-    set GH_VER=%GH_TAG:~1%
-    echo   GitHub version:  %GH_VER%
+    goto :after_gh
 )
+REM Strip leading 'v' from tag (v1.4.1 -> 1.4.1) — outside if/else to avoid delayed expansion issue
+set GH_VER=%GH_TAG:~1%
+echo   GitHub version:  %GH_VER%
+:after_gh
 
 REM Compare: if local < GitHub, sync local to GitHub version first
 for /f %%r in ('node -e "const [a,b]=['%LOCAL_VER%','%GH_VER%'].map(v=>v.split('.').map(Number));const c=a[0]-b[0]||a[1]-b[1]||a[2]-b[2];console.log(c<0?'behind':c>0?'ahead':'same')"') do set CMP=%%r

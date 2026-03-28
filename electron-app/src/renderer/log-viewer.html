@@ -74,16 +74,28 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .sidebar-header-title{font-size:0.7rem;font-weight:600;text-transform:uppercase;color:var(--text-dim);letter-spacing:0.5px}
 
 /* Restart button — fixed at top of sidebar */
+.sidebar-actions{
+  display:flex;gap:6px;margin:8px 10px;flex-shrink:0;
+}
 .restart-btn{
-  margin:8px 10px;padding:8px 12px;border-radius:6px;border:none;
+  flex:1;padding:8px 12px;border-radius:6px;border:none;
   background:var(--header-bg);color:#fff;font-size:0.75rem;font-weight:600;
   cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;
-  transition:opacity 0.2s,filter 0.2s;flex-shrink:0;
+  transition:opacity 0.2s,filter 0.2s;
 }
 .restart-btn:hover{filter:brightness(1.1)}
 .restart-btn:active{filter:brightness(0.9)}
 .restart-btn:disabled{opacity:0.5;cursor:not-allowed;filter:none}
 .restart-btn svg{width:14px;height:14px}
+.browser-btn{
+  padding:8px 10px;border-radius:6px;border:none;
+  background:var(--bg-surface);color:var(--text);font-size:0.75rem;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:opacity 0.2s,filter 0.2s;border:1px solid var(--border);
+}
+.browser-btn:hover{filter:brightness(1.2);border-color:var(--header-bg)}
+.browser-btn:active{filter:brightness(0.9)}
+.browser-btn svg{width:14px;height:14px}
 .restart-spinner{
   width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);
   border-top-color:#fff;border-radius:50%;animation:spin 0.6s linear infinite;
@@ -188,11 +200,11 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 /* Log level coloring — matches Odoo's 5 log levels
    All colors tested against --bg (#0d1117) for WCAG AA contrast >= 4.5:1
    Only active when highlight mode is ON (body.highlight-on) */
-.highlight-on .line-critical{color:#ff8a8a;font-weight:700;background:rgba(255,100,100,0.1);border-left:3px solid #ff6b6b;padding-left:8px;margin-left:-8px}
-.highlight-on .line-error{color:#ff7b72;font-weight:600;background:rgba(248,81,73,0.07);border-left:2px solid #f85149;padding-left:8px;margin-left:-8px}
-.highlight-on .line-warning{color:#f0c040;font-weight:500}
-.highlight-on .line-info{color:#79c0ff}
-.highlight-on .line-debug{color:#9ca3af;font-style:italic}
+.highlight-on .line-critical{color:#d98a8a;font-weight:600;background:rgba(200,80,80,0.08);border-left:3px solid #c06060;padding-left:8px;margin-left:-8px}
+.highlight-on .line-error{color:#c98a84;font-weight:500;background:rgba(180,70,65,0.05);border-left:2px solid #b07068;padding-left:8px;margin-left:-8px}
+.highlight-on .line-warning{color:#c8b060}
+.highlight-on .line-info{color:#7aa8cc}
+.highlight-on .line-debug{color:#808890;font-style:italic}
 
 .empty-state{
   display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -395,11 +407,16 @@ body{display:flex;flex-direction:column}
       <span class="sidebar-header-title" id="sidebarTitle">Config</span>
     </div>
 
-    <!-- Restart button -->
-    <button class="restart-btn" id="btnRestart" onclick="saveAndRestart()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-      <span id="restartLabel">Save &amp; Restart</span>
-    </button>
+    <!-- Action buttons -->
+    <div class="sidebar-actions">
+      <button class="restart-btn" id="btnRestart" onclick="saveAndRestart()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+        <span id="restartLabel">Save &amp; Restart</span>
+      </button>
+      <button class="browser-btn" id="btnOpenBrowser" onclick="openBrowserFromMonitor()" title="Open in browser">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+      </button>
+    </div>
 
     <!-- Log Level -->
     <div class="sidebar-section">
@@ -987,6 +1004,7 @@ function applyI18n() {
     btnPin: ti('logViewer.alwaysOnTop'),
     btnMaximize: ti('logViewer.maximize'),
     btnSidebar: ti('logViewer.toggleSidebar'),
+    btnOpenBrowser: ti('logViewer.openBrowser'),
   };
   for (const id in titles) {
     const el = document.getElementById(id);
@@ -1064,12 +1082,25 @@ function hideTooltip() {
 // Start with highlight on
 document.body.classList.add('highlight-on');
 
+// Track last log level for continuation lines (Traceback, stack traces inherit parent level)
+let _lastLogLevel = '';
+const _LOG_LINE_RE = /^\d{4}-\d{2}-\d{2}\s/; // Odoo log lines start with timestamp
+
 function getLineClass(text) {
-  if (/\bCRITICAL\b/i.test(text)) return 'line-critical';
-  if (/\bERROR\b|Traceback|Exception/i.test(text)) return 'line-error';
-  if (/\bWARNING\b/i.test(text)) return 'line-warning';
-  if (/\bINFO\b/i.test(text)) return 'line-info';
-  if (/\bDEBUG\b/i.test(text)) return 'line-debug';
+  // Lines starting with timestamp = new log entry → detect level
+  if (_LOG_LINE_RE.test(text)) {
+    if (/\bCRITICAL\b/i.test(text)) { _lastLogLevel = 'line-critical'; return _lastLogLevel; }
+    if (/\bERROR\b/i.test(text)) { _lastLogLevel = 'line-error'; return _lastLogLevel; }
+    if (/\bWARNING\b/i.test(text)) { _lastLogLevel = 'line-warning'; return _lastLogLevel; }
+    if (/\bINFO\b/i.test(text)) { _lastLogLevel = 'line-info'; return _lastLogLevel; }
+    if (/\bDEBUG\b/i.test(text)) { _lastLogLevel = 'line-debug'; return _lastLogLevel; }
+    _lastLogLevel = '';
+    return '';
+  }
+  // Continuation line (Traceback, stack trace, etc.) — inherit parent level
+  if (_lastLogLevel) return _lastLogLevel;
+  // Fallback for standalone Traceback/Exception (no parent context)
+  if (/Traceback|Exception/i.test(text)) return 'line-error';
   return '';
 }
 
@@ -1210,6 +1241,12 @@ function selectAllModules() {
 function deselectAllModules() {
   document.querySelectorAll('#moduleListArea input[type="checkbox"]').forEach(cb => cb.checked = false);
   updateModuleCount();
+}
+
+// --- Open Browser ---
+async function openBrowserFromMonitor() {
+  if (!window.electronAPI || !httpPort) return;
+  await window.electronAPI.invoke('open_browser', { url: `http://localhost:${httpPort}` });
 }
 
 // --- Save & Restart ---

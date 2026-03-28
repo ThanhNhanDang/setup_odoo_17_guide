@@ -179,6 +179,7 @@
     "selectModules": "재시작 시 업그레이드할 모듈 선택",
     "noCustomModules": "사용자 정의 모듈이 없습니다",
     "saveRestart": "저장 후 재시작",
+    "openBrowser": "브라우저에서 열기",
     "restarting": "재시작 중...",
     "restartSuccess": "Odoo가 재시작되었습니다!",
     "restartFail": "재시작 실패",
