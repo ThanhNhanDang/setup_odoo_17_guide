@@ -489,10 +489,205 @@ body{display:flex;flex-direction:column}
   <div class="db-modal">
     <h3 id="createDbTitle">Create Database</h3>
     <div class="db-msg" id="createDbMsg"></div>
-    <label id="createDbNameLabel">Database name</label>
-    <input type="text" id="createDbName" placeholder="my_database" autocomplete="off">
-    <div class="db-modal-actions">
-      <button class="db-toolbar-btn" onclick="hideDbModal('modalCreateDb')">Cancel</button>
+    <div id="createDbForm">
+      <label id="createDbPasswdLabel">Master Password</label>
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <input type="text" id="createDbPasswd" readonly style="margin-bottom:0;flex:1;opacity:0.7">
+        <button class="db-toolbar-btn" onclick="navigator.clipboard.writeText(document.getElementById('createDbPasswd').value)" style="flex-shrink:0;padding:5px 8px" title="Copy">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        </button>
+      </div>
+      <label id="createDbNameLabel">Database Name</label>
+      <input type="text" id="createDbName" placeholder="my_database" autocomplete="off">
+      <label id="createDbEmailLabel">Email</label>
+      <input type="email" id="createDbEmail" placeholder="admin@example.com" autocomplete="off" value="admin">
+      <label id="createDbPasswordLabel">Password</label>
+      <input type="text" id="createDbPassword" placeholder="admin" autocomplete="off" value="admin">
+      <label id="createDbPhoneLabel">Phone Number</label>
+      <input type="tel" id="createDbPhone" placeholder="+84..." autocomplete="off">
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <div style="flex:1">
+          <label id="createDbLangLabel">Language</label>
+          <select id="createDbLang" style="width:100%;padding:7px 10px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:0.75rem">
+            <option value="sq_AL">Albanian / Shqip</option>
+            <option value="am_ET">Amharic / አምሃርኛ</option>
+            <option value="ar_SY">Arabic (Syria) / الْعَرَبيّة</option>
+            <option value="ar_001">Arabic / الْعَرَبيّة</option>
+            <option value="az_AZ">Azerbaijani / Azərbaycanca</option>
+            <option value="eu_ES">Basque / Euskara</option>
+            <option value="bn_IN">Bengali / বাংলা</option>
+            <option value="bs_BA">Bosnian / bosanski jezik</option>
+            <option value="bg_BG">Bulgarian / български език</option>
+            <option value="my_MM">Burmese / ဗမာစာ</option>
+            <option value="ca_ES">Catalan / Català</option>
+            <option value="zh_HK">Chinese (HK)</option>
+            <option value="zh_CN">Chinese (Simplified) / 简体中文</option>
+            <option value="zh_TW">Chinese (Traditional) / 繁體中文</option>
+            <option value="hr_HR">Croatian / hrvatski jezik</option>
+            <option value="cs_CZ">Czech / Čeština</option>
+            <option value="da_DK">Danish / Dansk</option>
+            <option value="nl_BE">Dutch (BE) / Nederlands (BE)</option>
+            <option value="nl_NL">Dutch / Nederlands</option>
+            <option value="en_AU">English (AU)</option>
+            <option value="en_CA">English (CA)</option>
+            <option value="en_IN">English (IN)</option>
+            <option value="en_NZ">English (NZ)</option>
+            <option value="en_GB">English (UK)</option>
+            <option selected value="en_US">English (US)</option>
+            <option value="et_EE">Estonian / Eesti keel</option>
+            <option value="fi_FI">Finnish / Suomi</option>
+            <option value="fr_BE">French (BE) / Français (BE)</option>
+            <option value="fr_CA">French (CA) / Français (CA)</option>
+            <option value="fr_CH">French (CH) / Français (CH)</option>
+            <option value="fr_FR">French / Français</option>
+            <option value="gl_ES">Galician / Galego</option>
+            <option value="ka_GE">Georgian / ქართული ენა</option>
+            <option value="de_CH">German (CH) / Deutsch (CH)</option>
+            <option value="de_DE">German / Deutsch</option>
+            <option value="el_GR">Greek / Ελληνικά</option>
+            <option value="gu_IN">Gujarati / ગુજરાતી</option>
+            <option value="he_IL">Hebrew / עברית</option>
+            <option value="hi_IN">Hindi / हिंदी</option>
+            <option value="hu_HU">Hungarian / Magyar</option>
+            <option value="id_ID">Indonesian / Bahasa Indonesia</option>
+            <option value="it_IT">Italian / Italiano</option>
+            <option value="ja_JP">Japanese / 日本語</option>
+            <option value="kab_DZ">Kabyle / Taqbaylit</option>
+            <option value="km_KH">Khmer / ភាសាខ្មែរ</option>
+            <option value="ko_KP">Korean (KP) / 한국어 (KP)</option>
+            <option value="ko_KR">Korean (KR) / 한국어 (KR)</option>
+            <option value="lo_LA">Lao / ພາສາລາວ</option>
+            <option value="lv_LV">Latvian / latviešu valoda</option>
+            <option value="lt_LT">Lithuanian / Lietuvių kalba</option>
+            <option value="lb_LU">Luxembourgish</option>
+            <option value="mk_MK">Macedonian / македонски јазик</option>
+            <option value="ms_MY">Malay / Bahasa Melayu</option>
+            <option value="ml_IN">Malayalam / മലയാളം</option>
+            <option value="mn_MN">Mongolian / монгол</option>
+            <option value="nb_NO">Norwegian Bokmål / Norsk bokmål</option>
+            <option value="fa_IR">Persian / فارسی</option>
+            <option value="pl_PL">Polish / Język polski</option>
+            <option value="pt_AO">Portuguese (AO) / Português (AO)</option>
+            <option value="pt_BR">Portuguese (BR) / Português (BR)</option>
+            <option value="pt_PT">Portuguese / Português</option>
+            <option value="ro_RO">Romanian / română</option>
+            <option value="ru_RU">Russian / русский язык</option>
+            <option value="sr_RS">Serbian (Cyrillic) / српски</option>
+            <option value="sr@latin">Serbian (Latin) / srpski</option>
+            <option value="sk_SK">Slovak / Slovenský jazyk</option>
+            <option value="sl_SI">Slovenian / slovenščina</option>
+            <option value="es_AR">Spanish (AR) / Español (AR)</option>
+            <option value="es_BO">Spanish (BO) / Español (BO)</option>
+            <option value="es_CL">Spanish (CL) / Español (CL)</option>
+            <option value="es_CO">Spanish (CO) / Español (CO)</option>
+            <option value="es_CR">Spanish (CR) / Español (CR)</option>
+            <option value="es_DO">Spanish (DO) / Español (DO)</option>
+            <option value="es_EC">Spanish (EC) / Español (EC)</option>
+            <option value="es_GT">Spanish (GT) / Español (GT)</option>
+            <option value="es_419">Spanish (Latin America) / Español (América Latina)</option>
+            <option value="es_MX">Spanish (MX) / Español (MX)</option>
+            <option value="es_PA">Spanish (PA) / Español (PA)</option>
+            <option value="es_PE">Spanish (PE) / Español (PE)</option>
+            <option value="es_PY">Spanish (PY) / Español (PY)</option>
+            <option value="es_UY">Spanish (UY) / Español (UY)</option>
+            <option value="es_VE">Spanish (VE) / Español (VE)</option>
+            <option value="es_ES">Spanish / Español</option>
+            <option value="sw">Swahili / Kiswahili</option>
+            <option value="sv_SE">Swedish / Svenska</option>
+            <option value="tl_PH">Tagalog / Filipino</option>
+            <option value="te_IN">Telugu / తెలుగు</option>
+            <option value="th_TH">Thai / ภาษาไทย</option>
+            <option value="tr_TR">Turkish / Türkçe</option>
+            <option value="uk_UA">Ukrainian / українська</option>
+            <option value="vi_VN">Vietnamese / Tiếng Việt</option>
+          </select>
+        </div>
+        <div style="flex:1">
+          <label id="createDbCountryLabel">Country</label>
+          <select id="createDbCountry" style="width:100%;padding:7px 10px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:0.75rem">
+            <option value=""></option>
+            <option value="af">Afghanistan</option><option value="al">Albania</option><option value="dz">Algeria</option>
+            <option value="as">American Samoa</option><option value="ad">Andorra</option><option value="ao">Angola</option>
+            <option value="ai">Anguilla</option><option value="aq">Antarctica</option><option value="ag">Antigua and Barbuda</option>
+            <option value="ar">Argentina</option><option value="am">Armenia</option><option value="aw">Aruba</option>
+            <option value="au">Australia</option><option value="at">Austria</option><option value="az">Azerbaijan</option>
+            <option value="bs">Bahamas</option><option value="bh">Bahrain</option><option value="bd">Bangladesh</option>
+            <option value="bb">Barbados</option><option value="by">Belarus</option><option value="be">Belgium</option>
+            <option value="bz">Belize</option><option value="bj">Benin</option><option value="bm">Bermuda</option>
+            <option value="bt">Bhutan</option><option value="bo">Bolivia</option><option value="bq">Bonaire, Sint Eustatius and Saba</option>
+            <option value="ba">Bosnia and Herzegovina</option><option value="bw">Botswana</option><option value="br">Brazil</option>
+            <option value="bn">Brunei Darussalam</option><option value="bg">Bulgaria</option><option value="bf">Burkina Faso</option>
+            <option value="bi">Burundi</option><option value="kh">Cambodia</option><option value="cm">Cameroon</option>
+            <option value="ca">Canada</option><option value="cv">Cape Verde</option><option value="cf">Central African Republic</option>
+            <option value="td">Chad</option><option value="cl">Chile</option><option value="cn">China</option>
+            <option value="co">Colombia</option><option value="km">Comoros</option><option value="cg">Congo</option>
+            <option value="cr">Costa Rica</option><option value="hr">Croatia</option><option value="cu">Cuba</option>
+            <option value="cw">Curaçao</option><option value="cy">Cyprus</option><option value="cz">Czech Republic</option>
+            <option value="ci">Côte d'Ivoire</option><option value="cd">Democratic Republic of the Congo</option>
+            <option value="dk">Denmark</option><option value="dj">Djibouti</option><option value="dm">Dominica</option>
+            <option value="do">Dominican Republic</option><option value="ec">Ecuador</option><option value="eg">Egypt</option>
+            <option value="sv">El Salvador</option><option value="gq">Equatorial Guinea</option><option value="er">Eritrea</option>
+            <option value="ee">Estonia</option><option value="sz">Eswatini</option><option value="et">Ethiopia</option>
+            <option value="fj">Fiji</option><option value="fi">Finland</option><option value="fr">France</option>
+            <option value="ga">Gabon</option><option value="gm">Gambia</option><option value="ge">Georgia</option>
+            <option value="de">Germany</option><option value="gh">Ghana</option><option value="gr">Greece</option>
+            <option value="gd">Grenada</option><option value="gt">Guatemala</option><option value="gn">Guinea</option>
+            <option value="gw">Guinea-Bissau</option><option value="gy">Guyana</option><option value="ht">Haiti</option>
+            <option value="hn">Honduras</option><option value="hk">Hong Kong</option><option value="hu">Hungary</option>
+            <option value="is">Iceland</option><option value="in">India</option><option value="id">Indonesia</option>
+            <option value="ir">Iran</option><option value="iq">Iraq</option><option value="ie">Ireland</option>
+            <option value="il">Israel</option><option value="it">Italy</option><option value="jm">Jamaica</option>
+            <option value="jp">Japan</option><option value="jo">Jordan</option><option value="kz">Kazakhstan</option>
+            <option value="ke">Kenya</option><option value="ki">Kiribati</option><option value="xk">Kosovo</option>
+            <option value="kw">Kuwait</option><option value="kg">Kyrgyzstan</option><option value="la">Laos</option>
+            <option value="lv">Latvia</option><option value="lb">Lebanon</option><option value="ls">Lesotho</option>
+            <option value="lr">Liberia</option><option value="ly">Libya</option><option value="li">Liechtenstein</option>
+            <option value="lt">Lithuania</option><option value="lu">Luxembourg</option><option value="mo">Macau</option>
+            <option value="mg">Madagascar</option><option value="mw">Malawi</option><option value="my">Malaysia</option>
+            <option value="mv">Maldives</option><option value="ml">Mali</option><option value="mt">Malta</option>
+            <option value="mx">Mexico</option><option value="md">Moldova</option><option value="mc">Monaco</option>
+            <option value="mn">Mongolia</option><option value="me">Montenegro</option><option value="ma">Morocco</option>
+            <option value="mz">Mozambique</option><option value="mm">Myanmar</option><option value="na">Namibia</option>
+            <option value="np">Nepal</option><option value="nl">Netherlands</option><option value="nz">New Zealand</option>
+            <option value="ni">Nicaragua</option><option value="ne">Niger</option><option value="ng">Nigeria</option>
+            <option value="kp">North Korea</option><option value="mk">North Macedonia</option><option value="no">Norway</option>
+            <option value="om">Oman</option><option value="pk">Pakistan</option><option value="pa">Panama</option>
+            <option value="pg">Papua New Guinea</option><option value="py">Paraguay</option><option value="pe">Peru</option>
+            <option value="ph">Philippines</option><option value="pl">Poland</option><option value="pt">Portugal</option>
+            <option value="pr">Puerto Rico</option><option value="qa">Qatar</option><option value="ro">Romania</option>
+            <option value="ru">Russian Federation</option><option value="rw">Rwanda</option><option value="sa">Saudi Arabia</option>
+            <option value="sn">Senegal</option><option value="rs">Serbia</option><option value="sg">Singapore</option>
+            <option value="sk">Slovakia</option><option value="si">Slovenia</option><option value="so">Somalia</option>
+            <option value="za">South Africa</option><option value="kr">South Korea</option><option value="ss">South Sudan</option>
+            <option value="es">Spain</option><option value="lk">Sri Lanka</option><option value="sd">Sudan</option>
+            <option value="se">Sweden</option><option value="ch">Switzerland</option><option value="sy">Syria</option>
+            <option value="tw">Taiwan</option><option value="tj">Tajikistan</option><option value="tz">Tanzania</option>
+            <option value="th">Thailand</option><option value="tl">Timor-Leste</option><option value="tg">Togo</option>
+            <option value="tn">Tunisia</option><option value="tr">Türkiye</option><option value="tm">Turkmenistan</option>
+            <option value="ug">Uganda</option><option value="ua">Ukraine</option><option value="ae">United Arab Emirates</option>
+            <option value="gb">United Kingdom</option><option value="us">United States</option><option value="uy">Uruguay</option>
+            <option value="uz">Uzbekistan</option><option value="ve">Venezuela</option><option value="vn">Vietnam</option>
+            <option value="ye">Yemen</option><option value="zm">Zambia</option><option value="zw">Zimbabwe</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
+        <input type="checkbox" id="createDbDemo" style="width:auto;margin:0;accent-color:var(--header-bg)">
+        <label for="createDbDemo" id="createDbDemoLabel" style="margin:0;cursor:pointer">Demo Data</label>
+      </div>
+      <div style="font-size:0.68rem;color:var(--text-dim);margin-bottom:8px;line-height:1.4" id="createDbHint">Creates database and initializes Odoo schema. Takes 2-5 minutes.</div>
+    </div>
+    <div id="createDbProgress" style="display:none">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span class="restart-spinner"></span>
+        <span id="createDbStep" style="font-size:0.75rem">Initializing...</span>
+      </div>
+      <div id="createDbElapsed" style="font-size:0.68rem;color:var(--text-dim);margin-bottom:6px"></div>
+      <div id="createDbOutput" style="max-height:120px;overflow-y:auto;font-family:'Cascadia Code',Consolas,monospace;font-size:0.65rem;color:var(--text-dim);background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:6px 8px;display:none"></div>
+      <button class="db-toolbar-btn" onclick="toggleOutput('createDbOutput')" style="margin-top:4px;font-size:0.65rem;padding:2px 8px" id="createDbToggleOutput">View Output</button>
+    </div>
+    <div class="db-modal-actions" id="createDbActions">
+      <button class="db-toolbar-btn" onclick="hideDbModal('modalCreateDb')" id="createDbCancelBtn">Cancel</button>
       <button class="db-toolbar-btn primary" onclick="doCreateDb()" id="btnDoCreateDb">Create</button>
     </div>
   </div>
@@ -503,15 +698,26 @@ body{display:flex;flex-direction:column}
   <div class="db-modal">
     <h3 id="restoreDbTitle">Restore Database</h3>
     <div class="db-msg" id="restoreDbMsg"></div>
-    <label id="restoreDbNameLabel">Database name</label>
-    <input type="text" id="restoreDbName" placeholder="my_database" autocomplete="off">
-    <label id="restoreDbFileLabel">Backup file (.dump, .sql)</label>
-    <div style="display:flex;gap:6px;margin-bottom:10px">
-      <input type="text" id="restoreDbFile" placeholder="Select file..." readonly style="margin-bottom:0;flex:1;cursor:pointer" onclick="pickRestoreFile()">
-      <button class="db-toolbar-btn" onclick="pickRestoreFile()" style="flex-shrink:0">Browse</button>
+    <div id="restoreDbForm">
+      <label id="restoreDbNameLabel">Database name</label>
+      <input type="text" id="restoreDbName" placeholder="my_database" autocomplete="off">
+      <label id="restoreDbFileLabel">Backup file (.zip, .dump, .sql)</label>
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <input type="text" id="restoreDbFile" placeholder="Select file..." readonly style="margin-bottom:0;flex:1;cursor:pointer" onclick="pickRestoreFile()">
+        <button class="db-toolbar-btn" onclick="pickRestoreFile()" style="flex-shrink:0">Browse</button>
+      </div>
     </div>
-    <div class="db-modal-actions">
-      <button class="db-toolbar-btn" onclick="hideDbModal('modalRestoreDb')">Cancel</button>
+    <div id="restoreDbProgress" style="display:none">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span class="restart-spinner"></span>
+        <span id="restoreDbStep" style="font-size:0.75rem">Preparing...</span>
+      </div>
+      <div id="restoreDbElapsed" style="font-size:0.68rem;color:var(--text-dim);margin-bottom:6px"></div>
+      <div id="restoreDbOutput" style="max-height:120px;overflow-y:auto;font-family:'Cascadia Code',Consolas,monospace;font-size:0.65rem;color:var(--text-dim);background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:6px 8px;display:none"></div>
+      <button class="db-toolbar-btn" onclick="toggleOutput('restoreDbOutput')" style="margin-top:4px;font-size:0.65rem;padding:2px 8px" id="restoreDbToggleOutput">View Output</button>
+    </div>
+    <div class="db-modal-actions" id="restoreDbActions">
+      <button class="db-toolbar-btn" onclick="hideDbModal('modalRestoreDb')" id="restoreDbCancelBtn">Cancel</button>
       <button class="db-toolbar-btn primary" onclick="doRestoreDb()" id="btnDoRestoreDb">Restore</button>
     </div>
   </div>
@@ -561,7 +767,7 @@ function switchTab(tabId) {
   document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab' + tabId.charAt(0).toUpperCase() + tabId.slice(1)));
   if (tabId === 'database' && !dbLoaded) {
     dbLoaded = true;
-    loadDatabases();
+    loadDatabases().then(() => checkActiveJobs());
   }
 }
 
@@ -718,9 +924,19 @@ function applyI18n() {
   document.getElementById('btnRestoreDb').querySelector('span').textContent = ti('monitor.restoreDb');
   document.getElementById('createDbTitle').textContent = ti('monitor.createDb');
   document.getElementById('createDbNameLabel').textContent = ti('monitor.createDbName');
+  document.getElementById('createDbPasswdLabel').textContent = ti('monitor.adminPasswd');
+  document.getElementById('createDbEmailLabel').textContent = ti('monitor.adminEmail');
+  document.getElementById('createDbPasswordLabel').textContent = ti('monitor.adminPasswordLabel');
+  document.getElementById('createDbPhoneLabel').textContent = ti('monitor.adminPhone');
+  document.getElementById('createDbLangLabel').textContent = ti('monitor.langLabel');
+  document.getElementById('createDbCountryLabel').textContent = ti('monitor.countryLabel');
+  document.getElementById('createDbDemoLabel').textContent = ti('monitor.demoData');
+  document.getElementById('createDbHint').textContent = ti('monitor.createHint');
+  document.getElementById('createDbToggleOutput').textContent = ti('monitor.viewOutput');
   document.getElementById('restoreDbTitle').textContent = ti('monitor.restoreDb');
   document.getElementById('restoreDbNameLabel').textContent = ti('monitor.createDbName');
   document.getElementById('restoreDbFileLabel').textContent = ti('monitor.restoreDbFile');
+  document.getElementById('restoreDbToggleOutput').textContent = ti('monitor.viewOutput');
   document.getElementById('dropDbTitle').textContent = ti('monitor.dropDb');
 }
 
@@ -977,6 +1193,118 @@ if (window.electronAPI) {
 
 // ======== Database Tab ========
 let _dbDropTarget = '';
+let _adminPasswd = 'odoo';
+
+function formatElapsed(ms) {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
+}
+
+function toggleOutput(id) {
+  const el = document.getElementById(id);
+  el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+
+const stepLabels = {
+  creating_db: () => ti('monitor.stepCreatingDb'),
+  init_schema: () => ti('monitor.stepInitSchema'),
+  configuring_admin: () => ti('monitor.stepConfiguringAdmin'),
+  extracting: () => ti('monitor.stepExtracting'),
+  restoring_data: () => ti('monitor.stepRestoringData'),
+  copying_filestore: () => ti('monitor.stepCopyingFilestore'),
+  preparing: () => ti('monitor.restoring'),
+  done: () => ti('monitor.done'),
+  error: () => ti('monitor.error'),
+};
+
+// Listen for db-job-progress events
+if (window.electronAPI) {
+  window.electronAPI.onEvent('db-job-progress', (data) => {
+    const prefix = data.type === 'create' ? 'createDb' : 'restoreDb';
+    const stepEl = document.getElementById(prefix + 'Step');
+    const elapsedEl = document.getElementById(prefix + 'Elapsed');
+    const outputEl = document.getElementById(prefix + 'Output');
+    const msgEl = document.getElementById(prefix + 'Msg');
+    const progressEl = document.getElementById(prefix + 'Progress');
+
+    if (data.status === 'running') {
+      const label = (stepLabels[data.step] || (() => data.step))();
+      if (stepEl) stepEl.textContent = label + (data.objectCount ? ` (${data.objectCount} objects)` : '');
+      if (elapsedEl && data.elapsed) elapsedEl.textContent = formatElapsed(data.elapsed);
+      if (outputEl && data.detail) {
+        const line = document.createElement('div');
+        line.textContent = data.detail;
+        outputEl.appendChild(line);
+        outputEl.scrollTop = outputEl.scrollHeight;
+        // Trim to 100 lines
+        while (outputEl.childElementCount > 100) outputEl.removeChild(outputEl.firstChild);
+      }
+    } else if (data.status === 'done') {
+      if (stepEl) stepEl.textContent = ti('monitor.' + data.type + 'Done', { time: formatElapsed(data.elapsed || 0) });
+      if (elapsedEl) elapsedEl.textContent = '';
+      // Replace spinner with checkmark
+      const spinner = progressEl?.querySelector('.restart-spinner');
+      if (spinner) { spinner.style.display = 'none'; }
+      if (msgEl) { msgEl.className = 'db-msg success'; msgEl.textContent = ti('monitor.db' + (data.type === 'create' ? 'Created' : 'Restored')); }
+      // Show close button and reload DBs after delay
+      setTimeout(() => {
+        hideDbModal(data.type === 'create' ? 'modalCreateDb' : 'modalRestoreDb');
+        loadDatabases();
+      }, 1500);
+    } else if (data.status === 'error') {
+      if (stepEl) stepEl.textContent = ti('monitor.' + data.type + 'Error');
+      const spinner = progressEl?.querySelector('.restart-spinner');
+      if (spinner) { spinner.style.display = 'none'; }
+      let errMsg = data.error || 'Unknown error';
+      const translated = ti('monitor.' + errMsg);
+      if (translated !== 'monitor.' + errMsg) errMsg = translated;
+      if (msgEl) { msgEl.className = 'db-msg error'; msgEl.textContent = errMsg; }
+      if (data.detail && outputEl) {
+        outputEl.style.display = '';
+        const line = document.createElement('div');
+        line.textContent = data.detail;
+        line.style.color = '#ff7b72';
+        outputEl.appendChild(line);
+      }
+      // Show close button
+      const cancelId = data.type === 'create' ? 'createDbCancelBtn' : 'restoreDbCancelBtn';
+      document.getElementById(cancelId).style.display = '';
+    }
+  });
+}
+
+// Check for active jobs when Database tab loads (reconnect after Monitor reopen)
+async function checkActiveJobs() {
+  if (!window.electronAPI) return;
+  try {
+    const res = await window.electronAPI.invoke('monitor-db-job-status', { projectName: currentProjectName });
+    if (!res?.ok || !res.jobs?.length) return;
+    for (const job of res.jobs) {
+      if (job.status === 'running') {
+        // Show progress modal for active job
+        if (job.type === 'create') {
+          showDbModal('modalCreateDb');
+          document.getElementById('createDbForm').style.display = 'none';
+          document.getElementById('createDbProgress').style.display = '';
+          document.getElementById('btnDoCreateDb').style.display = 'none';
+          document.getElementById('createDbCancelBtn').style.display = 'none';
+          document.getElementById('createDbStep').textContent = (stepLabels[job.step] || (() => job.step))();
+          document.getElementById('createDbElapsed').textContent = formatElapsed(Date.now() - job.startTime);
+        } else if (job.type === 'restore') {
+          showDbModal('modalRestoreDb');
+          document.getElementById('restoreDbForm').style.display = 'none';
+          document.getElementById('restoreDbProgress').style.display = '';
+          document.getElementById('btnDoRestoreDb').style.display = 'none';
+          document.getElementById('restoreDbCancelBtn').style.display = 'none';
+          document.getElementById('restoreDbStep').textContent = (stepLabels[job.step] || (() => job.step))();
+          document.getElementById('restoreDbElapsed').textContent = formatElapsed(Date.now() - job.startTime);
+        }
+      }
+    }
+  } catch {}
+}
 
 async function loadDatabases() {
   const wrap = document.getElementById('dbTableWrap');
@@ -994,6 +1322,7 @@ async function loadDatabases() {
       document.getElementById('dbHost').textContent = res.connInfo.host || '-';
       document.getElementById('dbPort').textContent = res.connInfo.port || '-';
       document.getElementById('dbUser').textContent = res.connInfo.user || '-';
+      if (res.connInfo.adminPasswd) _adminPasswd = res.connInfo.adminPasswd;
     }
     const dbs = res.databases || [];
     if (dbs.length === 0) {
@@ -1009,12 +1338,13 @@ async function loadDatabases() {
         <td class="db-size">${esc(db.size)}</td>
         <td>${esc(db.owner)}</td>
         <td>${esc(db.encoding)}</td>
-        <td class="db-actions">
-          <button class="db-toolbar-btn danger" onclick="showDropDbModal('${escJs(db.name)}')" style="padding:3px 8px;font-size:0.68rem">
+        <td class="db-actions">${
+          ['postgres','template0','template1'].includes(db.name) ? '' :
+          `<button class="db-toolbar-btn danger" onclick="showDropDbModal('${escJs(db.name)}')" style="padding:3px 8px;font-size:0.68rem">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>
             Drop
-          </button>
-        </td>
+          </button>`
+        }</td>
       </tr>`;
     }
     html += '</tbody></table>';
@@ -1038,6 +1368,14 @@ function hideDbModal(id) {
 function showCreateDbModal() {
   document.getElementById('createDbName').value = '';
   document.getElementById('createDbMsg').className = 'db-msg';
+  document.getElementById('createDbForm').style.display = '';
+  document.getElementById('createDbProgress').style.display = 'none';
+  document.getElementById('createDbOutput').style.display = 'none';
+  document.getElementById('btnDoCreateDb').style.display = '';
+  document.getElementById('createDbCancelBtn').style.display = '';
+  document.getElementById('btnDoCreateDb').disabled = false;
+  // Set admin password from connInfo
+  document.getElementById('createDbPasswd').value = _adminPasswd || 'odoo';
   showDbModal('modalCreateDb');
   setTimeout(() => document.getElementById('createDbName').focus(), 100);
 }
@@ -1046,27 +1384,56 @@ async function doCreateDb() {
   const name = document.getElementById('createDbName').value.trim();
   const msgEl = document.getElementById('createDbMsg');
   if (!name) { msgEl.className = 'db-msg error'; msgEl.textContent = 'Database name is required'; return; }
-  const btn = document.getElementById('btnDoCreateDb');
-  btn.disabled = true;
+  const demoData = document.getElementById('createDbDemo').checked;
+  const adminEmail = document.getElementById('createDbEmail').value.trim() || 'admin';
+  const adminPassword = document.getElementById('createDbPassword').value.trim() || 'admin';
+  const adminPhone = document.getElementById('createDbPhone').value.trim();
+  const lang = document.getElementById('createDbLang').value;
+  const country = document.getElementById('createDbCountry').value.trim();
+
+  // Switch to progress mode
+  document.getElementById('createDbForm').style.display = 'none';
+  document.getElementById('createDbProgress').style.display = '';
+  document.getElementById('btnDoCreateDb').style.display = 'none';
+  document.getElementById('createDbCancelBtn').style.display = 'none';
+  document.getElementById('createDbStep').textContent = ti('monitor.creating');
+  document.getElementById('createDbElapsed').textContent = '';
+  document.getElementById('createDbOutput').innerHTML = '';
+  msgEl.className = 'db-msg';
+
   try {
     const res = await window.electronAPI.invoke('monitor-create-database', {
-      projectName: currentProjectName, dbName: name, projectsDir, odooVersion,
+      projectName: currentProjectName, dbName: name, demoData,
+      adminEmail, adminPassword, adminPhone, lang, country,
+      projectsDir, baseDir, odooVersion, odooSourceDir,
     });
-    if (res?.ok) {
-      msgEl.className = 'db-msg success'; msgEl.textContent = ti('monitor.dbCreated');
-      setTimeout(() => { hideDbModal('modalCreateDb'); loadDatabases(); }, 800);
-    } else {
-      msgEl.className = 'db-msg error'; msgEl.textContent = res?.msg || 'Error';
+    if (!res?.ok && res?.msg !== 'STARTED') {
+      msgEl.className = 'db-msg error'; msgEl.textContent = ti('monitor.' + res?.msg) || res?.msg || 'Error';
+      document.getElementById('createDbProgress').style.display = 'none';
+      document.getElementById('createDbForm').style.display = '';
+      document.getElementById('btnDoCreateDb').style.display = '';
+      document.getElementById('createDbCancelBtn').style.display = '';
     }
+    // Progress updates come via db-job-progress event
   } catch (e) {
     msgEl.className = 'db-msg error'; msgEl.textContent = e?.message || 'Error';
-  } finally { btn.disabled = false; }
+    document.getElementById('createDbProgress').style.display = 'none';
+    document.getElementById('createDbForm').style.display = '';
+    document.getElementById('btnDoCreateDb').style.display = '';
+    document.getElementById('createDbCancelBtn').style.display = '';
+  }
 }
 
 function showRestoreDbModal() {
   document.getElementById('restoreDbName').value = '';
   document.getElementById('restoreDbFile').value = '';
   document.getElementById('restoreDbMsg').className = 'db-msg';
+  document.getElementById('restoreDbForm').style.display = '';
+  document.getElementById('restoreDbProgress').style.display = 'none';
+  document.getElementById('restoreDbOutput').style.display = 'none';
+  document.getElementById('btnDoRestoreDb').style.display = '';
+  document.getElementById('restoreDbCancelBtn').style.display = '';
+  document.getElementById('btnDoRestoreDb').disabled = false;
   showDbModal('modalRestoreDb');
   setTimeout(() => document.getElementById('restoreDbName').focus(), 100);
 }
@@ -1075,7 +1442,7 @@ async function pickRestoreFile() {
   try {
     const res = await window.electronAPI.invoke('pick-file', {
       title: 'Select database backup',
-      filters: [{ name: 'Database backup', extensions: ['dump', 'sql'] }],
+      filters: [{ name: 'Database backup', extensions: ['zip', 'dump', 'sql'] }],
     });
     if (res?.path) document.getElementById('restoreDbFile').value = res.path;
   } catch {}
@@ -1087,21 +1454,36 @@ async function doRestoreDb() {
   const msgEl = document.getElementById('restoreDbMsg');
   if (!name) { msgEl.className = 'db-msg error'; msgEl.textContent = 'Database name is required'; return; }
   if (!filePath) { msgEl.className = 'db-msg error'; msgEl.textContent = 'Backup file is required'; return; }
-  const btn = document.getElementById('btnDoRestoreDb');
-  btn.disabled = true;
+
+  // Switch to progress mode
+  document.getElementById('restoreDbForm').style.display = 'none';
+  document.getElementById('restoreDbProgress').style.display = '';
+  document.getElementById('btnDoRestoreDb').style.display = 'none';
+  document.getElementById('restoreDbCancelBtn').style.display = 'none';
+  document.getElementById('restoreDbStep').textContent = ti('monitor.restoring');
+  document.getElementById('restoreDbElapsed').textContent = '';
+  document.getElementById('restoreDbOutput').innerHTML = '';
+  msgEl.className = 'db-msg';
+
   try {
     const res = await window.electronAPI.invoke('monitor-restore-database', {
-      projectName: currentProjectName, dbName: name, filePath, projectsDir, odooVersion,
+      projectName: currentProjectName, dbName: name, filePath,
+      projectsDir, baseDir, odooVersion, odooSourceDir,
     });
-    if (res?.ok) {
-      msgEl.className = 'db-msg success'; msgEl.textContent = ti('monitor.dbRestored');
-      setTimeout(() => { hideDbModal('modalRestoreDb'); loadDatabases(); }, 800);
-    } else {
-      msgEl.className = 'db-msg error'; msgEl.textContent = res?.msg || 'Error';
+    if (!res?.ok && res?.msg !== 'STARTED') {
+      msgEl.className = 'db-msg error'; msgEl.textContent = ti('monitor.' + res?.msg) || res?.msg || 'Error';
+      document.getElementById('restoreDbProgress').style.display = 'none';
+      document.getElementById('restoreDbForm').style.display = '';
+      document.getElementById('btnDoRestoreDb').style.display = '';
+      document.getElementById('restoreDbCancelBtn').style.display = '';
     }
   } catch (e) {
     msgEl.className = 'db-msg error'; msgEl.textContent = e?.message || 'Error';
-  } finally { btn.disabled = false; }
+    document.getElementById('restoreDbProgress').style.display = 'none';
+    document.getElementById('restoreDbForm').style.display = '';
+    document.getElementById('btnDoRestoreDb').style.display = '';
+    document.getElementById('restoreDbCancelBtn').style.display = '';
+  }
 }
 
 function showDropDbModal(dbName) {

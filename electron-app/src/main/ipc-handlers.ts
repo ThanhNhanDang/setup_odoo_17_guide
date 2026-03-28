@@ -2,7 +2,7 @@ import { ipcMain, BrowserWindow, shell, dialog, app } from 'electron';
 import { spawn } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
-import { runCmd } from './utils/shell';
+import { runCmd, runCmdStreaming } from './utils/shell';
 import { LoggerService } from './services/logger';
 import { StepLockManager } from './services/step-lock';
 import { DEFAULT_BASE_DIR, DEFAULT_PROJECTS_DIR, getDefaultBaseDir, getDefaultProjectsDir, getTemplatesDir } from './services/config';
@@ -1010,7 +1010,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   // ========== Project Monitor: Database Tab ==========
 
-  /** Read DB connection config from project's odoo.conf */
+  /** Read DB connection config + admin_passwd + data_dir from project's odoo.conf */
   function readDbConfig(projectName: string, projectsDir: string) {
     if (!projectName || !/^[a-z_][a-z0-9_\-]*$/.test(projectName)) return null;
     const confFile = path.join(projectsDir, projectName, 'odoo.conf');
@@ -1022,6 +1022,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       port: iniGet(ini, 'options', 'db_port', '5432'),
       user: iniGet(ini, 'options', 'db_user', 'odoo'),
       password: iniGet(ini, 'options', 'db_password', 'odoo'),
+      adminPasswd: iniGet(ini, 'options', 'admin_passwd', 'odoo'),
+      dataDir: iniGet(ini, 'options', 'data_dir', ''),
+      confFile,
     };
   }
 
@@ -1030,7 +1033,45 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const { findPostgresBin } = require('./services/detection');
     const pgBin = findPostgresBin();
     if (!pgBin) return null;
-    return { pgBin, env: { ...process.env, PGPASSWORD: dbPassword } };
+    return { pgBin, env: { ...process.env, PGPASSWORD: dbPassword } as NodeJS.ProcessEnv };
+  }
+
+  /** Check prerequisites: PG running, venv exists, odoo-bin exists */
+  function checkPrerequisites(baseDir: string, odooSourceDir: string, dbPort: string): { ok: boolean; msg?: string } {
+    const venvPy = path.join(baseDir, 'venv', 'Scripts', 'python.exe');
+    if (!fs.existsSync(venvPy)) return { ok: false, msg: 'VENV_NOT_FOUND' };
+    const odooBin = path.join(baseDir, odooSourceDir, 'odoo-bin');
+    if (!fs.existsSync(odooBin)) return { ok: false, msg: 'ODOO_NOT_FOUND' };
+    // PG readiness is checked at runtime by the handlers
+    return { ok: true };
+  }
+
+  /** Send progress event to all log windows for a project */
+  function emitDbProgress(projectName: string, channel: string, data: Record<string, unknown>) {
+    const win = logWindows.get(projectName);
+    if (win && !win.isDestroyed()) {
+      win.webContents.send(channel, data);
+    }
+  }
+
+  // --- DB Job tracking (persists across Monitor close/reopen) ---
+  interface DbJob {
+    type: 'create' | 'restore';
+    dbName: string;
+    projectName: string;
+    status: 'running' | 'done' | 'error';
+    step: string;
+    startTime: number;
+    output: string[];
+    error?: string;
+  }
+  const dbJobs = new Map<string, DbJob>();
+
+  function getJobKey(projectName: string, type: string) { return `${projectName}:${type}`; }
+
+  // Cleanup completed jobs after 5 minutes
+  function scheduleJobCleanup(key: string) {
+    setTimeout(() => { dbJobs.delete(key); }, 5 * 60 * 1000);
   }
 
   ipcMain.handle('monitor-list-databases', async (_event, data: { projectName: string; projectsDir?: string; odooVersion?: string }) => {
@@ -1040,13 +1081,11 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       const dbConf = readDbConfig(data.projectName, projectsDir);
       if (!dbConf) return { ok: false, msg: 'CONFIG_NOT_FOUND' };
 
-      const connInfo = { host: dbConf.host, port: dbConf.port, user: dbConf.user };
+      const connInfo = { host: dbConf.host, port: dbConf.port, user: dbConf.user, adminPasswd: dbConf.adminPasswd };
       const pg = getPgTools(dbConf.password);
       if (!pg) return { ok: false, msg: 'PG_NOT_FOUND', connInfo };
 
       const psql = path.join(pg.pgBin, 'psql.exe');
-
-      // List databases with size, owner, encoding
       const query = `SELECT d.datname, pg_size_pretty(pg_database_size(d.datname)) as size, r.rolname as owner, d.encoding, pg_encoding_to_char(d.encoding) as enc_name FROM pg_database d JOIN pg_roles r ON d.datdba = r.oid WHERE d.datistemplate = false ORDER BY d.datname`;
       const { output } = await runCmd(
         `"${psql}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -d postgres -tAF "|" -c "${query.replace(/"/g, '\\"')}"`,
@@ -1069,26 +1108,160 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
-  ipcMain.handle('monitor-create-database', async (_event, data: { projectName: string; dbName: string; projectsDir?: string; odooVersion?: string }) => {
-    try {
-      const dbName = data.dbName;
-      if (!dbName || !/^[a-zA-Z_][a-zA-Z0-9_\-]*$/.test(dbName)) return { ok: false, msg: 'INVALID_DB_NAME' };
+  ipcMain.handle('monitor-create-database', async (_event, data: {
+    projectName: string; dbName: string; demoData?: boolean;
+    adminEmail?: string; adminPassword?: string; adminPhone?: string;
+    lang?: string; country?: string;
+    projectsDir?: string; baseDir?: string; odooVersion?: string; odooSourceDir?: string;
+  }) => {
+    const dbName = data.dbName;
+    if (!dbName || !/^[a-zA-Z_][a-zA-Z0-9_\-]*$/.test(dbName)) return { ok: false, msg: 'INVALID_DB_NAME' };
 
-      const odooVersion = data.odooVersion || DEFAULT_ODOO_VERSION;
-      const projectsDir = data.projectsDir || getDefaultProjectsDir(odooVersion);
-      const dbConf = readDbConfig(data.projectName, projectsDir);
-      if (!dbConf) return { ok: false, msg: 'CONFIG_NOT_FOUND' };
+    const odooVersion = data.odooVersion || DEFAULT_ODOO_VERSION;
+    const projectsDir = data.projectsDir || getDefaultProjectsDir(odooVersion);
+    const baseDir = data.baseDir || getDefaultBaseDir(odooVersion);
+    const odooSourceDir = data.odooSourceDir || 'odoo';
+    const dbConf = readDbConfig(data.projectName, projectsDir);
+    if (!dbConf) return { ok: false, msg: 'CONFIG_NOT_FOUND' };
 
-      const pg = getPgTools(dbConf.password);
-      if (!pg) return { ok: false, msg: 'PG_NOT_FOUND' };
+    // Check prerequisites
+    const prereq = checkPrerequisites(baseDir, odooSourceDir, dbConf.port);
+    if (!prereq.ok) return { ok: false, msg: prereq.msg };
 
-      const createdb = path.join(pg.pgBin, 'createdb.exe');
-      await runCmd(`"${createdb}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -E UTF8 "${dbName}"`, undefined, pg.env);
-      logger.log(`[monitor] Database created: ${dbName}`);
-      return { ok: true };
-    } catch (e) {
-      return { ok: false, msg: String(e) };
-    }
+    const pg = getPgTools(dbConf.password);
+    if (!pg) return { ok: false, msg: 'PG_NOT_FOUND' };
+
+    // Start async job — return immediately
+    const jobKey = getJobKey(data.projectName, 'create');
+    const job: DbJob = {
+      type: 'create', dbName, projectName: data.projectName,
+      status: 'running', step: 'creating_db', startTime: Date.now(), output: [],
+    };
+    dbJobs.set(jobKey, job);
+
+    const emit = (step: string, detail?: string) => {
+      job.step = step;
+      emitDbProgress(data.projectName, 'db-job-progress', {
+        type: 'create', dbName, step, detail, status: 'running',
+        elapsed: Date.now() - job.startTime,
+      });
+    };
+
+    // Run in background
+    (async () => {
+      try {
+        // Step 1: Create empty DB
+        emit('creating_db');
+        const createdb = path.join(pg.pgBin, 'createdb.exe');
+        const { code: createCode, output: createOut } = await runCmd(
+          `"${createdb}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -E UTF8 "${dbName}"`,
+          undefined, pg.env
+        );
+        if (createCode !== 0 && createOut.includes('already exists')) {
+          job.status = 'error'; job.error = 'DB_EXISTS';
+          emitDbProgress(data.projectName, 'db-job-progress', { type: 'create', dbName, step: 'error', status: 'error', error: 'DB_EXISTS' });
+          scheduleJobCleanup(jobKey);
+          return;
+        }
+
+        // Step 2: Init Odoo schema with odoo-bin
+        emit('init_schema');
+        const venvPy = path.join(baseDir, 'venv', 'Scripts', 'python.exe');
+        const odooBin = path.join(baseDir, odooSourceDir, 'odoo-bin');
+        const projectPath = path.join(projectsDir, data.projectName);
+
+        // Inject PG bin into PATH
+        const odooEnv: NodeJS.ProcessEnv = { ...pg.env };
+        if (!odooEnv.PATH?.includes(pg.pgBin)) {
+          odooEnv.PATH = `${pg.pgBin};${odooEnv.PATH || ''}`;
+        }
+
+        const lang = data.lang || 'en_US';
+        let initCmd = `"${venvPy}" "${odooBin}" -d "${dbName}" -c "${dbConf.confFile}" -i base --stop-after-init -l ${lang}`;
+        if (!data.demoData) initCmd += ' --without-demo=all';
+
+        const exitCode = await runCmdStreaming(initCmd, logger, {
+          cwd: projectPath,
+          env: odooEnv,
+          onData: (line) => {
+            job.output.push(line);
+            if (job.output.length > 200) job.output.shift();
+            emit('init_schema', line);
+          },
+        });
+
+        if (exitCode !== 0) {
+          // Check for common errors in output
+          const fullOut = job.output.join('\n');
+          let errorMsg = 'INIT_FAILED';
+          if (fullOut.includes('Module') && fullOut.includes('not found')) errorMsg = 'MISSING_ADDON';
+          job.status = 'error'; job.error = errorMsg;
+          emitDbProgress(data.projectName, 'db-job-progress', {
+            type: 'create', dbName, step: 'error', status: 'error', error: errorMsg,
+            detail: job.output.slice(-5).join('\n'),
+          });
+          scheduleJobCleanup(jobKey);
+          return;
+        }
+
+        // Step 3: Configure admin user (email/password/phone/country) via SQL
+        emit('configuring_admin');
+        const adminEmail = data.adminEmail || 'admin';
+        const adminPassword = data.adminPassword || 'admin';
+        const psqlExe = path.join(pg.pgBin, 'psql.exe');
+        // Update admin login (res_users id=2 is the first real user created by Odoo)
+        const safeEmail = adminEmail.replace(/'/g, "''");
+        const safePassword = adminPassword.replace(/'/g, "''");
+        await runCmd(
+          `"${psqlExe}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -d "${dbName}" -c "UPDATE res_users SET login='${safeEmail}' WHERE id=2"`,
+          undefined, pg.env
+        ).catch(() => {});
+
+        // Set password via odoo-bin (hashed properly)
+        await runCmdStreaming(
+          `"${venvPy}" "${odooBin}" shell -d "${dbName}" -c "${dbConf.confFile}" --no-http -c "${dbConf.confFile}" <<< "env['res.users'].browse(2).write({'password': '${safePassword}'}); env.cr.commit()"`,
+          logger, { cwd: projectPath, env: odooEnv }
+        ).catch(() => {
+          // Fallback: just log, password might need manual set
+          logger.log('  > Note: Could not set admin password via shell. Default password may apply.');
+        });
+
+        // Set phone if provided
+        if (data.adminPhone) {
+          const safePhone = data.adminPhone.replace(/'/g, "''");
+          await runCmd(
+            `"${psqlExe}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -d "${dbName}" -c "UPDATE res_partner SET phone='${safePhone}' WHERE id=(SELECT partner_id FROM res_users WHERE id=2)"`,
+            undefined, pg.env
+          ).catch(() => {});
+        }
+
+        // Set country if provided (country code like 'vn', 'us', etc.)
+        if (data.country && /^[a-z]{2}$/i.test(data.country)) {
+          const cc = data.country.toLowerCase();
+          await runCmd(
+            `"${psqlExe}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -d "${dbName}" -c "UPDATE res_company SET country_id=(SELECT id FROM res_country WHERE code ILIKE '${cc}' LIMIT 1) WHERE id=1"`,
+            undefined, pg.env
+          ).catch(() => {});
+        }
+
+        // Done
+        job.status = 'done'; job.step = 'done';
+        logger.log(`[monitor] Database created + initialized: ${dbName} (admin: ${adminEmail})`);
+        emitDbProgress(data.projectName, 'db-job-progress', {
+          type: 'create', dbName, step: 'done', status: 'done',
+          elapsed: Date.now() - job.startTime,
+        });
+        scheduleJobCleanup(jobKey);
+      } catch (e) {
+        job.status = 'error'; job.error = String(e);
+        emitDbProgress(data.projectName, 'db-job-progress', {
+          type: 'create', dbName, step: 'error', status: 'error', error: String(e),
+        });
+        scheduleJobCleanup(jobKey);
+      }
+    })();
+
+    return { ok: true, msg: 'STARTED' };
   });
 
   ipcMain.handle('monitor-drop-database', async (_event, data: { projectName: string; dbName: string; projectsDir?: string; odooVersion?: string }) => {
@@ -1096,12 +1269,15 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       const dbName = data.dbName;
       if (!dbName || !/^[a-zA-Z_][a-zA-Z0-9_\-]*$/.test(dbName)) return { ok: false, msg: 'INVALID_DB_NAME' };
 
+      // Protect system databases
+      const protectedDbs = ['postgres', 'template0', 'template1'];
+      if (protectedDbs.includes(dbName.toLowerCase())) return { ok: false, msg: 'PROTECTED_DB' };
+
       const odooVersion = data.odooVersion || DEFAULT_ODOO_VERSION;
       const projectsDir = data.projectsDir || getDefaultProjectsDir(odooVersion);
       const dbConf = readDbConfig(data.projectName, projectsDir);
       if (!dbConf) return { ok: false, msg: 'CONFIG_NOT_FOUND' };
 
-      // Use postgres superuser for terminate + drop (handles DBs owned by other users)
       let pgSuperPassword = 'postgres';
       const sFile = path.join(app.getPath('userData'), 'user-settings.json');
       try {
@@ -1114,7 +1290,6 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       const pg = getPgTools(pgSuperPassword);
       if (!pg) return { ok: false, msg: 'PG_NOT_FOUND' };
 
-      // Terminate active connections before dropping
       const psql = path.join(pg.pgBin, 'psql.exe');
       await runCmd(
         `"${psql}" -h ${dbConf.host} -p ${dbConf.port} -U postgres -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${dbName}' AND pid <> pg_backend_pid()"`,
@@ -1130,50 +1305,181 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
-  ipcMain.handle('monitor-restore-database', async (_event, data: { projectName: string; dbName: string; filePath: string; projectsDir?: string; odooVersion?: string }) => {
-    try {
-      const dbName = data.dbName;
-      const filePath = data.filePath;
-      if (!dbName || !/^[a-zA-Z_][a-zA-Z0-9_\-]*$/.test(dbName)) return { ok: false, msg: 'INVALID_DB_NAME' };
-      if (!filePath || !fs.existsSync(filePath)) return { ok: false, msg: 'FILE_NOT_FOUND' };
+  ipcMain.handle('monitor-restore-database', async (_event, data: {
+    projectName: string; dbName: string; filePath: string;
+    projectsDir?: string; baseDir?: string; odooVersion?: string; odooSourceDir?: string;
+  }) => {
+    const dbName = data.dbName;
+    const filePath = data.filePath;
+    if (!dbName || !/^[a-zA-Z_][a-zA-Z0-9_\-]*$/.test(dbName)) return { ok: false, msg: 'INVALID_DB_NAME' };
+    if (!filePath || !fs.existsSync(filePath)) return { ok: false, msg: 'FILE_NOT_FOUND' };
 
-      // Path safety: ensure filePath is a file (not directory traversal)
-      const resolvedFile = path.resolve(filePath);
-      if (!fs.statSync(resolvedFile).isFile()) return { ok: false, msg: 'FILE_NOT_FOUND' };
+    const resolvedFile = path.resolve(filePath);
+    if (!fs.statSync(resolvedFile).isFile()) return { ok: false, msg: 'FILE_NOT_FOUND' };
 
-      const odooVersion = data.odooVersion || DEFAULT_ODOO_VERSION;
-      const projectsDir = data.projectsDir || getDefaultProjectsDir(odooVersion);
-      const dbConf = readDbConfig(data.projectName, projectsDir);
-      if (!dbConf) return { ok: false, msg: 'CONFIG_NOT_FOUND' };
+    const odooVersion = data.odooVersion || DEFAULT_ODOO_VERSION;
+    const projectsDir = data.projectsDir || getDefaultProjectsDir(odooVersion);
+    const baseDir = data.baseDir || getDefaultBaseDir(odooVersion);
+    const dbConf = readDbConfig(data.projectName, projectsDir);
+    if (!dbConf) return { ok: false, msg: 'CONFIG_NOT_FOUND' };
 
-      const pg = getPgTools(dbConf.password);
-      if (!pg) return { ok: false, msg: 'PG_NOT_FOUND' };
+    const pg = getPgTools(dbConf.password);
+    if (!pg) return { ok: false, msg: 'PG_NOT_FOUND' };
 
-      const ext = path.extname(filePath).toLowerCase();
+    const ext = path.extname(filePath).toLowerCase();
 
-      // Create database first
-      const createdb = path.join(pg.pgBin, 'createdb.exe');
+    // Start async job
+    const jobKey = getJobKey(data.projectName, 'restore');
+    const job: DbJob = {
+      type: 'restore', dbName, projectName: data.projectName,
+      status: 'running', step: 'preparing', startTime: Date.now(), output: [],
+    };
+    dbJobs.set(jobKey, job);
+
+    const emit = (step: string, detail?: string) => {
+      job.step = step;
+      emitDbProgress(data.projectName, 'db-job-progress', {
+        type: 'restore', dbName, step, detail, status: 'running',
+        elapsed: Date.now() - job.startTime,
+        objectCount: job.output.length,
+      });
+    };
+
+    (async () => {
       try {
-        await runCmd(`"${createdb}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -E UTF8 "${dbName}"`, undefined, pg.env);
-      } catch {
-        // DB may already exist, continue with restore
-      }
+        let dumpFile = resolvedFile;
+        let tempDir = '';
+        let hasFilestore = false;
 
-      if (ext === '.dump') {
-        // Binary format: use pg_restore
-        const pgRestore = path.join(pg.pgBin, 'pg_restore.exe');
-        await runCmd(`"${pgRestore}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -d "${dbName}" --no-owner --no-privileges "${resolvedFile}"`, undefined, pg.env);
-      } else {
-        // SQL format: use psql
-        const psql = path.join(pg.pgBin, 'psql.exe');
-        await runCmd(`"${psql}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -d "${dbName}" -f "${resolvedFile}"`, undefined, pg.env);
-      }
+        // Step 1: Extract .zip if needed
+        if (ext === '.zip') {
+          emit('extracting');
+          tempDir = path.join(app.getPath('temp'), `odoo-restore-${Date.now()}`);
+          fs.mkdirSync(tempDir, { recursive: true });
+          await runCmd(`powershell -NoProfile -Command "Expand-Archive -Path '${resolvedFile}' -DestinationPath '${tempDir}' -Force"`);
 
-      logger.log(`[monitor] Database restored: ${dbName} from ${path.basename(filePath)}`);
-      return { ok: true };
-    } catch (e) {
-      return { ok: false, msg: String(e) };
+          // Find dump file inside zip
+          const dumpSql = path.join(tempDir, 'dump.sql');
+          const dumpBin = path.join(tempDir, 'dump.dump');
+          if (fs.existsSync(dumpBin)) dumpFile = dumpBin;
+          else if (fs.existsSync(dumpSql)) dumpFile = dumpSql;
+          else {
+            // Search recursively for dump file
+            const files = fs.readdirSync(tempDir);
+            const found = files.find(f => f.endsWith('.dump') || f.endsWith('.sql'));
+            if (found) dumpFile = path.join(tempDir, found);
+            else {
+              job.status = 'error'; job.error = 'NO_DUMP_IN_ZIP';
+              emitDbProgress(data.projectName, 'db-job-progress', { type: 'restore', dbName, step: 'error', status: 'error', error: 'NO_DUMP_IN_ZIP' });
+              scheduleJobCleanup(jobKey);
+              try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
+              return;
+            }
+          }
+          hasFilestore = fs.existsSync(path.join(tempDir, 'filestore'));
+        }
+
+        // Step 2: Create empty DB
+        emit('creating_db');
+        const createdb = path.join(pg.pgBin, 'createdb.exe');
+        const { code: cCode, output: cOut } = await runCmd(
+          `"${createdb}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -E UTF8 "${dbName}"`,
+          undefined, pg.env
+        );
+        if (cCode !== 0 && cOut.includes('already exists')) {
+          job.status = 'error'; job.error = 'DB_EXISTS';
+          emitDbProgress(data.projectName, 'db-job-progress', { type: 'restore', dbName, step: 'error', status: 'error', error: 'DB_EXISTS' });
+          scheduleJobCleanup(jobKey);
+          if (tempDir) try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
+          return;
+        }
+
+        // Step 3: Restore dump with streaming
+        emit('restoring_data');
+        const dumpExt = path.extname(dumpFile).toLowerCase();
+        const pgEnv: NodeJS.ProcessEnv = { ...pg.env };
+        if (!pgEnv.PATH?.includes(pg.pgBin)) pgEnv.PATH = `${pg.pgBin};${pgEnv.PATH || ''}`;
+
+        let restoreCmd: string;
+        if (dumpExt === '.dump') {
+          const pgRestore = path.join(pg.pgBin, 'pg_restore.exe');
+          restoreCmd = `"${pgRestore}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -d "${dbName}" --no-owner --no-privileges --verbose "${dumpFile}"`;
+        } else {
+          const psql = path.join(pg.pgBin, 'psql.exe');
+          restoreCmd = `"${psql}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -d "${dbName}" -f "${dumpFile}"`;
+        }
+
+        const exitCode = await runCmdStreaming(restoreCmd, logger, {
+          env: pgEnv,
+          onData: (line) => {
+            job.output.push(line);
+            if (job.output.length > 200) job.output.shift();
+            // Emit progress every 10 objects to avoid flooding
+            if (job.output.length % 10 === 0) emit('restoring_data', line);
+          },
+        });
+
+        if (exitCode !== 0 && dumpExt !== '.dump') {
+          // psql may return non-zero but data is still restored; pg_restore --verbose also returns warnings
+          const lastLines = job.output.slice(-10).join('\n');
+          if (lastLines.includes('FATAL') || lastLines.includes('does not exist')) {
+            job.status = 'error'; job.error = 'RESTORE_FAILED';
+            emitDbProgress(data.projectName, 'db-job-progress', {
+              type: 'restore', dbName, step: 'error', status: 'error', error: 'RESTORE_FAILED',
+              detail: job.output.slice(-5).join('\n'),
+            });
+            scheduleJobCleanup(jobKey);
+            if (tempDir) try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
+            return;
+          }
+        }
+
+        // Step 4: Copy filestore if .zip had one
+        if (hasFilestore && tempDir) {
+          emit('copying_filestore');
+          const dataDir = dbConf.dataDir || path.join(projectsDir, data.projectName, 'data');
+          const destFilestore = path.join(dataDir, 'filestore', dbName);
+          const srcFilestore = path.join(tempDir, 'filestore');
+
+          if (!fs.existsSync(path.dirname(destFilestore))) {
+            fs.mkdirSync(path.dirname(destFilestore), { recursive: true });
+          }
+          // Use robocopy for large filestore (faster than Node.js copy)
+          await runCmd(`robocopy "${srcFilestore}" "${destFilestore}" /E /NFL /NDL /NJH /NJS /NC /NS`).catch(() => {});
+        }
+
+        // Cleanup temp dir
+        if (tempDir) {
+          try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
+        }
+
+        // Done
+        job.status = 'done'; job.step = 'done';
+        logger.log(`[monitor] Database restored: ${dbName} from ${path.basename(filePath)} (${job.output.length} objects)`);
+        emitDbProgress(data.projectName, 'db-job-progress', {
+          type: 'restore', dbName, step: 'done', status: 'done',
+          elapsed: Date.now() - job.startTime, objectCount: job.output.length,
+        });
+        scheduleJobCleanup(jobKey);
+      } catch (e) {
+        job.status = 'error'; job.error = String(e);
+        emitDbProgress(data.projectName, 'db-job-progress', {
+          type: 'restore', dbName, step: 'error', status: 'error', error: String(e),
+        });
+        scheduleJobCleanup(jobKey);
+      }
+    })();
+
+    return { ok: true, msg: 'STARTED' };
+  });
+
+  // --- DB Job status (for reconnecting after Monitor close/reopen) ---
+  ipcMain.handle('monitor-db-job-status', async (_event, data: { projectName: string }) => {
+    const jobs: DbJob[] = [];
+    for (const [, job] of dbJobs) {
+      if (job.projectName === data.projectName) jobs.push(job);
     }
+    return { ok: true, jobs };
   });
 
   // --- Get current app icon as data URL ---
