@@ -14,7 +14,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'watch-log', 'unwatch-log', 'load-settings', 'save-settings',
       'open-log-window', 'log-window-pin', 'log-window-minimize', 'log-window-maximize',
       'log-viewer-info', 'log-viewer-restart', 'log-viewer-projects', 'log-viewer-server-status',
-      'pick-file',
+      'pick-file', 'broadcast-theme',
       'monitor-list-databases', 'monitor-create-database', 'monitor-drop-database', 'monitor-restore-database',
       'monitor-db-job-status',
     ];
@@ -42,7 +42,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const validPushChannels = [
       'log-message', 'task-progress', 'download-progress',
       'update-status', 'project-log', 'duplicate-progress',
-      'create-progress', 'delete-progress', 'db-job-progress', 'language-changed',
+      'create-progress', 'delete-progress', 'db-job-progress', 'language-changed', 'theme-changed',
     ];
     if (validPushChannels.includes(eventName)) {
       ipcRenderer.on(eventName, (_event, ...args) => callback(...args));

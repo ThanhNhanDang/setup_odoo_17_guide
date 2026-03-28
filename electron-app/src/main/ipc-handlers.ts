@@ -742,6 +742,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     projectName: string; logPath: string;
     odooVersion?: string; baseDir?: string; projectsDir?: string;
     httpPort?: string; odooSourceDir?: string;
+    themePreset?: string; themeMode?: string; themeCustom?: string;
   }) => {
     const { projectName, logPath } = data;
     const windowKey = projectName;
@@ -767,6 +768,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       data.projectsDir ? `&projectsDir=${encodeURIComponent(data.projectsDir)}` : '',
       data.httpPort ? `&httpPort=${encodeURIComponent(data.httpPort)}` : '',
       data.odooSourceDir ? `&odooSourceDir=${encodeURIComponent(data.odooSourceDir)}` : '',
+      data.themePreset ? `&themePreset=${encodeURIComponent(data.themePreset)}` : '',
+      data.themeMode ? `&themeMode=${encodeURIComponent(data.themeMode)}` : '',
+      data.themeCustom ? `&themeCustom=${encodeURIComponent(data.themeCustom)}` : '',
     ].join('');
     const queryParams = `?project=${encodeURIComponent(projectName)}&logPath=${encodeURIComponent(logPath)}&color=${encodeURIComponent(color)}${extraParams}`;
 
@@ -807,6 +811,16 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     });
 
     return { ok: true, msg: 'opened', color };
+  });
+
+  // Broadcast theme changes to all log/monitor windows
+  ipcMain.handle('broadcast-theme', async (_event, data: { preset: string; mode: string; custom: string }) => {
+    for (const [, win] of logWindows) {
+      if (!win.isDestroyed()) {
+        win.webContents.send('theme-changed', data);
+      }
+    }
+    return { ok: true };
   });
 
   // Pin/unpin log window (always on top)

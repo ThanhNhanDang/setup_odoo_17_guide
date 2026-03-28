@@ -6,10 +6,43 @@
 <title>Project Monitor</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
+/* Default dark theme (matches main app default preset) */
 :root{
   --bg:#0d1117;--bg-surface:#161b22;--text:#e6edf3;--text-dim:#8b949e;
-  --border:#30363d;--header-bg:var(--accent-color,#f0883e);
-  --sidebar-w:220px;
+  --border:#30363d;--header-bg:var(--accent-color,#f0883e);--accent:#f0883e;
+  --sidebar-w:220px;--danger:#f85149;--success:#3fb950;
+}
+/* Default light */
+[data-mode="light"]{
+  --bg:#ffffff;--bg-surface:#f6f8fa;--text:#1f2328;--text-dim:#656d76;
+  --border:#d0d7de;--accent:#e16f24;--danger:#cf222e;--success:#1a7f37;
+}
+/* Autonsi dark */
+[data-preset="autonsi"]{
+  --bg:#08080c;--bg-surface:#111118;--text:#d8d8e0;--text-dim:#7878a0;
+  --border:#1e1e2a;--accent:#7c3aed;--danger:#f87171;--success:#34d399;
+}
+[data-preset="autonsi"][data-mode="light"]{
+  --bg:#fafaff;--bg-surface:#f0f0f8;--text:#18182a;--text-dim:#585878;
+  --border:#d0d0e0;--accent:#7c3aed;--danger:#dc2626;--success:#059669;
+}
+/* Cyberpunk dark */
+[data-preset="cyberpunk"]{
+  --bg:#05050a;--bg-surface:#0a0a14;--text:#e0f0ff;--text-dim:#6088b0;
+  --border:#0f1a2a;--accent:#00e5ff;--danger:#ff1744;--success:#00e676;
+}
+[data-preset="cyberpunk"][data-mode="light"]{
+  --bg:#eef4f8;--bg-surface:#e0eaf2;--text:#081020;--text-dim:#304060;
+  --border:#a0b8d0;--accent:#0097a7;--danger:#d32f2f;--success:#00897b;
+}
+/* Luxury dark */
+[data-preset="luxury"]{
+  --bg:#14101a;--bg-surface:#1c1624;--text:#e8dce4;--text-dim:#9888a0;
+  --border:#2a2030;--accent:#c77dba;--danger:#d06070;--success:#72c4a0;
+}
+[data-preset="luxury"][data-mode="light"]{
+  --bg:#fdf8fc;--bg-surface:#f8f0f6;--text:#2c1828;--text-dim:#685060;
+  --border:#e0d0dc;--accent:#a05890;--danger:#b04050;--success:#408868;
 }
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 
@@ -804,7 +837,45 @@ const projectsDir = params.get('projectsDir') || '';
 let httpPort = params.get('httpPort') || '';
 const odooSourceDir = params.get('odooSourceDir') || '';
 
-// Apply accent color to header
+// Apply theme from main app
+function applyMonitorTheme(preset, mode, customJson) {
+  const root = document.documentElement;
+  // Preset
+  if (preset && preset !== 'default') {
+    root.setAttribute('data-preset', preset);
+  } else {
+    root.removeAttribute('data-preset');
+  }
+  // Mode
+  if (mode === 'light') {
+    root.setAttribute('data-mode', 'light');
+  } else {
+    root.removeAttribute('data-mode');
+  }
+  // Custom color overrides (from main app's color pickers)
+  root.style.cssText = '';
+  root.style.setProperty('--accent-color', accentColor);
+  if (customJson) {
+    try {
+      const custom = JSON.parse(customJson);
+      // Map main.css var names to monitor var names
+      const map = { '--bg-canvas': '--bg', '--bg-surface': '--bg-surface', '--text-primary': '--text', '--text-secondary': '--text-dim', '--border-default': '--border', '--accent': '--accent' };
+      for (const [mainVar, val] of Object.entries(custom)) {
+        const monitorVar = map[mainVar] || mainVar;
+        root.style.setProperty(monitorVar, val);
+        if (mainVar === '--accent') root.style.setProperty('--accent-color', val);
+      }
+    } catch {}
+  }
+}
+
+// Apply initial theme from query params
+const themePreset = params.get('themePreset') || 'default';
+const themeMode = params.get('themeMode') || 'dark';
+const themeCustom = params.get('themeCustom') || '';
+applyMonitorTheme(themePreset, themeMode, themeCustom);
+
+// Apply accent color to header (per-window unique color)
 document.documentElement.style.setProperty('--accent-color', accentColor);
 document.title = `${projectName} — Monitor`;
 document.getElementById('logPath').textContent = logFilePath;
@@ -949,6 +1020,11 @@ if (window.electronAPI) {
         if (json) { _i18n = json; applyI18n(); }
       }).catch(() => {});
     }
+  });
+
+  // Listen for theme changes from main app (real-time sync)
+  window.electronAPI.onEvent('theme-changed', (data) => {
+    if (data) applyMonitorTheme(data.preset, data.mode, data.custom);
   });
 }
 

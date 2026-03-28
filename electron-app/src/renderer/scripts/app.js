@@ -1163,6 +1163,9 @@ async function openLogWindow(projectName, logPath, e, httpPort) {
     projectsDir: $('projectsDir')?.value || '',
     httpPort: httpPort || '',
     odooSourceDir: $('odooSourceDir')?.value || 'odoo',
+    themePreset: localStorage.getItem('preset') || 'default',
+    themeMode: localStorage.getItem('mode') || 'dark',
+    themeCustom: localStorage.getItem('customColors') || '',
   }));
 }
 async function openBrowser(port) { await api('open_browser', { url: `http://localhost:${port}` }); }
@@ -2079,6 +2082,7 @@ function applyMode(mode) {
     if (iconLight) iconLight.style.display = 'none';
   }
   syncTitlebarAccent();
+  broadcastTheme();
 }
 
 /** Apply a theme preset */
@@ -2101,6 +2105,18 @@ function applyPreset(preset) {
 
   syncTitlebarAccent();
   syncColorPickers();
+  broadcastTheme();
+}
+
+/** Broadcast theme to all monitor windows */
+function broadcastTheme() {
+  if (window.electronAPI) {
+    window.electronAPI.invoke('broadcast-theme', {
+      preset: localStorage.getItem('preset') || 'default',
+      mode: localStorage.getItem('mode') || 'dark',
+      custom: localStorage.getItem('customColors') || '',
+    });
+  }
 }
 
 /** Sync titlebar SVG stroke to current accent color */
@@ -2171,6 +2187,7 @@ function applyCustomColor(varName, value) {
     const svg = $('titlebarSvg');
     if (svg) svg.setAttribute('stroke', value);
   }
+  broadcastTheme();
 }
 
 function syncColorPickers() {
