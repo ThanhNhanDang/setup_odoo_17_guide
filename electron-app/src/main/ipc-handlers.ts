@@ -1101,11 +1101,28 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       const dbConf = readDbConfig(data.projectName, projectsDir);
       if (!dbConf) return { ok: false, msg: 'CONFIG_NOT_FOUND' };
 
-      const pg = getPgTools(dbConf.password);
+      // Use postgres superuser for terminate + drop (handles DBs owned by other users)
+      let pgSuperPassword = 'postgres';
+      const sFile = path.join(app.getPath('userData'), 'user-settings.json');
+      try {
+        if (fs.existsSync(sFile)) {
+          const raw = JSON.parse(fs.readFileSync(sFile, 'utf8'));
+          if (raw.pgSuperPassword) pgSuperPassword = raw.pgSuperPassword;
+        }
+      } catch {}
+
+      const pg = getPgTools(pgSuperPassword);
       if (!pg) return { ok: false, msg: 'PG_NOT_FOUND' };
 
+      // Terminate active connections before dropping
+      const psql = path.join(pg.pgBin, 'psql.exe');
+      await runCmd(
+        `"${psql}" -h ${dbConf.host} -p ${dbConf.port} -U postgres -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${dbName}' AND pid <> pg_backend_pid()"`,
+        undefined, pg.env
+      ).catch(() => {});
+
       const dropdb = path.join(pg.pgBin, 'dropdb.exe');
-      await runCmd(`"${dropdb}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} "${dbName}"`, undefined, pg.env);
+      await runCmd(`"${dropdb}" -h ${dbConf.host} -p ${dbConf.port} -U postgres "${dbName}"`, undefined, pg.env);
       logger.log(`[monitor] Database dropped: ${dbName}`);
       return { ok: true };
     } catch (e) {
