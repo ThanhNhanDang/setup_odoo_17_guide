@@ -1,6 +1,6 @@
 {
   "name": "odoo-installer",
-  "version": "1.8.4",
+  "version": "1.8.5",
   "description": "One-click installer for Odoo 15/17/19 development environments on Windows",
   "main": "dist/main/index.js",
   "scripts": {
