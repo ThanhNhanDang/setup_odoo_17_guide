@@ -699,6 +699,13 @@ body{display:flex;flex-direction:column}
     <h3 id="restoreDbTitle">Restore Database</h3>
     <div class="db-msg" id="restoreDbMsg"></div>
     <div id="restoreDbForm">
+      <label id="restoreDbPasswdLabel">Master Password</label>
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <input type="text" id="restoreDbPasswd" readonly style="margin-bottom:0;flex:1;opacity:0.7">
+        <button class="db-toolbar-btn" onclick="navigator.clipboard.writeText(document.getElementById('restoreDbPasswd').value)" style="flex-shrink:0;padding:5px 8px" title="Copy">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        </button>
+      </div>
       <label id="restoreDbNameLabel">Database name</label>
       <input type="text" id="restoreDbName" placeholder="my_database" autocomplete="off">
       <label id="restoreDbFileLabel">Backup file (.zip, .dump, .sql)</label>
@@ -970,6 +977,7 @@ function applyI18n() {
 
   // Restore DB modal
   document.getElementById('restoreDbTitle').textContent = ti('monitor.restoreDb');
+  document.getElementById('restoreDbPasswdLabel').textContent = ti('monitor.adminPasswd');
   document.getElementById('restoreDbNameLabel').textContent = ti('monitor.createDbName');
   document.getElementById('restoreDbFileLabel').textContent = ti('monitor.restoreDbFile');
   document.getElementById('restoreDbToggleOutput').textContent = ti('monitor.viewOutput');
@@ -985,8 +993,17 @@ function applyI18n() {
   // Line count
   document.getElementById('lineCount').textContent = ti('logViewer.linesCount', { count: lineCount });
 
-  // Reload database table headers if tab is loaded
-  if (dbLoaded && activeTab === 'database') loadDatabases();
+  // Update database table headers in-place (no reload/spinner)
+  if (dbLoaded) {
+    const ths = document.querySelectorAll('.db-table th');
+    if (ths.length >= 5) {
+      ths[0].textContent = ti('monitor.dbName');
+      ths[1].textContent = ti('monitor.dbSize');
+      ths[2].textContent = ti('monitor.dbOwner');
+      ths[3].textContent = ti('monitor.dbEncoding');
+      ths[4].textContent = ti('monitor.dbActions');
+    }
+  }
 }
 
 // Help tooltips
@@ -1298,10 +1315,10 @@ if (window.electronAPI) {
       const spinner = progressEl?.querySelector('.restart-spinner');
       if (spinner) { spinner.style.display = 'none'; }
       if (msgEl) { msgEl.className = 'db-msg success'; msgEl.textContent = ti('monitor.db' + (data.type === 'create' ? 'Created' : 'Restored')); }
-      // Show close button and reload DBs after delay
+      // Show close button and reload DBs after delay (silent — no spinner)
       setTimeout(() => {
         hideDbModal(data.type === 'create' ? 'modalCreateDb' : 'modalRestoreDb');
-        loadDatabases();
+        loadDatabases(true);
       }, 1500);
     } else if (data.status === 'error') {
       if (stepEl) stepEl.textContent = ti('monitor.' + data.type + 'Error');
@@ -1356,9 +1373,9 @@ async function checkActiveJobs() {
   } catch {}
 }
 
-async function loadDatabases() {
+async function loadDatabases(silent) {
   const wrap = document.getElementById('dbTableWrap');
-  wrap.innerHTML = '<div class="db-loading"><span class="restart-spinner"></span><span>' + ti('logViewer.loading') + '</span></div>';
+  if (!silent) wrap.innerHTML = '<div class="db-loading"><span class="restart-spinner"></span><span>' + ti('logViewer.loading') + '</span></div>';
   try {
     const res = await window.electronAPI.invoke('monitor-list-databases', {
       projectName: currentProjectName, projectsDir, odooVersion,
@@ -1478,6 +1495,7 @@ function showRestoreDbModal() {
   document.getElementById('restoreDbName').value = '';
   document.getElementById('restoreDbFile').value = '';
   document.getElementById('restoreDbMsg').className = 'db-msg';
+  document.getElementById('restoreDbPasswd').value = _adminPasswd || 'odoo';
   document.getElementById('restoreDbForm').style.display = '';
   document.getElementById('restoreDbProgress').style.display = 'none';
   document.getElementById('restoreDbOutput').style.display = 'none';
@@ -1557,7 +1575,7 @@ async function doDropDb() {
     });
     if (res?.ok) {
       msgEl.className = 'db-msg success'; msgEl.textContent = ti('monitor.dbDropped');
-      setTimeout(() => { hideDbModal('modalDropDb'); loadDatabases(); }, 800);
+      setTimeout(() => { hideDbModal('modalDropDb'); loadDatabases(true); }, 800);
     } else {
       msgEl.className = 'db-msg error'; msgEl.textContent = res?.msg || 'Error';
     }
