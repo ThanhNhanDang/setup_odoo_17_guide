@@ -178,7 +178,7 @@
     "upgradeModules": "Nâng cấp module",
     "selectModules": "Chọn module cần nâng cấp khi khởi động lại",
     "noCustomModules": "Không tìm thấy module tùy chỉnh",
-    "saveRestart": "Lưu & Khởi động lại",
+    "saveRestart": "Lưu & Restart",
     "openBrowser": "Mở trình duyệt",
     "restarting": "Đang khởi động lại...",
     "restartSuccess": "Odoo đã khởi động lại!",
