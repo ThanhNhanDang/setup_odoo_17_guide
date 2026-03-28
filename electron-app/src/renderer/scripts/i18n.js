@@ -86,6 +86,15 @@ function applyTranslations() {
 /** Switch language — save, reload translations, re-render UI */
 async function setLanguage(lang) {
   try { localStorage.setItem('lang', lang); } catch {}
+  // Persist to settings file so Monitor windows can read it
+  if (window.electronAPI) {
+    try {
+      const res = await window.electronAPI.invoke('load-settings', {});
+      const settings = res?.settings || {};
+      settings.language = lang;
+      await window.electronAPI.invoke('save-settings', settings);
+    } catch {}
+  }
   await initI18n(lang);
   applyTranslations();
 

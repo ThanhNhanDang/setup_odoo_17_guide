@@ -46,13 +46,30 @@ document.addEventListener('click', (e) => {
 });
 
 // Initialize i18n before rendering anything
-initI18n(getCurrentLanguage()).then(() => {
+// Sync language between localStorage and settings file
+(async () => {
+  const localLang = getCurrentLanguage();
+  try {
+    if (window.electronAPI) {
+      const res = await window.electronAPI.invoke('load-settings', {});
+      const savedLang = res?.settings?.language;
+      if (savedLang && savedLang !== localLang) {
+        // Settings file has a different language — use it
+        try { localStorage.setItem('lang', savedLang); } catch {}
+      } else if (!savedLang && localLang) {
+        // Settings file missing language — persist current localStorage value
+        const settings = res?.settings || {};
+        settings.language = localLang;
+        await window.electronAPI.invoke('save-settings', settings);
+      }
+    }
+  } catch {}
+  await initI18n(getCurrentLanguage());
   applyTranslations();
   updateLangLabel();
-  // Sync language selector
   const sel = $('langSelect');
   if (sel) sel.value = getCurrentLanguage();
-});
+})();
 
 // Version-specific labels — built dynamically from registry via _odooVersions
 function getVersionLabels(version) {

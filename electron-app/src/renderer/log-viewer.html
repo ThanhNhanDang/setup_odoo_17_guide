@@ -984,6 +984,9 @@ function applyI18n() {
 
   // Line count
   document.getElementById('lineCount').textContent = ti('logViewer.linesCount', { count: lineCount });
+
+  // Reload database table headers if tab is loaded
+  if (dbLoaded && activeTab === 'database') loadDatabases();
 }
 
 // Help tooltips
