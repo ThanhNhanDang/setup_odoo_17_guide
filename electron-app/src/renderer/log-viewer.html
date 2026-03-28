@@ -1246,15 +1246,15 @@ if (window.electronAPI) {
     }).catch(err => {
       console.error('[log-viewer] watch-log error:', err);
     });
-  });
 
-  // Realtime updates (can register listener immediately)
-  window.electronAPI.onEvent('project-log', (data) => {
-    if (data.logPath === currentLogPath && data.lines?.length) {
-      document.getElementById('statusDot').className = 'status-dot watching';
-      document.getElementById('statusText').textContent = ti('logViewer.watching');
-      appendLines(data.lines);
-    }
+    // Realtime updates (register after i18n loaded so ti() works)
+    window.electronAPI.onEvent('project-log', (data) => {
+      if (data.logPath === currentLogPath && data.lines?.length) {
+        document.getElementById('statusDot').className = 'status-dot watching';
+        document.getElementById('statusText').textContent = ti('logViewer.watching');
+        appendLines(data.lines);
+      }
+    });
   });
 }
 

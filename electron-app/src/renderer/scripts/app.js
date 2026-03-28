@@ -1265,10 +1265,11 @@ async function confirmDelete(e) {
   }
 
   await new Promise(r => setTimeout(r, 400));
-  if (btn) _resetBtn(btn);
-  // Restore form for next use
+  // Restore form for next use (must restore before resetBtn since btn may be inside footer)
   if (modal._origBody) { bodyEl.innerHTML = modal._origBody; modal._origBody = null; }
   if (modal._origFooter && footerEl) { footerEl.innerHTML = modal._origFooter; footerEl.style.display = ''; modal._origFooter = null; }
+  // Reset all buttons in footer (original btn reference is stale after innerHTML restore)
+  if (footerEl) footerEl.querySelectorAll('button').forEach(b => { b.disabled = false; });
   hideModal('modalDelete');
   await refreshStatus();
   if (res.ok) {
