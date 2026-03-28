@@ -1016,12 +1016,12 @@ function renderActionBtn(p, size, extraOnclick) {
   const name = escAttr(p.name);
   const extra = extraOnclick ? ';' + extraOnclick : '';
   const pending = _pendingProjects.get(p.name);
-  const iconSize = cls === 'btn-sm' ? 18 : 18;
+  const iconSize = cls === 'btn-sm' ? 22 : 26;
   if (pending) {
     return `<button class="kanban-icon-btn kanban-action-btn" data-project-action="${name}" disabled><span class="spinner-sm"></span></button>`;
   }
   if (p.is_running) {
-    return `<button class="kanban-icon-btn kanban-action-btn btn-stop-icon" data-project-action="${name}" onclick="stopOdoo('${name}')${extra}" title="${t('project.stop')}"><svg viewBox="0 0 24 24" fill="currentColor" width="${iconSize}" height="${iconSize}"><rect x="6" y="6" width="12" height="12" rx="1"/></svg></button>`;
+    return `<button class="kanban-icon-btn kanban-action-btn btn-stop-icon" data-project-action="${name}" onclick="stopOdoo('${name}')${extra}" title="${t('project.stop')}"><svg viewBox="0 0 24 24" fill="currentColor" width="${iconSize}" height="${iconSize}"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>`;
   }
   return `<button class="kanban-icon-btn kanban-action-btn btn-start-icon" data-project-action="${name}" onclick="startOdoo('${name}')${extra}" title="${t('project.start')}"><svg viewBox="0 0 24 24" fill="currentColor" width="${iconSize}" height="${iconSize}"><polygon points="6,4 20,12 6,20"/></svg></button>`;
 }
@@ -1485,7 +1485,7 @@ function renderKanbanCard(p, isDemo) {
         : `<span class="kanban-tag kanban-tag-stopped">${t('project.stoppedTag')}</span>`;
 
   const actionBtn = isDemo
-    ? `<button class="btn btn-xs btn-start"${btnDisabled}>${t('project.start')}</button>`
+    ? `<button class="kanban-icon-btn kanban-action-btn btn-start-icon"${btnDisabled} title="${t('project.start')}"><svg viewBox="0 0 24 24" fill="currentColor" width="26" height="26"><polygon points="6,4 20,12 6,20"/></svg></button>`
     : renderActionBtn(p);
 
   return `

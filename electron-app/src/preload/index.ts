@@ -13,7 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'app-version', 'default-paths', 'odoo-versions', 'pick-icon', 'get-icon', 'reset-icon',
       'watch-log', 'unwatch-log', 'load-settings', 'save-settings',
       'open-log-window', 'log-window-pin', 'log-window-minimize', 'log-window-maximize',
-      'log-viewer-info', 'log-viewer-restart', 'log-viewer-projects',
+      'log-viewer-info', 'log-viewer-restart', 'log-viewer-projects', 'log-viewer-server-status',
     ];
     if (validChannels.includes(channel)) {
       return ipcRenderer.invoke(channel, data);

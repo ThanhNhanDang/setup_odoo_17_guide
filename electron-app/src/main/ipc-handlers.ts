@@ -827,6 +827,18 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
+  // --- Log Viewer: check if Odoo server is running on a given port ---
+  ipcMain.handle('log-viewer-server-status', async (_event, data: { httpPort: string }) => {
+    const port = data?.httpPort;
+    if (!port || !/^\d{1,5}$/.test(port)) return { running: false };
+    try {
+      const { output } = await runCmd(`netstat -ano | findstr ":${port}.*LISTENING"`);
+      return { running: output.trim().length > 0 };
+    } catch {
+      return { running: false };
+    }
+  });
+
   // --- Log Viewer: list all projects (for project switcher dropdown) ---
   ipcMain.handle('log-viewer-projects', async () => {
     try {
@@ -842,12 +854,17 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       const projectsDir = getDefaultProjectsDir(odooVersion);
       if (!fs.existsSync(projectsDir)) return { ok: true, projects: [] };
       const entries = fs.readdirSync(projectsDir, { withFileTypes: true });
+      const { parseIniFile: pif, iniGet: ig } = require('./services/ini-parser');
       const projects = entries
         .filter(e => e.isDirectory() && fs.existsSync(path.join(projectsDir, e.name, 'odoo.conf')))
-        .map(e => ({
-          name: e.name,
-          logPath: path.join(projectsDir, e.name, 'odoo.log'),
-        }));
+        .map(e => {
+          let port = '8069';
+          try {
+            const ini = pif(path.join(projectsDir, e.name, 'odoo.conf'));
+            port = ig(ini, 'options', 'http_port', '8069');
+          } catch {}
+          return { name: e.name, logPath: path.join(projectsDir, e.name, 'odoo.log'), httpPort: port };
+        });
       return { ok: true, projects };
     } catch {
       return { ok: true, projects: [] };
