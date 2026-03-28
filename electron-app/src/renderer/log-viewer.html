@@ -183,7 +183,15 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   padding:3px 5px;border-radius:4px;transition:color 0.15s,background 0.15s;
 }
 .sidebar-toggle-btn:hover{color:var(--text);background:var(--border)}
-.sidebar-toggle-btn.active{color:var(--header-bg);border-color:var(--header-bg)}
+/* Floating expand button: visible only when sidebar is collapsed */
+.sidebar-expand-btn{
+  display:none;position:absolute;top:6px;left:6px;z-index:10;
+  background:var(--bg-surface);border:1px solid var(--border);color:var(--text-dim);
+  cursor:pointer;padding:4px 6px;border-radius:4px;
+  transition:color 0.15s,background 0.15s;
+}
+.sidebar-expand-btn:hover{color:var(--text);background:var(--border)}
+.sidebar.collapsed ~ .log-panel .sidebar-expand-btn{display:flex}
 
 .log-container{
   flex:1;overflow-y:auto;padding:8px 12px;font-family:'Cascadia Code',Consolas,'Courier New',monospace;
@@ -373,9 +381,6 @@ body{display:flex;flex-direction:column}
 </div>
 <div class="status-bar">
   <div style="display:flex;align-items:center;gap:6px">
-    <button onclick="toggleSidebar()" class="sidebar-toggle-btn" id="btnSidebar" title="Toggle sidebar">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
-    </button>
     <span class="status-dot idle" id="statusDot"></span><span id="statusText">Waiting...</span>
     <span style="margin-left:6px;border-left:1px solid var(--border);padding-left:8px;display:flex;align-items:center;gap:4px">
       <span class="status-dot idle" id="serverDot"></span><span id="serverStatus">Checking...</span>
@@ -406,6 +411,9 @@ body{display:flex;flex-direction:column}
   <div class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <span class="sidebar-header-title" id="sidebarTitle">Config</span>
+      <button onclick="toggleSidebar()" class="sidebar-toggle-btn" id="btnSidebar" title="Toggle sidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+      </button>
     </div>
 
     <!-- Action buttons -->
@@ -464,6 +472,10 @@ body{display:flex;flex-direction:column}
 
   <!-- Log panel -->
   <div class="log-panel">
+    <!-- Floating expand button — visible only when sidebar collapsed -->
+    <button onclick="toggleSidebar()" class="sidebar-expand-btn" title="Show sidebar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+    </button>
     <!-- Floating controls — top-right -->
     <div class="log-fab-group">
       <button onclick="clearLog()" class="log-fab" title="Clear log">
