@@ -314,6 +314,20 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   background:var(--bg);color:var(--text);font-size:0.75rem;margin-bottom:10px;outline:none;
 }
 .db-modal input:focus{border-color:var(--header-bg)}
+.db-name-input-wrap{
+  display:flex;align-items:center;border-radius:5px;border:1px solid var(--border);
+  background:var(--bg);margin-bottom:10px;overflow:hidden;
+}
+.db-name-input-wrap:focus-within{border-color:var(--header-bg)}
+.db-name-prefix{
+  padding:7px 0 7px 10px;font-size:0.75rem;color:var(--header-bg);font-weight:600;
+  white-space:nowrap;user-select:none;flex-shrink:0;
+}
+.db-name-input-wrap input{
+  border:none!important;background:transparent!important;margin-bottom:0!important;
+  padding-left:2px!important;flex:1;min-width:0;
+}
+.db-name-input-wrap input:focus{border:none!important}
 .db-modal .db-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
 .db-modal .db-msg{font-size:0.7rem;padding:6px 8px;border-radius:4px;margin-bottom:8px;display:none}
 .db-modal .db-msg.error{display:block;background:rgba(255,123,114,0.1);color:#ff7b72;border:1px solid rgba(255,123,114,0.2)}
@@ -498,7 +512,10 @@ body{display:flex;flex-direction:column}
         </button>
       </div>
       <label id="createDbNameLabel">Database Name</label>
-      <input type="text" id="createDbName" placeholder="my_database" autocomplete="off">
+      <div class="db-name-input-wrap">
+        <span class="db-name-prefix" id="createDbPrefix"></span>
+        <input type="text" id="createDbName" placeholder="my_database" autocomplete="off">
+      </div>
       <label id="createDbEmailLabel">Email</label>
       <input type="email" id="createDbEmail" placeholder="admin@example.com" autocomplete="off" value="admin">
       <label id="createDbPasswordLabel">Password</label>
@@ -707,7 +724,10 @@ body{display:flex;flex-direction:column}
         </button>
       </div>
       <label id="restoreDbNameLabel">Database name</label>
-      <input type="text" id="restoreDbName" placeholder="my_database" autocomplete="off">
+      <div class="db-name-input-wrap">
+        <span class="db-name-prefix" id="restoreDbPrefix"></span>
+        <input type="text" id="restoreDbName" placeholder="my_database" autocomplete="off">
+      </div>
       <label id="restoreDbFileLabel">Backup file (.zip, .dump, .sql)</label>
       <div style="display:flex;gap:6px;margin-bottom:10px">
         <input type="text" id="restoreDbFile" placeholder="Select file..." readonly style="margin-bottom:0;flex:1;cursor:pointer" onclick="pickRestoreFile()">
@@ -1450,8 +1470,15 @@ function hideDbModal(id) {
   if (msg) { msg.className = 'db-msg'; msg.textContent = ''; }
 }
 
+function _getDbPrefix() {
+  return currentProjectName ? currentProjectName.replace(/-/g, '_') : '';
+}
+
 function showCreateDbModal() {
+  // Show project name as readonly prefix so DB matches dbfilter (^projectName.*$)
+  document.getElementById('createDbPrefix').textContent = _getDbPrefix();
   document.getElementById('createDbName').value = '';
+  document.getElementById('createDbName').placeholder = '';
   document.getElementById('createDbMsg').className = 'db-msg';
   document.getElementById('createDbForm').style.display = '';
   document.getElementById('createDbProgress').style.display = 'none';
@@ -1466,9 +1493,10 @@ function showCreateDbModal() {
 }
 
 async function doCreateDb() {
-  const name = document.getElementById('createDbName').value.trim();
+  const suffix = document.getElementById('createDbName').value.trim();
   const msgEl = document.getElementById('createDbMsg');
-  if (!name) { msgEl.className = 'db-msg error'; msgEl.textContent = ti('logViewer.dbNameRequired'); return; }
+  if (!suffix) { msgEl.className = 'db-msg error'; msgEl.textContent = ti('logViewer.dbNameRequired'); return; }
+  const name = _getDbPrefix() + suffix;
   const demoData = document.getElementById('createDbDemo').checked;
   const adminEmail = document.getElementById('createDbEmail').value.trim() || 'admin';
   const adminPassword = document.getElementById('createDbPassword').value.trim() || 'admin';
@@ -1510,7 +1538,10 @@ async function doCreateDb() {
 }
 
 function showRestoreDbModal() {
+  // Show project name as readonly prefix so DB matches dbfilter (^projectName.*$)
+  document.getElementById('restoreDbPrefix').textContent = _getDbPrefix();
   document.getElementById('restoreDbName').value = '';
+  document.getElementById('restoreDbName').placeholder = '';
   document.getElementById('restoreDbFile').value = '';
   document.getElementById('restoreDbMsg').className = 'db-msg';
   document.getElementById('restoreDbPasswd').value = _adminPasswd || 'odoo';
@@ -1535,10 +1566,11 @@ async function pickRestoreFile() {
 }
 
 async function doRestoreDb() {
-  const name = document.getElementById('restoreDbName').value.trim();
+  const suffix = document.getElementById('restoreDbName').value.trim();
   const filePath = document.getElementById('restoreDbFile').value.trim();
   const msgEl = document.getElementById('restoreDbMsg');
-  if (!name) { msgEl.className = 'db-msg error'; msgEl.textContent = ti('logViewer.dbNameRequired'); return; }
+  if (!suffix) { msgEl.className = 'db-msg error'; msgEl.textContent = ti('logViewer.dbNameRequired'); return; }
+  const name = _getDbPrefix() + suffix;
   if (!filePath) { msgEl.className = 'db-msg error'; msgEl.textContent = ti('logViewer.backupRequired'); return; }
 
   // Switch to progress mode
