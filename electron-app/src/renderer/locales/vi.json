@@ -24,6 +24,7 @@
     "memHard": "Giới hạn bộ nhớ (hard)", "memSoft": "Giới hạn bộ nhớ (soft)",
     "odooSourceDir": "Thư mục mã nguồn Odoo", "odooSourceDirPlaceholder": "mặc định: odoo",
     "saved": "Đã lưu",
+    "urlLocked": "Đã khóa — có project đang dùng phiên bản này",
     "about": "Thông tin", "currentVersion": "Phiên bản hiện tại:", "checkUpdates": "Kiểm tra cập nhật",
     "language": "Ngôn ngữ"
   },
@@ -35,6 +36,7 @@
     "runningCount": "Đang chạy", "customModules": "Module tuỳ chỉnh",
     "dbConnections": "Kết nối DB",
     "noProjects": "Chưa có dự án. Tạo <strong>Dự án mới</strong> để bắt đầu.",
+    "sample": "Mẫu",
     "loading": "Đang tải...", "python": "Python 3.11", "postgresql": "PostgreSQL"
   },
   "install": {
@@ -168,6 +170,22 @@
     "noIssues": "Không tìm thấy sự cố phù hợp.",
     "symptom": "Triệu chứng", "cause": "Nguyên nhân", "solution": "Cách xử lý", "close": "Đóng"
   },
+  "logViewer": {
+    "sidebar": "Thanh bên",
+    "logLevel": "Mức log",
+    "upgradeModules": "Nâng cấp module",
+    "selectModules": "Chọn module cần nâng cấp khi khởi động lại",
+    "noCustomModules": "Không tìm thấy module tùy chỉnh",
+    "saveRestart": "Lưu & Khởi động lại",
+    "restarting": "Đang khởi động lại...",
+    "restartSuccess": "Odoo đã khởi động lại!",
+    "restartFail": "Khởi động lại thất bại",
+    "selectAll": "Chọn tất cả",
+    "deselectAll": "Bỏ chọn tất cả",
+    "helpLogLevel": "Thay đổi log_level trong odoo.conf. Có hiệu lực sau khi khởi động lại.",
+    "helpUpgrade": "Các module được chọn sẽ được nâng cấp (cờ -u) khi khởi động lại Odoo.",
+    "modulesSelected": "{count} module được chọn"
+  },
   "tour": { "skip": "Bỏ qua", "prev": "Trước", "next": "Tiếp", "done": "Xong" },
   "status": { "ok": "OK", "missing": "Thiếu", "available": "Có sẵn", "notFound": "Không tìm thấy" },
   "td": {
@@ -175,11 +193,15 @@
       "0": { "title": "Thanh điều hướng", "text": "Chuyển giữa Trang chủ, Cài đặt và Trợ giúp. Truy cập Cài đặt và kiểm tra cập nhật tại đây." },
       "1": { "title": "Trang chủ", "text": "Tổng quan tất cả dự án Odoo. Tìm kiếm, lọc và tạo dự án mới tại đây." },
       "2": { "title": "Thẻ dự án", "text": "Mỗi thẻ hiển thị tên, phiên bản, cổng và trạng thái. Nhấn vào thẻ để xem chi tiết." },
+      "2a": { "title": "Tiêu đề thẻ", "text": "Tên dự án, số cổng (nhấn để mở trên trình duyệt) và nút nhân bản dự án." },
+      "2b": { "title": "Nhãn trạng thái", "text": "Nhãn phiên bản (màu theo version), trạng thái đang chạy/dừng, và số module tùy chỉnh." },
+      "2c": { "title": "Xem Log", "text": "Mở cửa sổ log riêng để theo dõi log Odoo theo thời gian thực. Hỗ trợ lọc theo mức log." },
+      "2d": { "title": "Các nút hành động", "text": "Khởi động/Dừng Odoo, mở VS Code, mở thư mục trong Explorer, xem chi tiết dự án, hoặc xóa dự án." },
       "3": { "title": "Dự án mới", "text": "Tạo dự án Odoo mới. Cổng HTTP tự động tăng để tránh xung đột." },
       "4": { "title": "Đặt lại tất cả Template", "text": "Đặt lại launch.json và settings.json cho tất cả dự án về mặc định mới nhất." },
       "5": { "title": "Các bước cài đặt", "text": "8 bước: Nginx, Git, VS Code, Python, PostgreSQL, mã nguồn Odoo, Môi trường ảo và Pip." },
       "6": { "title": "Cài đặt tất cả", "text": "Một nhấp để chạy tất cả 8 bước. Chọn phiên bản Odoo trước." },
-      "7": { "title": "Phiên bản Odoo", "text": "Chọn Odoo 15, 17 hoặc 19. Mỗi phiên bản cài Python và PostgreSQL tương ứng." },
+      "7": { "title": "Phiên bản Odoo", "text": "Chọn Odoo {versions}. Mỗi phiên bản cài Python và PostgreSQL tương ứng." },
       "8": { "title": "Cài đặt", "text": "Cấu hình thư mục, cơ sở dữ liệu, cài đặt mặc định và giao diện." },
       "9": { "title": "Ngôn ngữ", "text": "Chuyển đổi giữa Tiếng Anh, Tiếng Việt và Tiếng Hàn." },
       "10": { "title": "Phiên bản & Cập nhật", "text": "Hiển thị phiên bản hiện tại. Nhấn để kiểm tra cập nhật. Tự động kiểm tra mỗi 30 phút." },
@@ -187,7 +209,7 @@
     },
     "cat": { "start": "Bắt đầu", "project": "Quản lý dự án", "config": "Cấu hình", "video": "Video hướng dẫn" },
     "doc": {
-      "firstInstall": { "title": "Cài đặt lần đầu", "desc": "Cài đặt từ đầu — Python, PostgreSQL, mã nguồn Odoo và tạo dự án đầu tiên.", "body": "<ol><li>Mở ứng dụng và vào tab <strong>Cài đặt</strong></li><li>Chọn phiên bản Odoo (15, 17 hoặc 19)</li><li>Nhấn <strong>\"Cài đặt tất cả\"</strong></li><li>Chờ tất cả 8 bước hoàn thành</li><li>Vào <strong>Trang chủ</strong> — dự án đầu tiên đã sẵn sàng!</li><li>Nhấn <strong>Khởi động</strong> để chạy Odoo</li></ol><p><strong>Lưu ý:</strong> Ứng dụng cần quyền Administrator để cài PostgreSQL và tạo symlink.</p>" },
+      "firstInstall": { "title": "Cài đặt lần đầu", "desc": "Cài đặt từ đầu — Python, PostgreSQL, mã nguồn Odoo và tạo dự án đầu tiên.", "body": "<ol><li>Mở ứng dụng và vào tab <strong>Cài đặt</strong></li><li>Chọn phiên bản Odoo</li><li>Nhấn <strong>\"Cài đặt tất cả\"</strong></li><li>Chờ tất cả 8 bước hoàn thành</li><li>Vào <strong>Trang chủ</strong> — dự án đầu tiên đã sẵn sàng!</li><li>Nhấn <strong>Khởi động</strong> để chạy Odoo</li></ol><p><strong>Lưu ý:</strong> Ứng dụng cần quyền Administrator để cài PostgreSQL và tạo symlink.</p>" },
       "createProject": { "title": "Tạo dự án mới", "desc": "Thêm dự án Odoo mới với cấu hình, cổng và database riêng.", "body": "<ol><li>Trên Trang chủ, nhấn <strong>\"Dự án mới\"</strong></li><li>Nhập tên dự án</li><li>Cổng HTTP được tự động gán</li><li>Nhấn <strong>\"Tạo dự án\"</strong></li></ol><p>Mỗi dự án có: <code>addons/</code>, <code>data/</code>, <code>odoo.conf</code> và <code>.vscode/launch.json</code>.</p>" },
       "startStop": { "title": "Khởi động & Dừng Odoo", "desc": "Chạy máy chủ Odoo và quản lý các phiên bản đang chạy.", "body": "<ul><li><strong>Khởi động:</strong> Nhấn nút Khởi động màu xanh. PostgreSQL tự động chạy nếu cần.</li><li><strong>Dừng:</strong> Nhấn nút Dừng màu đỏ.</li><li>Trạng thái đồng bộ mỗi 10 giây.</li><li><strong>VS Code:</strong> Nhấn <kbd>F5</kbd> để debug với log trên terminal.</li></ul>" },
       "dupDelete": { "title": "Nhân bản & Xoá dự án", "desc": "Sao chép dự án hoặc xoá vĩnh viễn.", "body": "<p><strong>Nhân bản:</strong> Tạo bản sao với tên và cổng mới.</p><p><strong>Xoá:</strong> Nhập tên dự án để xác nhận. Có thể xoá luôn database.</p><p><strong>Cảnh báo:</strong> Xoá là vĩnh viễn!</p>" },

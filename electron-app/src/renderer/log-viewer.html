@@ -9,6 +9,7 @@
 :root{
   --bg:#0d1117;--bg-surface:#161b22;--text:#e6edf3;--text-dim:#8b949e;
   --border:#30363d;--header-bg:var(--accent-color,#f0883e);
+  --sidebar-w:220px;
 }
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 
@@ -40,7 +41,94 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .status-dot.watching{background:#3fb950}
 .status-dot.idle{background:#8b949e}
 
+/* Main content area with sidebar */
+.main-content{display:flex;flex:1;min-height:0;overflow:hidden}
+
+/* Sidebar */
+.sidebar{
+  width:var(--sidebar-w);min-width:var(--sidebar-w);max-width:var(--sidebar-w);
+  background:var(--bg-surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+  transition:margin-left 0.25s ease,opacity 0.25s ease;
+}
+.sidebar.collapsed{margin-left:calc(var(--sidebar-w) * -1);opacity:0;pointer-events:none}
+
+.sidebar-header{
+  padding:8px 10px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;
+}
+.sidebar-header-title{font-size:0.7rem;font-weight:600;text-transform:uppercase;color:var(--text-dim);letter-spacing:0.5px}
+
+/* Restart button — fixed at top of sidebar */
+.restart-btn{
+  margin:8px 10px;padding:8px 12px;border-radius:6px;border:none;
+  background:var(--header-bg);color:#fff;font-size:0.75rem;font-weight:600;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;
+  transition:opacity 0.2s,filter 0.2s;flex-shrink:0;
+}
+.restart-btn:hover{filter:brightness(1.1)}
+.restart-btn:active{filter:brightness(0.9)}
+.restart-btn:disabled{opacity:0.5;cursor:not-allowed;filter:none}
+.restart-btn svg{width:14px;height:14px}
+.restart-spinner{
+  width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);
+  border-top-color:#fff;border-radius:50%;animation:spin 0.6s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Sidebar sections */
+.sidebar-section{padding:8px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
+.sidebar-section-title{
+  font-size:0.68rem;font-weight:600;color:var(--text-dim);margin-bottom:6px;
+  display:flex;align-items:center;gap:4px;
+}
+.sidebar-section-title .help-icon{
+  width:13px;height:13px;opacity:0.5;cursor:help;flex-shrink:0;
+}
+.sidebar-section-title .help-icon:hover{opacity:0.8}
+
+/* Log level select */
+.log-level-select{
+  width:100%;padding:5px 8px;border-radius:4px;border:1px solid var(--border);
+  background:var(--bg);color:var(--text);font-size:0.72rem;cursor:pointer;
+  outline:none;
+}
+.log-level-select:focus{border-color:var(--header-bg)}
+.log-level-select option{background:var(--bg);color:var(--text)}
+
+/* Module list */
+.module-list-area{flex:1;overflow-y:auto;padding:0 10px 8px;min-height:0}
+.module-list-area::-webkit-scrollbar{width:6px}
+.module-list-area::-webkit-scrollbar-track{background:var(--bg-surface)}
+.module-list-area::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+.module-actions{display:flex;gap:4px;margin-bottom:6px}
+.module-actions button{
+  padding:2px 6px;border-radius:3px;border:1px solid var(--border);
+  background:transparent;color:var(--text-dim);font-size:0.62rem;cursor:pointer;
+}
+.module-actions button:hover{background:var(--border);color:var(--text)}
+
+.module-item{
+  display:flex;align-items:center;gap:6px;padding:3px 0;
+  font-size:0.72rem;cursor:pointer;user-select:none;
+}
+.module-item:hover{color:var(--text)}
+.module-item input[type="checkbox"]{
+  accent-color:var(--header-bg);width:14px;height:14px;cursor:pointer;flex-shrink:0;
+}
+.module-item label{cursor:pointer;word-break:break-all}
+
+.module-count{
+  font-size:0.65rem;color:var(--text-dim);padding:4px 0;
+}
+
+.no-modules{font-size:0.7rem;color:var(--text-dim);padding:8px 0;font-style:italic}
+
 /* Log content */
+.log-panel{display:flex;flex-direction:column;flex:1;min-width:0}
+
 .log-container{
   flex:1;overflow-y:auto;padding:8px 12px;font-family:'Cascadia Code',Consolas,'Courier New',monospace;
   font-size:0.75rem;line-height:1.6;min-height:0;
@@ -54,10 +142,14 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .line:last-child{color:var(--text)}
 .line{color:var(--text-dim)}
 
-/* Log level coloring */
-.line-error{color:#f85149}
-.line-warning{color:#d29922}
-.line-info{color:#58a6ff}
+/* Log level coloring — matches Odoo's 5 log levels
+   All colors tested against --bg (#0d1117) for WCAG AA contrast >= 4.5:1
+   Only active when highlight mode is ON (body.highlight-on) */
+.highlight-on .line-critical{color:#ff8a8a;font-weight:700;background:rgba(255,100,100,0.1);border-left:3px solid #ff6b6b;padding-left:8px;margin-left:-8px}
+.highlight-on .line-error{color:#ff7b72;font-weight:600;background:rgba(248,81,73,0.07);border-left:2px solid #f85149;padding-left:8px;margin-left:-8px}
+.highlight-on .line-warning{color:#f0c040;font-weight:500}
+.highlight-on .line-info{color:#79c0ff}
+.highlight-on .line-debug{color:#9ca3af;font-style:italic}
 
 .empty-state{
   display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -95,6 +187,18 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .controls .spacer{flex:1}
 .controls .line-count{font-size:0.7rem;color:var(--text-dim)}
 
+/* Sidebar toggle in controls */
+.sidebar-toggle{font-size:0.7rem;display:flex;align-items:center;gap:3px}
+.sidebar-toggle svg{width:14px;height:14px}
+
+/* Tooltip */
+.tooltip{
+  position:absolute;background:#1c2128;color:var(--text);
+  padding:6px 10px;border-radius:6px;font-size:0.68rem;
+  border:1px solid var(--border);max-width:200px;line-height:1.4;
+  z-index:100;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.3);
+}
+
 /* Layout */
 body{display:flex;flex-direction:column}
 </style>
@@ -116,19 +220,93 @@ body{display:flex;flex-direction:column}
   <div><span class="status-dot idle" id="statusDot"></span><span id="statusText">Waiting...</span></div>
   <div id="logPath" style="opacity:0.6;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
 </div>
-<div class="log-container" id="logBox"></div>
+
+<div class="main-content">
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span class="sidebar-header-title" id="sidebarTitle">Config</span>
+    </div>
+
+    <!-- Restart button -->
+    <button class="restart-btn" id="btnRestart" onclick="saveAndRestart()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+      <span id="restartLabel">Save &amp; Restart</span>
+    </button>
+
+    <!-- Log Level -->
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">
+        <span id="logLevelLabel">Log Level</span>
+        <svg class="help-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             onmouseenter="showTooltip(event,'helpLogLevel')" onmouseleave="hideTooltip()">
+          <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      </div>
+      <select class="log-level-select" id="logLevelSelect">
+        <option value="critical">critical</option>
+        <option value="error">error</option>
+        <option value="warn">warn</option>
+        <option value="info">info</option>
+        <option value="debug">debug</option>
+        <option value="debug_rpc">debug_rpc</option>
+        <option value="debug_sql">debug_sql</option>
+        <option value="debug_rpc_answer">debug_rpc_answer</option>
+      </select>
+    </div>
+
+    <!-- Module Upgrade -->
+    <div class="sidebar-section" style="flex-shrink:0">
+      <div class="sidebar-section-title">
+        <span id="upgradeLabel">Upgrade Modules</span>
+        <svg class="help-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             onmouseenter="showTooltip(event,'helpUpgrade')" onmouseleave="hideTooltip()">
+          <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      </div>
+      <div class="module-actions" id="moduleActions" style="display:none">
+        <button onclick="selectAllModules()" id="btnSelectAll">Select All</button>
+        <button onclick="deselectAllModules()" id="btnDeselectAll">Deselect All</button>
+      </div>
+    </div>
+
+    <!-- Module list (scrollable) -->
+    <div class="module-list-area" id="moduleListArea">
+      <div class="no-modules" id="noModulesMsg">No custom modules found</div>
+    </div>
+    <div class="module-count" id="moduleCount" style="padding:4px 10px;border-top:1px solid var(--border);display:none"></div>
+  </div>
+
+  <!-- Log panel -->
+  <div class="log-panel">
+    <div class="log-container" id="logBox"></div>
+  </div>
+</div>
+
 <div class="controls">
+  <button onclick="toggleSidebar()" class="sidebar-toggle" id="btnSidebar" title="Toggle sidebar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+  </button>
   <button onclick="clearLog()">Clear</button>
   <button onclick="toggleAutoScroll()" id="btnAutoScroll" class="toggle-btn active">&#8595; Auto-scroll</button>
+  <button onclick="toggleHighlight()" id="btnHighlight" class="toggle-btn active">&#9678; Highlight</button>
   <span class="spacer"></span>
   <span class="line-count" id="lineCount">0 lines</span>
 </div>
+
+<!-- Tooltip element -->
+<div class="tooltip" id="tooltip" style="display:none"></div>
 
 <script>
 const params = new URLSearchParams(window.location.search);
 const projectName = params.get('project') || 'Unknown';
 const logFilePath = params.get('logPath') || '';
 const accentColor = params.get('color') || '#f0883e';
+const odooVersion = params.get('odooVersion') || '';
+const baseDir = params.get('baseDir') || '';
+const projectsDir = params.get('projectsDir') || '';
+const httpPort = params.get('httpPort') || '';
+const odooSourceDir = params.get('odooSourceDir') || '';
 
 // Apply accent color to header
 document.documentElement.style.setProperty('--accent-color', accentColor);
@@ -139,11 +317,83 @@ document.getElementById('logPath').textContent = logFilePath;
 let autoScroll = true;
 let lineCount = 0;
 let pinned = false;
+let highlightOn = true;
+let sidebarOpen = true;
+let customModules = [];
+let isRestarting = false;
+
+// Simple i18n for log viewer (fetches from main app's locale files)
+let _i18n = {};
+async function loadI18n() {
+  // Try to detect language from main window settings
+  try {
+    const settings = await window.electronAPI.invoke('load-settings', {});
+    const lang = settings?.language || 'en';
+    const resp = await fetch(`locales/${lang}.json`);
+    if (resp.ok) _i18n = await resp.json();
+  } catch {
+    try {
+      const resp = await fetch('locales/en.json');
+      if (resp.ok) _i18n = await resp.json();
+    } catch { /* fallback to hardcoded */ }
+  }
+  applyI18n();
+}
+
+function ti(key, params) {
+  const parts = key.split('.');
+  let val = _i18n;
+  for (const p of parts) {
+    if (val && typeof val === 'object') val = val[p];
+    else return key;
+  }
+  if (typeof val !== 'string') return key;
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      val = val.replace(`{${k}}`, v);
+    }
+  }
+  return val;
+}
+
+function applyI18n() {
+  document.getElementById('sidebarTitle').textContent = ti('logViewer.sidebar') !== 'logViewer.sidebar' ? 'Config' : 'Config';
+  document.getElementById('logLevelLabel').textContent = ti('logViewer.logLevel');
+  document.getElementById('upgradeLabel').textContent = ti('logViewer.upgradeModules');
+  document.getElementById('restartLabel').innerHTML = ti('logViewer.saveRestart');
+  document.getElementById('btnSelectAll').textContent = ti('logViewer.selectAll');
+  document.getElementById('btnDeselectAll').textContent = ti('logViewer.deselectAll');
+  document.getElementById('noModulesMsg').textContent = ti('logViewer.noCustomModules');
+}
+
+// Help tooltips
+const helpTexts = {
+  helpLogLevel: 'Changes the log_level in odoo.conf. Takes effect after restart.',
+  helpUpgrade: 'Selected modules will be upgraded (-u flag) when restarting Odoo.',
+};
+
+function showTooltip(event, key) {
+  const el = document.getElementById('tooltip');
+  const text = ti(`logViewer.${key}`) !== `logViewer.${key}` ? ti(`logViewer.${key}`) : helpTexts[key];
+  el.textContent = text;
+  el.style.display = 'block';
+  const rect = event.target.getBoundingClientRect();
+  el.style.left = (rect.right + 8) + 'px';
+  el.style.top = rect.top + 'px';
+}
+function hideTooltip() {
+  document.getElementById('tooltip').style.display = 'none';
+}
+
+// Start with highlight on
+document.body.classList.add('highlight-on');
 
 function getLineClass(text) {
+  if (/\bCRITICAL\b/i.test(text)) return 'line-critical';
   if (/\bERROR\b|Traceback|Exception/i.test(text)) return 'line-error';
   if (/\bWARNING\b/i.test(text)) return 'line-warning';
   if (/\bINFO\b/i.test(text)) return 'line-info';
+  if (/\bDEBUG\b/i.test(text)) return 'line-debug';
   return '';
 }
 
@@ -180,6 +430,14 @@ function toggleAutoScroll() {
   btn.innerHTML = (autoScroll ? '&#8595; ' : '&#8644; ') + 'Auto-scroll';
 }
 
+function toggleHighlight() {
+  highlightOn = !highlightOn;
+  document.body.classList.toggle('highlight-on', highlightOn);
+  const btn = document.getElementById('btnHighlight');
+  btn.classList.toggle('active', highlightOn);
+  btn.innerHTML = (highlightOn ? '&#9678; ' : '&#9675; ') + 'Highlight';
+}
+
 function togglePin() {
   pinned = !pinned;
   window.electronAPI.invoke('log-window-pin', { pinned });
@@ -189,6 +447,138 @@ function togglePin() {
   void btn.offsetWidth; // force reflow to restart animation
   btn.classList.add(pinned ? 'animate-in' : 'animate-out');
   btn.classList.toggle('pinned', pinned);
+}
+
+function toggleSidebar() {
+  sidebarOpen = !sidebarOpen;
+  document.getElementById('sidebar').classList.toggle('collapsed', !sidebarOpen);
+  document.getElementById('btnSidebar').classList.toggle('active', sidebarOpen);
+}
+
+// --- Sidebar: Load project info ---
+async function loadProjectInfo() {
+  if (!window.electronAPI) return;
+  try {
+    const res = await window.electronAPI.invoke('log-viewer-info', {
+      projectName, projectsDir, baseDir, odooVersion,
+    });
+    if (!res?.ok) return;
+
+    // Set log level
+    const select = document.getElementById('logLevelSelect');
+    if (res.logLevel) {
+      // Add option if not in predefined list
+      let found = false;
+      for (const opt of select.options) {
+        if (opt.value === res.logLevel) { found = true; break; }
+      }
+      if (!found) {
+        const opt = document.createElement('option');
+        opt.value = res.logLevel;
+        opt.textContent = res.logLevel;
+        select.appendChild(opt);
+      }
+      select.value = res.logLevel;
+    }
+
+    // Populate modules
+    customModules = res.customModules || [];
+    renderModuleList();
+  } catch (e) {
+    console.error('loadProjectInfo:', e);
+  }
+}
+
+function renderModuleList() {
+  const area = document.getElementById('moduleListArea');
+  const noMsg = document.getElementById('noModulesMsg');
+  const actions = document.getElementById('moduleActions');
+  const countEl = document.getElementById('moduleCount');
+
+  if (customModules.length === 0) {
+    noMsg.style.display = 'block';
+    actions.style.display = 'none';
+    countEl.style.display = 'none';
+    return;
+  }
+
+  noMsg.style.display = 'none';
+  actions.style.display = 'flex';
+  area.innerHTML = '';
+
+  for (const mod of customModules) {
+    const item = document.createElement('div');
+    item.className = 'module-item';
+    item.innerHTML = `<input type="checkbox" id="mod_${mod}" value="${mod}"><label for="mod_${mod}">${mod}</label>`;
+    item.querySelector('input').addEventListener('change', updateModuleCount);
+    area.appendChild(item);
+  }
+  updateModuleCount();
+}
+
+function updateModuleCount() {
+  const checked = document.querySelectorAll('#moduleListArea input[type="checkbox"]:checked');
+  const countEl = document.getElementById('moduleCount');
+  if (checked.length > 0) {
+    countEl.style.display = 'block';
+    countEl.textContent = ti('logViewer.modulesSelected', { count: checked.length });
+  } else {
+    countEl.style.display = 'none';
+  }
+}
+
+function selectAllModules() {
+  document.querySelectorAll('#moduleListArea input[type="checkbox"]').forEach(cb => cb.checked = true);
+  updateModuleCount();
+}
+function deselectAllModules() {
+  document.querySelectorAll('#moduleListArea input[type="checkbox"]').forEach(cb => cb.checked = false);
+  updateModuleCount();
+}
+
+// --- Save & Restart ---
+async function saveAndRestart() {
+  if (isRestarting || !window.electronAPI) return;
+  isRestarting = true;
+
+  const btn = document.getElementById('btnRestart');
+  const label = document.getElementById('restartLabel');
+  btn.disabled = true;
+  label.innerHTML = ti('logViewer.restarting');
+  // Show spinner
+  btn.querySelector('svg').style.display = 'none';
+  const spinner = document.createElement('span');
+  spinner.className = 'restart-spinner';
+  btn.insertBefore(spinner, label);
+
+  try {
+    const logLevel = document.getElementById('logLevelSelect').value;
+    const selectedModules = [];
+    document.querySelectorAll('#moduleListArea input[type="checkbox"]:checked').forEach(cb => {
+      selectedModules.push(cb.value);
+    });
+
+    const res = await window.electronAPI.invoke('log-viewer-restart', {
+      projectName, projectsDir, baseDir, odooVersion,
+      httpPort, logLevel, upgradeModules: selectedModules, odooSourceDir,
+    });
+
+    if (res?.ok) {
+      label.innerHTML = ti('logViewer.restartSuccess');
+    } else {
+      label.innerHTML = ti('logViewer.restartFail');
+    }
+  } catch (e) {
+    label.innerHTML = ti('logViewer.restartFail');
+  } finally {
+    setTimeout(() => {
+      isRestarting = false;
+      btn.disabled = false;
+      spinner.remove();
+      btn.querySelector('svg').style.display = '';
+      label.innerHTML = ti('logViewer.saveRestart');
+    }, 2000);
+  }
 }
 
 // IPC: receive log lines from main process
@@ -212,6 +602,9 @@ if (window.electronAPI) {
       appendLines(data.lines);
     }
   });
+
+  // Load sidebar data + i18n
+  loadI18n().then(() => loadProjectInfo());
 }
 
 // Cleanup on close

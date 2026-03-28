@@ -6,7 +6,7 @@ import { runCmd } from './utils/shell';
 import { LoggerService } from './services/logger';
 import { StepLockManager } from './services/step-lock';
 import { DEFAULT_BASE_DIR, DEFAULT_PROJECTS_DIR, getDefaultBaseDir, getDefaultProjectsDir, getTemplatesDir } from './services/config';
-import { DEFAULT_ODOO_VERSION, ALL_VERSIONS, ODOO_VERSIONS } from './services/odoo-versions';
+import { DEFAULT_ODOO_VERSION, ALL_VERSIONS, ODOO_VERSIONS, getEffectiveVersionConfig } from './services/odoo-versions';
 import { detectStatus, invalidateStatusCache } from './services/status';
 import {
   stepInstallNginx,
@@ -37,6 +37,18 @@ function safe<T>(fn: () => Promise<T>): Promise<T | { ok: false; msg: string }> 
   return fn().catch((e: Error) => ({ ok: false as const, msg: `Error: ${e.message}` }));
 }
 
+/** Read user URL overrides from settings file */
+function readUrlOverrides(): Record<string, { pythonUrl?: string; postgresUrl?: string }> {
+  try {
+    const settingsFile = path.join(app.getPath('userData'), 'user-settings.json');
+    if (fs.existsSync(settingsFile)) {
+      const raw = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
+      if (raw.versionUrlOverrides) return raw.versionUrlOverrides;
+    }
+  } catch { /* ignore */ }
+  return {};
+}
+
 export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   const logger = new LoggerService(mainWindow);
   const stepLock = new StepLockManager();
@@ -58,16 +70,26 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   // --- Odoo Versions Registry (for UI) ---
   ipcMain.handle('odoo-versions', () => {
+    const urlOverrides = readUrlOverrides();
     return {
-      versions: ALL_VERSIONS.map(v => ({
-        key: ODOO_VERSIONS[v].key,
-        label: ODOO_VERSIONS[v].label,
-        pythonVersion: ODOO_VERSIONS[v].pythonVersion,
-        postgresVersion: ODOO_VERSIONS[v].postgresVersion,
-        pgvector: ODOO_VERSIONS[v].pgvector,
-        branch: ODOO_VERSIONS[v].branch,
-        color: ODOO_VERSIONS[v].color,
-      })),
+      versions: ALL_VERSIONS.map(v => {
+        const cfg = getEffectiveVersionConfig(v, urlOverrides);
+        return {
+          key: cfg.key,
+          label: cfg.label,
+          settingsLabel: cfg.settingsLabel,
+          pythonVersion: cfg.pythonVersion,
+          postgresVersion: cfg.postgresVersion,
+          pgvector: cfg.pgvector,
+          branch: cfg.branch,
+          color: cfg.color,
+          pythonUrl: cfg.pythonUrl,
+          postgresUrl: cfg.postgresUrl,
+          // Also send defaults so UI can show "reset" hint
+          defaultPythonUrl: ODOO_VERSIONS[v].pythonUrl,
+          defaultPostgresUrl: ODOO_VERSIONS[v].postgresUrl,
+        };
+      }),
       default: DEFAULT_ODOO_VERSION,
     };
   });
@@ -117,7 +139,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     logger.updateTask({ status: 'running', step: 'Starting...', progress: 0 });
 
     // Run in background (non-blocking)
-    stepFullInstall(baseDir, projectsDir, projectName, logger, opts, stepLock, odooVersion)
+    stepFullInstall(baseDir, projectsDir, projectName, logger, opts, stepLock, odooVersion, readUrlOverrides())
       .then(results => {
         invalidateStatusCache();
         logger.updateTask({ status: 'done', step: 'Complete!', progress: 100, results });
@@ -140,7 +162,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       install_nginx: () => stepInstallNginx(baseDir, logger),
       install_git: () => stepInstallGit(baseDir, logger),
       install_vscode: () => stepInstallVSCode(baseDir, logger),
-      install_python: () => stepInstallPython(baseDir, logger, odooVersion),
+      install_python: () => stepInstallPython(baseDir, logger, odooVersion, readUrlOverrides()),
       install_postgres: () => stepInstallPostgres(
         baseDir, logger,
         data?.pg_super_password || 'postgres',
@@ -149,6 +171,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         data?.db_password || 'odoo',
         data?.pg_mode || 'auto',
         odooVersion,
+        readUrlOverrides(),
       ),
       clone_odoo: () => stepCloneOdoo(baseDir, logger, odooVersion),
       create_venv: () => stepCreateVenv(baseDir, logger, odooVersion),
@@ -705,7 +728,11 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   const logWindows = new Map<string, BrowserWindow>();
   let logColorIndex = 0;
 
-  ipcMain.handle('open-log-window', async (_event, data: { projectName: string; logPath: string }) => {
+  ipcMain.handle('open-log-window', async (_event, data: {
+    projectName: string; logPath: string;
+    odooVersion?: string; baseDir?: string; projectsDir?: string;
+    httpPort?: string; odooSourceDir?: string;
+  }) => {
     const { projectName, logPath } = data;
     const windowKey = projectName;
 
@@ -724,7 +751,14 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     logColorIndex++;
 
     const logViewerPath = path.join(__dirname, '..', '..', 'src', 'renderer', 'log-viewer.html');
-    const queryParams = `?project=${encodeURIComponent(projectName)}&logPath=${encodeURIComponent(logPath)}&color=${encodeURIComponent(color)}`;
+    const extraParams = [
+      data.odooVersion ? `&odooVersion=${encodeURIComponent(data.odooVersion)}` : '',
+      data.baseDir ? `&baseDir=${encodeURIComponent(data.baseDir)}` : '',
+      data.projectsDir ? `&projectsDir=${encodeURIComponent(data.projectsDir)}` : '',
+      data.httpPort ? `&httpPort=${encodeURIComponent(data.httpPort)}` : '',
+      data.odooSourceDir ? `&odooSourceDir=${encodeURIComponent(data.odooSourceDir)}` : '',
+    ].join('');
+    const queryParams = `?project=${encodeURIComponent(projectName)}&logPath=${encodeURIComponent(logPath)}&color=${encodeURIComponent(color)}${extraParams}`;
 
     const logWin = new BrowserWindow({
       width: 800,
@@ -768,6 +802,164 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win) win.setAlwaysOnTop(data.pinned);
     return { ok: true };
+  });
+
+  // --- Log Viewer: get project info (log level + custom modules) ---
+  ipcMain.handle('log-viewer-info', async (_event, data: { projectName: string; projectsDir?: string; baseDir?: string; odooVersion?: string }) => {
+    try {
+      const odooVersion = data.odooVersion || DEFAULT_ODOO_VERSION;
+      const projectsDir = data.projectsDir || getDefaultProjectsDir(odooVersion);
+      const baseDir = data.baseDir || getDefaultBaseDir(odooVersion);
+      const projectPath = path.join(projectsDir, data.projectName);
+      const confFile = path.join(projectPath, 'odoo.conf');
+
+      if (!fs.existsSync(confFile)) return { ok: false, msg: 'CONFIG_NOT_FOUND' };
+
+      const { parseIniFile, iniGet } = require('./services/ini-parser');
+      const ini = parseIniFile(confFile);
+      const logLevel = iniGet(ini, 'options', 'log_level', 'error');
+      const addonsPath = iniGet(ini, 'options', 'addons_path', '');
+
+      // Enumerate custom modules (non-base addon dirs)
+      const customModules: string[] = [];
+      if (addonsPath) {
+        for (const rawPath of addonsPath.split(',')) {
+          const p = rawPath.trim();
+          const absP = path.isAbsolute(p) ? p : path.join(projectPath, p);
+          const isBase = p.replace(/\\/g, '/').includes('odoo/addons');
+          if (isBase) continue;
+          if (fs.existsSync(absP) && fs.statSync(absP).isDirectory()) {
+            try {
+              for (const entry of fs.readdirSync(absP)) {
+                const manifest = path.join(absP, entry, '__manifest__.py');
+                if (fs.existsSync(manifest)) customModules.push(entry);
+              }
+            } catch { /* ignore */ }
+          }
+        }
+      }
+
+      return { ok: true, logLevel, customModules: customModules.sort() };
+    } catch (e) {
+      return { ok: false, msg: String(e) };
+    }
+  });
+
+  // --- Log Viewer: save log level + restart with module upgrade ---
+  ipcMain.handle('log-viewer-restart', async (_event, data: {
+    projectName: string; projectsDir?: string; baseDir?: string;
+    odooVersion?: string; httpPort: string; logLevel?: string;
+    upgradeModules?: string[]; odooSourceDir?: string;
+  }) => {
+    try {
+      const odooVersion = data.odooVersion || DEFAULT_ODOO_VERSION;
+      const projectsDir = data.projectsDir || getDefaultProjectsDir(odooVersion);
+      const baseDir = data.baseDir || getDefaultBaseDir(odooVersion);
+      const projectPath = path.join(projectsDir, data.projectName);
+      const confFile = path.join(projectPath, 'odoo.conf');
+
+      if (!fs.existsSync(confFile)) return { ok: false, msg: 'CONFIG_NOT_FOUND' };
+
+      // Update log_level in odoo.conf if provided
+      if (data.logLevel) {
+        const { parseIniFile, iniGet, iniSet, stringifyIni } = require('./services/ini-parser');
+        const ini = parseIniFile(confFile);
+        const currentLevel = iniGet(ini, 'options', 'log_level', 'error');
+        if (data.logLevel !== currentLevel) {
+          const newIni = iniSet(ini, 'options', 'log_level', data.logLevel);
+          // Preserve comments — read raw, replace the log_level line
+          let raw = fs.readFileSync(confFile, 'utf8');
+          if (raw.includes('log_level')) {
+            raw = raw.replace(/^log_level\s*=\s*.+$/m, `log_level = ${data.logLevel}`);
+          } else {
+            // Append under [options]
+            raw = raw.replace(/^\[options\]\s*$/m, `[options]\nlog_level = ${data.logLevel}`);
+          }
+          fs.writeFileSync(confFile, raw, 'utf8');
+          logger.log(`  > Log level changed to: ${data.logLevel}`);
+        }
+      }
+
+      // Stop Odoo on the port
+      const port = data.httpPort;
+      if (port && /^\d{1,5}$/.test(port)) {
+        const { output } = await runCmd(`netstat -ano | findstr ":${port}.*LISTENING"`);
+        const lines = output.trim().split('\n').filter(Boolean);
+        const pids = new Set<string>();
+        for (const line of lines) {
+          const parts = line.trim().split(/\s+/);
+          const pid = parts[parts.length - 1];
+          if (pid && pid !== '0') pids.add(pid);
+        }
+        for (const pid of pids) {
+          await runCmd(`taskkill /F /PID ${pid}`);
+        }
+        if (pids.size > 0) {
+          logger.log(`  > Odoo stopped (PID: ${[...pids].join(', ')})`);
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+      }
+
+      // Build start command with optional -u flag
+      const odooSourceDir = data.odooSourceDir || 'odoo';
+      const venvPy = path.join(baseDir, 'venv', 'Scripts', 'python.exe');
+      const odooBin = path.join(baseDir, odooSourceDir, 'odoo-bin');
+      const logFile = path.join(projectPath, 'odoo.log').replace(/\\/g, '/');
+      let cmd = `"${venvPy}" "${odooBin}" -c "${confFile}" --logfile "${logFile}"`;
+
+      if (data.upgradeModules && data.upgradeModules.length > 0) {
+        // Validate module names
+        const safeModName = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+        const safeModules = data.upgradeModules.filter(m => safeModName.test(m));
+        if (safeModules.length > 0) {
+          cmd += ` -u ${safeModules.join(',')}`;
+          logger.log(`  > Upgrading modules: ${safeModules.join(', ')}`);
+        }
+      }
+
+      // Find PostgreSQL bin for PATH injection
+      const { findPostgresForPort, findPostgresBin } = require('./services/detection');
+      const { parseIniFile: pif, iniGet: ig } = require('./services/ini-parser');
+      const iniForPg = pif(confFile);
+      const dbPort = ig(iniForPg, 'options', 'db_port', '5434');
+      const pgInstance = findPostgresForPort(dbPort);
+      const pgBin = pgInstance?.binPath || findPostgresBin();
+
+      const odooEnv = { ...process.env };
+      if (pgBin && !odooEnv.PATH?.includes(pgBin)) {
+        odooEnv.PATH = `${pgBin};${odooEnv.PATH || ''}`;
+      }
+
+      logger.log(`Restarting Odoo: ${cmd}`);
+      const { exec: execChild } = require('child_process');
+      const odooProc = execChild(cmd, {
+        cwd: projectPath,
+        windowsHide: true,
+        maxBuffer: 10 * 1024 * 1024,
+        env: odooEnv,
+      });
+
+      odooProc.stdout?.on('data', (d: string) => {
+        for (const line of d.toString().split('\n').filter(Boolean)) {
+          logger.log(`[odoo] ${line.trim()}`);
+        }
+      });
+      odooProc.stderr?.on('data', (d: string) => {
+        for (const line of d.toString().split('\n').filter(Boolean)) {
+          logger.log(`[odoo:err] ${line.trim()}`);
+        }
+      });
+      odooProc.on('exit', (code: number | null) => {
+        if (code !== null && code !== 0) {
+          logger.log(`[odoo] Process exited with code ${code}`);
+        }
+      });
+
+      invalidateStatusCache();
+      return { ok: true, msg: 'Restarted' };
+    } catch (e) {
+      return { ok: false, msg: String(e) };
+    }
   });
 
   // --- Get current app icon as data URL ---

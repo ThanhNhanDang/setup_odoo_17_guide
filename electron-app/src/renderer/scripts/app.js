@@ -1,10 +1,11 @@
 // ---------------------------------------------------------------------------
-// Odoo Installer - Renderer Script (Multi-version: 15, 17, 19)
+// Odoo Installer - Renderer Script (Multi-version — dynamic from registry)
 // Communicates with main process via IPC (window.electronAPI)
 // ---------------------------------------------------------------------------
 
 const $ = id => document.getElementById(id);
 let _status = null;
+let _odooVersions = null; // { versions: [...], default: '17' } — loaded from IPC
 
 // Translate backend error codes to localized messages
 const _backendMsgMap = {
@@ -53,12 +54,14 @@ initI18n(getCurrentLanguage()).then(() => {
   if (sel) sel.value = getCurrentLanguage();
 });
 
-// Version-specific labels for install step cards
-const VERSION_LABELS = {
-  '15': { python: 'Python 3.10', postgres: 'PostgreSQL 14', clone: 'Clone Odoo 15' },
-  '17': { python: 'Python 3.11', postgres: 'PostgreSQL 16', clone: 'Clone Odoo 17' },
-  '19': { python: 'Python 3.12', postgres: 'PostgreSQL 16 + pgvector', clone: 'Clone Odoo 19' },
-};
+// Version-specific labels — built dynamically from registry via _odooVersions
+function getVersionLabels(version) {
+  if (!_odooVersions) return { python: 'Python', postgres: 'PostgreSQL', clone: 'Clone Odoo' };
+  const v = _odooVersions.versions.find(x => x.key === version);
+  if (!v) return { python: 'Python', postgres: 'PostgreSQL', clone: 'Clone Odoo' };
+  const pgLabel = v.pgvector ? `PostgreSQL ${v.postgresVersion} + pgvector` : `PostgreSQL ${v.postgresVersion}`;
+  return { python: v.pythonVersion, postgres: pgLabel, clone: `Clone ${v.label}` };
+}
 
 function getNextAvailablePort() {
   if (!_status || !_status.projects || _status.projects.length === 0) return 8069;
@@ -171,12 +174,15 @@ const SETTINGS_FIELD_IDS = [
 
 function saveSettingsToDisk() {
   if (!window.electronAPI) return;
-  const settings = {};
-  for (const id of SETTINGS_FIELD_IDS) {
-    const el = $(id);
-    if (el) settings[id] = el.value;
-  }
-  api('save-settings', settings).then(() => {
+  // Read existing settings first to preserve versionUrlOverrides
+  loadSettingsRaw().then(existing => {
+    const settings = { ...existing };
+    for (const id of SETTINGS_FIELD_IDS) {
+      const el = $(id);
+      if (el) settings[id] = el.value;
+    }
+    return api('save-settings', settings);
+  }).then(() => {
     showSettingsSaveStatus();
   }).catch(() => {});
 }
@@ -237,17 +243,141 @@ async function onVersionChange(version) {
 }
 
 function getVersionColor(version) {
-  const colors = { '15': '#3b82f6', '17': '#f0883e', '19': '#22c55e' };
-  return colors[version] || '#888';
+  if (!_odooVersions) return '#888';
+  const v = _odooVersions.versions.find(x => x.key === version);
+  return v ? v.color : '#888';
 }
 
 function onInstallVersionChange(version) {
-  const labels = VERSION_LABELS[version] || VERSION_LABELS['17'];
+  const labels = getVersionLabels(version);
   if ($('stepName-install_python')) $('stepName-install_python').textContent = labels.python;
   if ($('stepName-install_postgres')) $('stepName-install_postgres').textContent = labels.postgres;
   if ($('stepName-clone_odoo')) $('stepName-clone_odoo').textContent = labels.clone;
   // Sync settings version selector
   if ($('odooVersion')) $('odooVersion').value = version;
+}
+
+// ---------------------------------------------------------------------------
+// Dynamic Odoo Versions — populate selects + URL fields from registry
+// ---------------------------------------------------------------------------
+
+/**
+ * Load version registry from main process and populate all version selects.
+ * Called once during init, before loadSettingsFromDisk restores saved values.
+ */
+async function loadOdooVersions() {
+  if (!window.electronAPI) return;
+  try {
+    _odooVersions = await api('odoo-versions');
+  } catch { return; }
+  if (!_odooVersions || !_odooVersions.versions) return;
+  const defaultVer = _odooVersions.default || '17';
+
+  // Populate all 3 version selects
+  const selects = [
+    { id: 'odooVersion', useSettingsLabel: true },
+    { id: 'installVersion', useSettingsLabel: false },
+    { id: 'newProjVersion', useSettingsLabel: false },
+  ];
+  for (const { id, useSettingsLabel } of selects) {
+    const el = $(id);
+    if (!el) continue;
+    const savedVal = el.value; // preserve if already restored from settings
+    el.innerHTML = '';
+    for (const v of _odooVersions.versions) {
+      const opt = document.createElement('option');
+      opt.value = v.key;
+      opt.textContent = useSettingsLabel ? v.settingsLabel : v.label;
+      if (v.key === defaultVer) opt.selected = true;
+      el.appendChild(opt);
+    }
+    // Restore saved selection if valid
+    if (savedVal && _odooVersions.versions.some(v => v.key === savedVal)) {
+      el.value = savedVal;
+    }
+  }
+
+  // Render URL fields in settings
+  renderVersionUrlFields();
+
+  // Apply install step labels for current version
+  const curVer = $('installVersion')?.value || defaultVer;
+  onInstallVersionChange(curVer);
+}
+
+/**
+ * Render editable Python/PostgreSQL download URL fields under version selector.
+ * Locked (readonly) when a project already uses that version.
+ */
+function renderVersionUrlFields() {
+  const container = $('versionUrlFields');
+  if (!container || !_odooVersions) return;
+
+  // Determine which versions have existing projects
+  const usedVersions = new Set();
+  if (_status && _status.projects) {
+    for (const p of _status.projects) {
+      usedVersions.add(p.odoo_version || '17');
+    }
+  }
+
+  container.innerHTML = _odooVersions.versions.map(v => {
+    const locked = usedVersions.has(v.key);
+    const lockIcon = locked ? ' 🔒' : '';
+    const lockTitle = locked ? ` title="${t('settings.urlLocked')}"` : '';
+    const readonlyAttr = locked ? ' readonly' : '';
+    const lockedClass = locked ? ' version-url-locked' : '';
+    return `
+      <div class="form-group" style="grid-column:1/-1">
+        <label${lockTitle}>${v.label} — Python URL${lockIcon}</label>
+        <input class="version-url-input${lockedClass}" id="urlPython_${v.key}" value="${escAttr(v.pythonUrl)}"${readonlyAttr}
+          data-version="${v.key}" data-field="pythonUrl" data-default="${escAttr(v.defaultPythonUrl)}"
+          onchange="onVersionUrlChange(this)" placeholder="${v.defaultPythonUrl}">
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label${lockTitle}>${v.label} — PostgreSQL URL${lockIcon}</label>
+        <input class="version-url-input${lockedClass}" id="urlPostgres_${v.key}" value="${escAttr(v.postgresUrl)}"${readonlyAttr}
+          data-version="${v.key}" data-field="postgresUrl" data-default="${escAttr(v.defaultPostgresUrl)}"
+          onchange="onVersionUrlChange(this)" placeholder="${v.defaultPostgresUrl}">
+      </div>`;
+  }).join('');
+}
+
+/**
+ * Called when user changes a version URL field. Saves override to settings.
+ */
+function onVersionUrlChange(input) {
+  const version = input.dataset.version;
+  const field = input.dataset.field;
+  const defaultUrl = input.dataset.default;
+  const value = input.value.trim();
+
+  // Read current settings
+  loadSettingsRaw().then(settings => {
+    const overrides = settings.versionUrlOverrides || {};
+    if (!overrides[version]) overrides[version] = {};
+
+    if (value && value !== defaultUrl) {
+      overrides[version][field] = value;
+    } else {
+      delete overrides[version][field];
+      // Clean up empty version entries
+      if (Object.keys(overrides[version]).length === 0) delete overrides[version];
+    }
+
+    settings.versionUrlOverrides = overrides;
+    api('save-settings', settings).then(() => showSettingsSaveStatus()).catch(() => {});
+  });
+}
+
+/**
+ * Read raw settings from disk (without applying to form fields).
+ */
+async function loadSettingsRaw() {
+  try {
+    const res = await api('load-settings');
+    return res?.settings || {};
+  } catch { return {}; }
 }
 
 // ---------------------------------------------------------------------------
@@ -319,6 +449,9 @@ async function refreshStatus() {
   renderProjects(s);
   renderDashboard(s);
   refreshInstallStatus();
+
+  // Refresh URL field lock state (depends on which versions have projects)
+  renderVersionUrlFields();
 
   // Auto-update port field for new project
   const nextPort = getNextAvailablePort();
@@ -1006,8 +1139,15 @@ async function withBtnPending(e, guardKey, label, asyncFn, cooldown) {
     setTimeout(() => { _actionGuards[guardKey] = false; }, cooldown || 2000);
   }
 }
-async function openLogWindow(projectName, logPath, e) {
-  await withBtnPending(e, 'log-' + projectName, t('project.log'), () => api('open-log-window', { projectName, logPath }));
+async function openLogWindow(projectName, logPath, e, httpPort) {
+  await withBtnPending(e, 'log-' + projectName, t('project.log'), () => api('open-log-window', {
+    projectName, logPath,
+    odooVersion: $('odooVersion')?.value || '17',
+    baseDir: $('baseDir')?.value || '',
+    projectsDir: $('projectsDir')?.value || '',
+    httpPort: httpPort || '',
+    odooSourceDir: $('odooSourceDir')?.value || 'odoo',
+  }));
 }
 async function openBrowser(port) { await api('open_browser', { url: `http://localhost:${port}` }); }
 async function openProjectUrl(domain, port) {
@@ -1321,6 +1461,65 @@ function renderDashboard(s) {
   renderKanban(projects);
 }
 
+/**
+ * Render a single kanban card HTML.
+ * @param {object} p - project data
+ * @param {boolean} isDemo - if true, card is a non-interactive demo for tour
+ */
+function renderKanbanCard(p, isDemo) {
+  const demoClass = isDemo ? ' kanban-card-demo' : '';
+  const demoLabel = isDemo ? `<span class="kanban-tag" style="background:var(--text-tertiary);color:var(--bg-surface);font-size:0.65rem">${t('dashboard.sample')}</span>` : '';
+  const versionColor = getVersionColor(p.odoo_version);
+  const versionKey = p.odoo_version || '17';
+
+  // For demo cards, disable all onclick handlers
+  const onclick = (fn) => isDemo ? '' : `onclick="${fn}"`;
+  const btnDisabled = isDemo ? ' disabled' : '';
+
+  const statusTag = isDemo
+    ? `<span class="kanban-tag kanban-tag-stopped">${t('project.stoppedTag')}</span>`
+    : _pendingProjects.has(p.name)
+      ? `<span class="kanban-tag kanban-tag-pending"><span class="spinner-sm"></span></span>`
+      : p.is_running
+        ? `<span class="kanban-tag kanban-tag-running">${t('project.runningTag')}</span>`
+        : `<span class="kanban-tag kanban-tag-stopped">${t('project.stoppedTag')}</span>`;
+
+  const actionBtn = isDemo
+    ? `<button class="btn btn-xs btn-start"${btnDisabled}>${t('project.start')}</button>`
+    : renderActionBtn(p);
+
+  return `
+    <div class="kanban-card${demoClass}">
+      <div class="kanban-card-header">
+        <span class="kanban-card-name">${escHtml(p.name)} ${demoLabel}</span>
+        <div style="display:flex;align-items:center;gap:4px">
+          <span class="kanban-card-port" ${onclick(`openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port || '8069')}')`)} title="Open in browser" style="cursor:pointer">:${escHtml(p.http_port || '8069')}</span>
+          <button class="kanban-icon-btn" ${onclick(`duplicateProject('${escAttr(p.name)}','${escAttr(p.http_port)}')`)} title="${t('project.duplicate')}"${btnDisabled}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+        </div>
+      </div>
+      <div class="kanban-card-url" ${onclick(`openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port || '8069')}')`)} title="Click to open">${escHtml(getProjectUrl(p.domain, p.http_port || '8069'))}</div>
+      <div class="kanban-card-body">
+        <div class="kanban-card-tags">
+          <span class="kanban-tag kanban-tag-version" style="background:${versionColor};color:#fff">v${escHtml(versionKey)}</span>
+          ${statusTag}
+          ${p.custom_modules > 0 ? `<span class="kanban-tag kanban-tag-modules">${p.custom_modules} modules</span>` : ''}
+        </div>
+        <button class="kanban-log-btn" ${onclick(`openLogWindow('${escAttr(p.name)}','${escAttr(p.logfile || (p.path + '\\\\odoo.log'))}',event,'${escAttr(p.http_port || '8069')}')`)} title="${t('project.log')}"${btnDisabled}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+        </button>
+      </div>
+      <div class="kanban-card-actions">
+        ${actionBtn}
+        <div class="kanban-actions-center">
+          <button class="kanban-icon-btn kanban-action-btn btn-vscode" ${onclick(`openVSCode('${escAttr(p.path)}',event)`)} title="${t('project.vsCode')}"${btnDisabled}><img src="images/vscode.png" width="18" height="18" style="border-radius:2px"></button>
+          <button class="kanban-icon-btn kanban-action-btn" ${onclick(`openExplorer('${escAttr(p.path)}',event)`)} title="${t('project.explorer')}"${btnDisabled}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></button>
+          <button class="kanban-icon-btn kanban-action-btn" ${onclick(`showProjectDetail('${escAttr(p.name)}')`)} title="${t('project.detail')}"${btnDisabled}><svg viewBox="0 0 32 32" fill="currentColor" width="16" height="16"><path d="M 2 6 L 2 26 L 7 26 L 7 31.09375 L 8.625 29.78125 L 13.34375 26 L 30 26 L 30 6 Z M 4 8 L 28 8 L 28 24 L 12.65625 24 L 12.375 24.21875 L 9 26.90625 L 9 24 L 4 24 Z M 15 10 L 15 12 L 17 12 L 17 10 Z M 15 14 L 15 22 L 17 22 L 17 14 Z"/></svg></button>
+        </div>
+        <button class="kanban-icon-btn kanban-action-btn btn-delete-icon" ${onclick(`deleteProject('${escAttr(p.name)}')`)} title="${t('project.delete')}"${btnDisabled}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+      </div>
+    </div>`;
+}
+
 function renderKanban(projects) {
   const search = ($('dashSearch')?.value || '').toLowerCase();
   const filter = $('dashFilter')?.value || 'all';
@@ -1343,44 +1542,25 @@ function renderKanban(projects) {
   }
 
   // Show/hide empty state
-  $('dashEmpty').style.display = filtered.length === 0 ? 'block' : 'none';
-  $('dashKanban').style.display = filtered.length === 0 ? 'none' : 'grid';
+  const hasProjects = filtered.length > 0;
+  $('dashEmpty').style.display = hasProjects ? 'none' : 'block';
+  $('dashKanban').style.display = 'grid'; // Always show grid (for demo card or real cards)
 
-  $('dashKanban').innerHTML = filtered.map(p => `
-    <div class="kanban-card">
-      <div class="kanban-card-header">
-        <span class="kanban-card-name">${escHtml(p.name)}</span>
-        <div style="display:flex;align-items:center;gap:4px">
-          <span class="kanban-card-port" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port || '8069')}')" title="Open in browser" style="cursor:pointer">:${escHtml(p.http_port || '8069')}</span>
-          <button class="kanban-icon-btn" onclick="duplicateProject('${escAttr(p.name)}','${escAttr(p.http_port)}')" title="${t('project.duplicate')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
-        </div>
-      </div>
-      <div class="kanban-card-url" onclick="openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port || '8069')}')" title="Click to open">${escHtml(getProjectUrl(p.domain, p.http_port || '8069'))}</div>
-      <div class="kanban-card-body">
-        <div class="kanban-card-tags">
-          <span class="kanban-tag kanban-tag-version" style="background:${getVersionColor(p.odoo_version)};color:#fff">v${escHtml(p.odoo_version || '17')}</span>
-          ${_pendingProjects.has(p.name)
-            ? `<span class="kanban-tag kanban-tag-pending"><span class="spinner-sm"></span></span>`
-            : p.is_running
-              ? `<span class="kanban-tag kanban-tag-running">${t('project.runningTag')}</span>`
-              : `<span class="kanban-tag kanban-tag-stopped">${t('project.stoppedTag')}</span>`}
-          ${p.custom_modules > 0 ? `<span class="kanban-tag kanban-tag-modules">${p.custom_modules} modules</span>` : ''}
-        </div>
-        <button class="kanban-log-btn" onclick="openLogWindow('${escAttr(p.name)}','${escAttr(p.logfile || (p.path + '\\\\odoo.log'))}',event)" title="${t('project.log')}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-        </button>
-      </div>
-      <div class="kanban-card-actions">
-        ${renderActionBtn(p)}
-        <div class="kanban-actions-center">
-          <button class="kanban-icon-btn kanban-action-btn btn-vscode" onclick="openVSCode('${escAttr(p.path)}',event)" title="${t('project.vsCode')}"><img src="images/vscode.png" width="18" height="18" style="border-radius:2px"></button>
-          <button class="kanban-icon-btn kanban-action-btn" onclick="openExplorer('${escAttr(p.path)}',event)" title="${t('project.explorer')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></button>
-          <button class="kanban-icon-btn kanban-action-btn" onclick="showProjectDetail('${escAttr(p.name)}')" title="${t('project.detail')}"><svg viewBox="0 0 32 32" fill="currentColor" width="16" height="16"><path d="M 2 6 L 2 26 L 7 26 L 7 31.09375 L 8.625 29.78125 L 13.34375 26 L 30 26 L 30 6 Z M 4 8 L 28 8 L 28 24 L 12.65625 24 L 12.375 24.21875 L 9 26.90625 L 9 24 L 4 24 Z M 15 10 L 15 12 L 17 12 L 17 10 Z M 15 14 L 15 22 L 17 22 L 17 14 Z"/></svg></button>
-        </div>
-        <button class="kanban-icon-btn kanban-action-btn btn-delete-icon" onclick="deleteProject('${escAttr(p.name)}')" title="${t('project.delete')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
-      </div>
-    </div>
-  `).join('');
+  if (hasProjects) {
+    $('dashKanban').innerHTML = filtered.map(p => renderKanbanCard(p, false)).join('');
+  } else {
+    // Show demo card so tour can highlight card elements
+    $('dashKanban').innerHTML = renderKanbanCard({
+      name: 'my_project',
+      http_port: '8069',
+      domain: 'my-project.odoo.local',
+      odoo_version: _odooVersions?.default || '17',
+      is_running: false,
+      custom_modules: 2,
+      path: '',
+      logfile: '',
+    }, true);
+  }
 }
 
 function filterDashboard() {
@@ -2262,13 +2442,21 @@ if (window.electronAPI) {
     if (el) el.textContent = ver;
     if ($('settingsVersion')) $('settingsVersion').textContent = ver;
   });
-  // Restore saved settings first, then fill empty fields with defaults
-  loadSettingsFromDisk().then(() => {
-    api('default-paths', { odoo_version: $('odooVersion')?.value || '17' }).then(paths => {
-      if ($('baseDir') && !$('baseDir').value) $('baseDir').value = paths.base_dir || '';
-      if ($('projectsDir') && !$('projectsDir').value) $('projectsDir').value = paths.projects_dir || '';
-    });
-  });
+  // Load versions first (populates selects), then restore settings, then defaults
+  loadOdooVersions().then(() => {
+    return loadSettingsFromDisk();
+  }).then(() => {
+    // Re-sync selects after settings restore (in case saved version differs from default)
+    if (_odooVersions && $('odooVersion')?.value) {
+      const ver = $('odooVersion').value;
+      if ($('installVersion')) $('installVersion').value = ver;
+    }
+    const ver = $('odooVersion')?.value || '17';
+    return api('default-paths', { odoo_version: ver });
+  }).then(paths => {
+    if ($('baseDir') && !$('baseDir').value) $('baseDir').value = paths.base_dir || '';
+    if ($('projectsDir') && !$('projectsDir').value) $('projectsDir').value = paths.projects_dir || '';
+  }).catch(() => {});
 }
 
 // First-launch tour prompt

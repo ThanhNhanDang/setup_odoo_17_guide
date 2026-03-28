@@ -24,6 +24,7 @@
     "memHard": "Memory Hard Limit", "memSoft": "Memory Soft Limit",
     "odooSourceDir": "Odoo Source Folder", "odooSourceDirPlaceholder": "default: odoo",
     "saved": "Saved",
+    "urlLocked": "Locked — a project with this version exists",
     "about": "About", "currentVersion": "Current version:", "checkUpdates": "Check for Updates",
     "language": "Language"
   },
@@ -35,6 +36,7 @@
     "runningCount": "Running", "customModules": "Custom Modules",
     "dbConnections": "DB Connections",
     "noProjects": "No projects yet. Go to <strong>New Project</strong> to create one.",
+    "sample": "Sample",
     "loading": "Loading...", "python": "Python 3.11", "postgresql": "PostgreSQL"
   },
   "install": {
@@ -168,6 +170,22 @@
     "noDocs": "No matching documentation found.",
     "noIssues": "No matching issues found.",
     "symptom": "Symptom", "cause": "Cause", "solution": "Solution", "close": "Close"
+  },
+  "logViewer": {
+    "sidebar": "Sidebar",
+    "logLevel": "Log Level",
+    "upgradeModules": "Upgrade Modules",
+    "selectModules": "Select modules to upgrade on restart",
+    "noCustomModules": "No custom modules found",
+    "saveRestart": "Save & Restart",
+    "restarting": "Restarting...",
+    "restartSuccess": "Odoo restarted!",
+    "restartFail": "Restart failed",
+    "selectAll": "Select All",
+    "deselectAll": "Deselect All",
+    "helpLogLevel": "Changes the log_level in odoo.conf. Takes effect after restart.",
+    "helpUpgrade": "Selected modules will be upgraded (-u flag) when restarting Odoo.",
+    "modulesSelected": "{count} module(s) selected"
   },
   "tour": { "skip": "Skip", "prev": "Prev", "next": "Next", "done": "Done" },
   "status": { "ok": "OK", "missing": "Missing", "available": "Available", "notFound": "Not found" }

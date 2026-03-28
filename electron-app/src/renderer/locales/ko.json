@@ -24,6 +24,7 @@
     "memHard": "메모리 하드 제한", "memSoft": "메모리 소프트 제한",
     "odooSourceDir": "Odoo 소스 폴더", "odooSourceDirPlaceholder": "기본값: odoo",
     "saved": "저장됨",
+    "urlLocked": "잠김 — 이 버전을 사용하는 프로젝트가 있습니다",
     "about": "정보", "currentVersion": "현재 버전:", "checkUpdates": "업데이트 확인",
     "language": "언어"
   },
@@ -35,6 +36,7 @@
     "runningCount": "실행 중", "customModules": "커스텀 모듈",
     "dbConnections": "DB 연결",
     "noProjects": "프로젝트가 없습니다. <strong>새 프로젝트</strong>를 만들어 시작하세요.",
+    "sample": "샘플",
     "loading": "로딩 중...", "python": "Python 3.11", "postgresql": "PostgreSQL"
   },
   "install": {
@@ -168,6 +170,22 @@
     "noIssues": "일치하는 문제를 찾을 수 없습니다.",
     "symptom": "증상", "cause": "원인", "solution": "해결 방법", "close": "닫기"
   },
+  "logViewer": {
+    "sidebar": "사이드바",
+    "logLevel": "로그 레벨",
+    "upgradeModules": "모듈 업그레이드",
+    "selectModules": "재시작 시 업그레이드할 모듈 선택",
+    "noCustomModules": "사용자 정의 모듈이 없습니다",
+    "saveRestart": "저장 후 재시작",
+    "restarting": "재시작 중...",
+    "restartSuccess": "Odoo가 재시작되었습니다!",
+    "restartFail": "재시작 실패",
+    "selectAll": "모두 선택",
+    "deselectAll": "모두 해제",
+    "helpLogLevel": "odoo.conf의 log_level을 변경합니다. 재시작 후 적용됩니다.",
+    "helpUpgrade": "선택한 모듈은 Odoo 재시작 시 업그레이드(-u 플래그)됩니다.",
+    "modulesSelected": "{count}개 모듈 선택됨"
+  },
   "tour": { "skip": "건너뛰기", "prev": "이전", "next": "다음", "done": "완료" },
   "status": { "ok": "정상", "missing": "없음", "available": "사용 가능", "notFound": "찾을 수 없음" },
   "td": {
@@ -175,11 +193,15 @@
       "0": { "title": "내비게이션 바", "text": "대시보드, 전체 설치, 도움말 탭 간 전환. 설정 및 업데이트 확인." },
       "1": { "title": "대시보드", "text": "모든 Odoo 프로젝트 개요. 검색, 필터, 새 프로젝트 생성." },
       "2": { "title": "프로젝트 카드", "text": "각 카드에 이름, 버전, 포트, 실행 상태 표시. 카드를 클릭하여 상세 보기." },
+      "2a": { "title": "카드 헤더", "text": "프로젝트 이름, 포트 번호(클릭하면 브라우저에서 열기), 복제 버튼." },
+      "2b": { "title": "상태 태그", "text": "버전 배지(색상 구분), 실행/중지 상태, 커스텀 모듈 수." },
+      "2c": { "title": "로그 뷰어", "text": "별도의 로그 창을 열어 Odoo 로그를 실시간으로 모니터링. 로그 레벨별 필터링 지원." },
+      "2d": { "title": "액션 버튼", "text": "Odoo 시작/중지, VS Code에서 열기, Explorer에서 폴더 열기, 프로젝트 상세 보기, 또는 프로젝트 삭제." },
       "3": { "title": "새 프로젝트", "text": "새 Odoo 프로젝트 생성. HTTP 포트 자동 증가로 충돌 방지." },
       "4": { "title": "모든 템플릿 초기화", "text": "모든 프로젝트의 launch.json과 settings.json을 최신 기본값으로 초기화." },
       "5": { "title": "설치 단계", "text": "8단계: Nginx, Git, VS Code, Python, PostgreSQL, Odoo 소스, 가상 환경, Pip." },
       "6": { "title": "전체 설치", "text": "한 번 클릭으로 8단계 모두 자동 실행. 먼저 Odoo 버전을 선택하세요." },
-      "7": { "title": "Odoo 버전", "text": "Odoo 15, 17 또는 19 선택. 각 버전에 맞는 Python과 PostgreSQL 설치." },
+      "7": { "title": "Odoo 버전", "text": "Odoo {versions} 선택. 각 버전에 맞는 Python과 PostgreSQL 설치." },
       "8": { "title": "설정", "text": "디렉토리, 데이터베이스, 기본 프로젝트 설정 및 외관 테마 구성." },
       "9": { "title": "언어", "text": "영어, 베트남어, 한국어 간 전환." },
       "10": { "title": "버전 및 업데이트", "text": "현재 버전 표시. 클릭하여 업데이트 확인. 30분마다 자동 확인." },
@@ -187,7 +209,7 @@
     },
     "cat": { "start": "시작하기", "project": "프로젝트 관리", "config": "설정", "video": "비디오 튜토리얼" },
     "doc": {
-      "firstInstall": { "title": "처음 설치", "desc": "Python, PostgreSQL, Odoo 소스를 처음부터 설치하고 첫 프로젝트를 생성합니다.", "body": "<ol><li>앱을 열고 <strong>전체 설치</strong> 탭으로 이동</li><li>Odoo 버전 선택 (15, 17 또는 19)</li><li><strong>\"전체 설치\"</strong> 클릭</li><li>8단계 모두 완료될 때까지 대기</li><li><strong>대시보드</strong>로 이동 — 첫 프로젝트 준비 완료!</li><li><strong>시작</strong>을 클릭하여 Odoo 실행</li></ol><p><strong>참고:</strong> PostgreSQL 설치와 심링크 생성에 관리자 권한이 필요합니다.</p>" },
+      "firstInstall": { "title": "처음 설치", "desc": "Python, PostgreSQL, Odoo 소스를 처음부터 설치하고 첫 프로젝트를 생성합니다.", "body": "<ol><li>앱을 열고 <strong>전체 설치</strong> 탭으로 이동</li><li>Odoo 버전 선택</li><li><strong>\"전체 설치\"</strong> 클릭</li><li>8단계 모두 완료될 때까지 대기</li><li><strong>대시보드</strong>로 이동 — 첫 프로젝트 준비 완료!</li><li><strong>시작</strong>을 클릭하여 Odoo 실행</li></ol><p><strong>참고:</strong> PostgreSQL 설치와 심링크 생성에 관리자 권한이 필요합니다.</p>" },
       "createProject": { "title": "새 프로젝트 생성", "desc": "고유한 설정, 포트, 데이터베이스로 새 Odoo 프로젝트를 추가합니다.", "body": "<ol><li>대시보드에서 <strong>\"새 프로젝트\"</strong> 클릭</li><li>프로젝트 이름 입력</li><li>HTTP 포트 자동 할당</li><li><strong>\"프로젝트 생성\"</strong> 클릭</li></ol><p>각 프로젝트에는 <code>addons/</code>, <code>data/</code>, <code>odoo.conf</code>, <code>.vscode/launch.json</code>이 포함됩니다.</p>" },
       "startStop": { "title": "Odoo 시작 및 중지", "desc": "Odoo 서버를 실행하고 인스턴스를 관리합니다.", "body": "<ul><li><strong>시작:</strong> 녹색 시작 버튼 클릭. PostgreSQL 자동 시작.</li><li><strong>중지:</strong> 빨간 중지 버튼 클릭.</li><li>상태는 10초마다 동기화.</li><li><strong>VS Code:</strong> <kbd>F5</kbd>로 터미널에서 로그와 함께 디버그.</li></ul>" },
       "dupDelete": { "title": "프로젝트 복제 및 삭제", "desc": "기존 프로젝트를 복제하거나 영구 삭제합니다.", "body": "<p><strong>복제:</strong> 새 이름과 포트로 사본 생성.</p><p><strong>삭제:</strong> 프로젝트 이름 입력으로 확인. 데이터베이스도 삭제 가능.</p><p><strong>경고:</strong> 삭제는 영구적입니다!</p>" },
