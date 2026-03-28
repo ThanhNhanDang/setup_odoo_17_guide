@@ -125,6 +125,7 @@
     "odooStopping": "Đang dừng Odoo...", "odooStopped": "Odoo đã dừng",
     "configSaving": "Đang lưu cấu hình...", "configSaved": "Đã lưu cấu hình!",
     "configRestarted": "Đã lưu cấu hình & khởi động lại Odoo!",
+    "starting": "Đang khởi động Odoo...",
     "restarting": "Đang khởi động lại Odoo...",
     "templateReset": "Đã đặt lại template về mặc định!",
     "templateResetAll": "Hoàn thành: {ok} thành công, {fail} thất bại.",

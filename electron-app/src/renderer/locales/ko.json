@@ -125,6 +125,7 @@
     "odooStopping": "Odoo 중지 중...", "odooStopped": "Odoo 중지됨",
     "configSaving": "설정 저장 중...", "configSaved": "설정 저장 완료!",
     "configRestarted": "설정 저장 및 Odoo 재시작 완료!",
+    "starting": "Odoo 시작 중...",
     "restarting": "Odoo 재시작 중...",
     "templateReset": "템플릿이 기본값으로 초기화되었습니다!",
     "templateResetAll": "완료: {ok} 성공, {fail} 실패.",

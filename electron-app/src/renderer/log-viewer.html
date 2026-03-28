@@ -30,6 +30,19 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 }
 .titlebar-controls button:hover{background:rgba(0,0,0,0.5)}
 .titlebar-controls button.close:hover{background:#e81123;color:#fff}
+.titlebar-controls button svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2}
+
+/* Project switcher select in titlebar */
+.project-select{
+  -webkit-app-region:no-drag;
+  background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.15);
+  color:#fff;font-size:0.78rem;font-weight:600;
+  padding:2px 6px;border-radius:4px;cursor:pointer;outline:none;
+  max-width:200px;
+}
+.project-select:hover{background:rgba(0,0,0,0.4);border-color:rgba(255,255,255,0.3)}
+.project-select:focus{border-color:rgba(255,255,255,0.5)}
+.project-select option{background:var(--bg-surface);color:var(--text)}
 
 /* Status bar */
 .status-bar{
@@ -221,11 +234,19 @@ body{display:flex;flex-direction:column}
 <div class="titlebar">
   <span class="titlebar-title">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-    <span id="windowTitle">Odoo Log</span>
+    <select id="projectSelect" class="project-select" onchange="switchProject(this.value)" title="Switch project">
+      <option id="windowTitle">Odoo Log</option>
+    </select>
   </span>
   <div class="titlebar-controls">
     <button onclick="togglePin()" id="btnPin" class="pin-btn" title="Always on top">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 2h6l-1.5 5.5L17 11H7l3.5-3.5z"/></svg>
+    </button>
+    <button onclick="minimizeWindow()" title="Minimize">
+      <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+    <button onclick="maximizeWindow()" id="btnMaximize" title="Maximize">
+      <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1"/></svg>
     </button>
     <button class="close" onclick="window.close()" title="Close">&#10005;</button>
   </div>
@@ -335,9 +356,66 @@ const odooSourceDir = params.get('odooSourceDir') || '';
 
 // Apply accent color to header
 document.documentElement.style.setProperty('--accent-color', accentColor);
-document.getElementById('windowTitle').textContent = `${projectName} — Log`;
 document.title = `${projectName} — Odoo Log`;
 document.getElementById('logPath').textContent = logFilePath;
+
+// Populate project switcher dropdown
+let currentProjectName = projectName;
+let currentLogPath = logFilePath;
+
+async function loadProjectList() {
+  if (!window.electronAPI) return;
+  try {
+    const res = await window.electronAPI.invoke('log-viewer-projects');
+    if (!res?.ok || !res.projects) return;
+    const select = document.getElementById('projectSelect');
+    select.innerHTML = '';
+    for (const p of res.projects) {
+      const opt = document.createElement('option');
+      opt.value = JSON.stringify({ name: p.name, logPath: p.logPath });
+      opt.textContent = `${p.name} — Log`;
+      if (p.name === currentProjectName) opt.selected = true;
+      select.appendChild(opt);
+    }
+  } catch {}
+}
+loadProjectList();
+
+function switchProject(val) {
+  try {
+    const { name, logPath } = JSON.parse(val);
+    if (name === currentProjectName) return;
+    // Unwatch current log
+    if (window.electronAPI && currentLogPath) {
+      window.electronAPI.invoke('unwatch-log', { logPath: currentLogPath });
+    }
+    // Update state
+    currentProjectName = name;
+    currentLogPath = logPath;
+    document.title = `${name} — Odoo Log`;
+    document.getElementById('logPath').textContent = logPath;
+    // Clear log and start watching new file
+    clearLog();
+    lineCount = 0;
+    document.getElementById('lineCount').textContent = '0 lines';
+    window.electronAPI.invoke('watch-log', { logPath }).then(res => {
+      if (res?.ok && res.lines?.length) {
+        appendLines(res.lines);
+        document.getElementById('statusDot').className = 'status-dot watching';
+        document.getElementById('statusText').textContent = 'Watching...';
+      }
+    });
+    // Reload sidebar info for new project
+    loadProjectInfo();
+  } catch {}
+}
+
+function minimizeWindow() {
+  if (window.electronAPI) window.electronAPI.invoke('log-window-minimize');
+}
+function maximizeWindow() {
+  if (window.electronAPI) window.electronAPI.invoke('log-window-maximize');
+}
 
 let autoScroll = true;
 let lineCount = 0;
@@ -485,7 +563,7 @@ async function loadProjectInfo() {
   if (!window.electronAPI) return;
   try {
     const res = await window.electronAPI.invoke('log-viewer-info', {
-      projectName, projectsDir, baseDir, odooVersion,
+      projectName: currentProjectName, projectsDir, baseDir, odooVersion,
     });
     if (!res?.ok) return;
 
@@ -609,7 +687,7 @@ async function saveAndRestart() {
 // IPC: receive log lines from main process
 if (window.electronAPI) {
   // Initial load
-  window.electronAPI.invoke('watch-log', { logPath: logFilePath }).then(res => {
+  window.electronAPI.invoke('watch-log', { logPath: currentLogPath }).then(res => {
     if (res?.ok && res.lines?.length) {
       appendLines(res.lines);
       document.getElementById('statusDot').className = 'status-dot watching';
@@ -621,7 +699,7 @@ if (window.electronAPI) {
 
   // Realtime updates
   window.electronAPI.onEvent('project-log', (data) => {
-    if (data.logPath === logFilePath && data.lines?.length) {
+    if (data.logPath === currentLogPath && data.lines?.length) {
       document.getElementById('statusDot').className = 'status-dot watching';
       document.getElementById('statusText').textContent = 'Watching...';
       appendLines(data.lines);
@@ -635,7 +713,7 @@ if (window.electronAPI) {
 // Cleanup on close
 window.addEventListener('beforeunload', () => {
   if (window.electronAPI) {
-    window.electronAPI.invoke('unwatch-log', { logPath: logFilePath });
+    window.electronAPI.invoke('unwatch-log', { logPath: currentLogPath });
   }
 });
 </script>

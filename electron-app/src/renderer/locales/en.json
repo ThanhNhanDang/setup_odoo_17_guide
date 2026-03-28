@@ -126,6 +126,7 @@
     "odooStopping": "Stopping Odoo...", "odooStopped": "Odoo stopped",
     "configSaving": "Saving config...", "configSaved": "Config saved!",
     "configRestarted": "Config saved & Odoo restarted!",
+    "starting": "Starting Odoo...",
     "restarting": "Restarting Odoo...",
     "templateReset": "Templates reset to defaults!",
     "templateResetAll": "Reset done: {ok} OK, {fail} failed.",

@@ -305,7 +305,7 @@ export async function duplicateProject(
         ini = iniSet(ini, 'options', 'http_port', newHttpPort);
         const lpPort = parseInt(newHttpPort, 10);
         if (!isNaN(lpPort)) {
-          ini = iniSet(ini, 'options', 'longpolling_port', String(lpPort + 3));
+          ini = iniSet(ini, 'options', 'gevent_port', String(lpPort + 3));
         }
         // Update dbfilter for new project
         ini = iniSet(ini, 'options', 'dbfilter', `^${newName}.*$`);

@@ -160,7 +160,7 @@ export async function parseProjectConfig(projectPath: string, baseDir: string = 
     const get = (key: string, def: string = ''): string => iniGet(ini, section, key, def);
 
     info.http_port = get('http_port');
-    info.longpolling_port = get('longpolling_port', get('gevent_port'));
+    info.longpolling_port = get('gevent_port', get('longpolling_port'));
     info.db_port = get('db_port');
     info.db_host = get('db_host', 'localhost');
     info.db_user = get('db_user');

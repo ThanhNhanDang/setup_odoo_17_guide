@@ -1830,6 +1830,13 @@ async function saveDetailAndRestart(name) {
       content = content.replace('[options]', `[options]\naddons_path = ${addonPaths}`);
     }
 
+    // Map log_level → log_handler (log_handler overrides log_level in Odoo)
+    const _logHandlerMap = {
+      'critical': ':CRITICAL', 'error': ':ERROR', 'warn': ':WARNING', 'warning': ':WARNING',
+      'info': ':INFO', 'debug': ':DEBUG', 'debug_rpc': ':DEBUG', 'debug_sql': ':DEBUG',
+      'debug_rpc_answer': ':DEBUG',
+    };
+
     // Update other fields
     const inputs = document.querySelectorAll('#detailContent .detail-input:not(.detail-addons-input)');
     for (const input of inputs) {
@@ -1841,8 +1848,15 @@ async function saveDetailAndRestart(name) {
       if (regex.test(content)) {
         content = content.replace(regex, `${key} = ${value}`);
       } else {
-        // Add after [options] line
         content = content.replace('[options]', `[options]\n${key} = ${value}`);
+      }
+      // Sync log_handler when log_level changes
+      if (key === 'log_level') {
+        const handlerVal = _logHandlerMap[value] || ':INFO';
+        const handlerRegex = /^log_handler\s*=.*$/m;
+        if (handlerRegex.test(content)) {
+          content = content.replace(handlerRegex, `log_handler = ${handlerVal}`);
+        }
       }
     }
 
@@ -1851,21 +1865,19 @@ async function saveDetailAndRestart(name) {
     const saveRes = await api('save_config', { projects_dir: data.projects_dir, project_name: name, content });
     if (!saveRes.ok) { showToastMessage(t('toast.saveFail', { msg: saveRes.msg }), 'error'); return; }
 
-    // Restart Odoo if running
+    // Stop Odoo if running, then always (re)start
     const port = _status?.projects?.find(p => p.name === name)?.http_port || '8069';
     const proj = _status?.projects?.find(p => p.name === name);
     if (proj?.is_running) {
       showToastMessage(t('toast.restarting'), 'info');
       await api('stop_odoo', { http_port: port });
       await new Promise(r => setTimeout(r, 2000));
-      hideModal('modalDetail');
-      await startOdoo(name);
-      showToastMessage(t('toast.configRestarted'), 'success');
     } else {
-      hideModal('modalDetail');
-      showToastMessage(t('toast.configSaved'), 'success');
-      refreshStatus();
+      showToastMessage(t('toast.starting'), 'info');
     }
+    hideModal('modalDetail');
+    await startOdoo(name);
+    showToastMessage(t('toast.configRestarted'), 'success');
   } catch (e) {
     showToastMessage(t('toast.error', { msg: e.message }), 'error');
   }

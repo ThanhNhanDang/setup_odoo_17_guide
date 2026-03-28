@@ -241,8 +241,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const projPath = path.join(projectsDir, projectName);
     for (const [logPath, entry] of logWatchers) {
       if (logPath.startsWith(projPath)) {
-        if (entry.watcher) entry.watcher.close();
-        clearInterval(entry.pollTimer);
+        if (entry.tailProc) { try { entry.tailProc.kill(); } catch {} }
+        if (entry.pollTimer) clearInterval(entry.pollTimer);
         logWatchers.delete(logPath);
       }
     }
@@ -325,9 +325,127 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     return result;
   });
 
+  // --- Shared: Ensure PostgreSQL ready + start Odoo process ---
+  async function ensurePgAndStartOdoo(opts: {
+    baseDir: string; projectPath: string; confFile: string;
+    odooSourceDir: string; cmd: string;
+  }): Promise<{ ok: boolean; msg: string }> {
+    const { baseDir, projectPath, confFile, odooSourceDir, cmd } = opts;
+
+    // Read project's DB config
+    let projectDbPort = '5434';
+    let projectDbUser = 'odoo';
+    let projectDbPassword = 'odoo';
+    try {
+      const { parseIniFile, iniGet } = require('./services/ini-parser');
+      const ini = parseIniFile(confFile);
+      projectDbPort = iniGet(ini, 'options', 'db_port', '5434');
+      projectDbUser = iniGet(ini, 'options', 'db_user', 'odoo');
+      projectDbPassword = iniGet(ini, 'options', 'db_password', 'odoo');
+    } catch { /* use defaults */ }
+
+    logger.log(`  > Project DB config: port=${projectDbPort}, user=${projectDbUser}`);
+
+    // Find PostgreSQL instance for this port
+    const { findPostgresForPort, findPostgresBin, findDockerPostgres } = require('./services/detection');
+    const pgInstance = findPostgresForPort(projectDbPort);
+    const pgBin = pgInstance?.binPath || findPostgresBin();
+
+    if (pgInstance) {
+      logger.log(`  > PostgreSQL ${pgInstance.version} found for port ${projectDbPort}: ${pgInstance.binPath}`);
+      const pgIsready = path.join(pgInstance.binPath, 'pg_isready.exe');
+      let isReady = false;
+      try {
+        require('child_process').execSync(`"${pgIsready}" -p ${projectDbPort}`, { timeout: 5000, windowsHide: true, stdio: 'pipe' });
+        isReady = true;
+      } catch { /* not ready */ }
+
+      if (!isReady) {
+        logger.log(`PostgreSQL ${pgInstance.version} is stopped on port ${projectDbPort}. Starting...`);
+        let started = false;
+        for (const svc of [pgInstance.serviceName, `postgresql-${pgInstance.version}`]) {
+          const { code } = await runCmd(`net start "${svc}"`);
+          if (code === 0) { logger.log(`  > Service '${svc}' started!`); started = true; break; }
+        }
+        if (!started && pgInstance.dataDir) {
+          const pgCtl = path.join(pgInstance.binPath, 'pg_ctl.exe');
+          const { code, output } = await runCmd(`"${pgCtl}" start -D "${pgInstance.dataDir}" -w`);
+          if (code === 0) { logger.log('  > PostgreSQL started via pg_ctl!'); started = true; }
+        }
+        if (started) await new Promise(r => setTimeout(r, 3000));
+        else logger.log('  > Could not start PostgreSQL. Start it manually.');
+      }
+    } else if (pgBin) {
+      logger.log(`  > No PostgreSQL instance found for port ${projectDbPort}. Using bin: ${pgBin}`);
+    } else {
+      logger.log('  > No native PostgreSQL found.');
+    }
+
+    // Verify PostgreSQL is ready
+    let pgReady = false;
+    if (pgBin) {
+      const pgIsready = path.join(pgBin, 'pg_isready.exe');
+      try {
+        require('child_process').execSync(`"${pgIsready}" -p ${projectDbPort}`, { timeout: 5000, windowsHide: true, stdio: 'pipe' });
+        pgReady = true;
+      } catch { /* not ready */ }
+    }
+    if (!pgReady) {
+      const dockerPg = findDockerPostgres();
+      const dockerMatch = dockerPg.find((c: any) => c.port === projectDbPort);
+      if (dockerMatch) { logger.log(`  > Using Docker PostgreSQL: ${dockerMatch.name}`); pgReady = true; }
+    }
+    if (!pgReady) {
+      return { ok: false, msg: `PostgreSQL is not running on port ${projectDbPort}. Check your DB port in odoo.conf.` };
+    }
+
+    // Ensure DB user exists
+    if (pgBin) {
+      const psqlExe = path.join(pgBin, 'psql.exe');
+      const safeId = /^[a-zA-Z0-9_]+$/;
+      if (safeId.test(projectDbUser) && safeId.test(projectDbPassword)) {
+        const { output: userCheck } = await runCmd(
+          `"${psqlExe}" -U postgres -p ${projectDbPort} -tAc "SELECT 1 FROM pg_roles WHERE rolname='${projectDbUser}'"`,
+          undefined, { ...process.env, PGPASSWORD: 'postgres' }
+        );
+        if (!userCheck.includes('1')) {
+          logger.log(`  > Creating DB user '${projectDbUser}'...`);
+          await runCmd(
+            `"${psqlExe}" -U postgres -p ${projectDbPort} -c "CREATE ROLE ${projectDbUser} WITH LOGIN PASSWORD '${projectDbPassword}' CREATEDB;"`,
+            undefined, { ...process.env, PGPASSWORD: 'postgres' }
+          );
+        }
+      }
+    }
+
+    // Inject PostgreSQL bin into PATH
+    const odooEnv = { ...process.env };
+    if (pgBin && !odooEnv.PATH?.includes(pgBin)) {
+      odooEnv.PATH = `${pgBin};${odooEnv.PATH || ''}`;
+    }
+
+    // Start Odoo process
+    logger.log(`Starting Odoo: ${cmd}`);
+    const { exec: execChild } = require('child_process');
+    const odooProc = execChild(cmd, {
+      cwd: projectPath, windowsHide: true, maxBuffer: 10 * 1024 * 1024, env: odooEnv,
+    });
+    odooProc.stdout?.on('data', (d: string) => {
+      for (const line of d.toString().split('\n').filter(Boolean)) logger.log(`[odoo] ${line.trim()}`);
+    });
+    odooProc.stderr?.on('data', (d: string) => {
+      for (const line of d.toString().split('\n').filter(Boolean)) logger.log(`[odoo:err] ${line.trim()}`);
+    });
+    odooProc.on('exit', (code: number | null) => {
+      if (code !== null && code !== 0) logger.log(`[odoo] Process exited with code ${code}`);
+    });
+
+    invalidateStatusCache();
+    return { ok: true, msg: 'Started' };
+  }
+
   // --- Start Odoo ---
   ipcMain.handle('start_odoo', async (_event, data: Record<string, string>) => {
-    // Read odoo_version from project config to use correct base dir
     const odooVersion = data?.odoo_version || DEFAULT_ODOO_VERSION;
     const baseDir = data?.base_dir || getDefaultBaseDir(odooVersion);
     const projectsDir = data?.projects_dir || getDefaultProjectsDir(odooVersion);
@@ -341,160 +459,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const cmd = `"${venvPy}" "${odooBin}" -c "${conf}" --logfile "${logFile}"`;
 
     try {
-      // Read project's DB config from odoo.conf
-      let projectDbPort = '5434';
-      let projectDbUser = 'odoo';
-      let projectDbPassword = 'odoo';
-      try {
-        const { parseIniFile, iniGet } = require('./services/ini-parser');
-        const ini = parseIniFile(conf);
-        projectDbPort = iniGet(ini, 'options', 'db_port', '5434');
-        projectDbUser = iniGet(ini, 'options', 'db_user', 'odoo');
-        projectDbPassword = iniGet(ini, 'options', 'db_password', 'odoo');
-      } catch { /* use defaults */ }
-
-      logger.log(`  > Project DB config: port=${projectDbPort}, user=${projectDbUser}`);
-
-      // Find the PostgreSQL instance matching this project's port
-      const { findPostgresForPort, findPostgresBin, findDockerPostgres } = require('./services/detection');
-      const pgInstance = findPostgresForPort(projectDbPort);
-      const pgBin = pgInstance?.binPath || findPostgresBin();
-
-      if (pgInstance) {
-        logger.log(`  > PostgreSQL ${pgInstance.version} found for port ${projectDbPort}: ${pgInstance.binPath}`);
-
-        // Check if this specific instance is ready
-        const pgIsready = path.join(pgInstance.binPath, 'pg_isready.exe');
-        let isReady = false;
-        try {
-          require('child_process').execSync(`"${pgIsready}" -p ${projectDbPort}`, { timeout: 5000, windowsHide: true, stdio: 'pipe' });
-          isReady = true;
-        } catch { /* not ready */ }
-
-        if (!isReady) {
-          logger.log(`PostgreSQL ${pgInstance.version} is stopped on port ${projectDbPort}. Starting...`);
-          let started = false;
-
-          // Method 1: net start with exact service name
-          for (const svc of [pgInstance.serviceName, `postgresql-${pgInstance.version}`]) {
-            const { code } = await runCmd(`net start "${svc}"`);
-            if (code === 0) {
-              logger.log(`  > Service '${svc}' started!`);
-              started = true;
-              break;
-            }
-          }
-
-          // Method 2: pg_ctl (no Admin needed)
-          if (!started && pgInstance.dataDir) {
-            const pgCtl = path.join(pgInstance.binPath, 'pg_ctl.exe');
-            logger.log(`  > Trying pg_ctl start -D "${pgInstance.dataDir}" -w`);
-            const { code, output } = await runCmd(`"${pgCtl}" start -D "${pgInstance.dataDir}" -w`);
-            logger.log(`  > pg_ctl exit code: ${code}`);
-            if (output.trim()) logger.log(`  > ${output.trim().split('\n').pop()}`);
-            if (code === 0) {
-              logger.log('  > PostgreSQL started via pg_ctl!');
-              started = true;
-            }
-          }
-
-          if (started) {
-            await new Promise(resolve => setTimeout(resolve, 3000));
-          } else {
-            logger.log('  > Could not start PostgreSQL. Start it manually.');
-          }
-        }
-      } else if (pgBin) {
-        logger.log(`  > No PostgreSQL instance found for port ${projectDbPort}. Using bin: ${pgBin}`);
-      } else {
-        logger.log('  > No native PostgreSQL found.');
-      }
-
-      // Verify PostgreSQL is ready on the project's port
-      let pgReady = false;
-      if (pgBin) {
-        const pgIsready = path.join(pgBin, 'pg_isready.exe');
-        try {
-          require('child_process').execSync(`"${pgIsready}" -p ${projectDbPort}`, { timeout: 5000, windowsHide: true, stdio: 'pipe' });
-          pgReady = true;
-        } catch { /* not ready */ }
-      }
-      logger.log(`  > PostgreSQL ready check on port ${projectDbPort}: ${pgReady}`);
-
-      if (!pgReady) {
-        // Also check Docker containers on this port
-        const dockerPg = findDockerPostgres();
-        const dockerMatch = dockerPg.find((c: any) => c.port === projectDbPort);
-        if (dockerMatch) {
-          logger.log(`  > Using Docker PostgreSQL: ${dockerMatch.name} on port ${projectDbPort}`);
-          pgReady = true;
-        } else if (dockerPg.length > 0) {
-          logger.log(`  > Docker PostgreSQL found but not on port ${projectDbPort}: ${dockerPg.map((c: any) => `${c.name}:${c.port}`).join(', ')}`);
-        }
-      }
-
-      if (!pgReady) {
-        return { ok: false, msg: `PostgreSQL is not running on port ${projectDbPort}. Check your DB port in odoo.conf.` };
-      }
-
-      // Ensure per-project DB user exists
-      if (pgBin) {
-        logger.log(`  > Ensuring DB user '${projectDbUser}' exists on port ${projectDbPort}...`);
-        const psqlExe = path.join(pgBin, 'psql.exe');
-        // Validate DB identifiers to prevent SQL injection
-        const safeId = /^[a-zA-Z0-9_]+$/;
-        if (!safeId.test(projectDbUser) || !safeId.test(projectDbPassword)) {
-          logger.log(`  > Skipping DB user creation — invalid characters in db_user or db_password`);
-        } else {
-        const { output: userCheck } = await runCmd(
-          `"${psqlExe}" -U postgres -p ${projectDbPort} -tAc "SELECT 1 FROM pg_roles WHERE rolname='${projectDbUser}'"`,
-          undefined,
-          { ...process.env, PGPASSWORD: 'postgres' }
-        );
-        if (!userCheck.includes('1')) {
-          logger.log(`  > Creating DB user '${projectDbUser}'...`);
-          await runCmd(
-            `"${psqlExe}" -U postgres -p ${projectDbPort} -c "CREATE ROLE ${projectDbUser} WITH LOGIN PASSWORD '${projectDbPassword}' CREATEDB;"`,
-            undefined,
-            { ...process.env, PGPASSWORD: 'postgres' }
-          );
-          logger.log(`  > DB user '${projectDbUser}' created.`);
-        }
-        } // end safeId check
-      }
-
-      // Start Odoo using exec (no terminal window)
-      // Inject PostgreSQL bin into PATH so Odoo can find psql/pg_restore for DB operations
-      const odooEnv = { ...process.env };
-      if (pgBin && !odooEnv.PATH?.includes(pgBin)) {
-        odooEnv.PATH = `${pgBin};${odooEnv.PATH || ''}`;
-        logger.log(`  > Added PostgreSQL bin to PATH: ${pgBin}`);
-      }
-      logger.log(`Starting Odoo: ${cmd}`);
-      const { exec: execChild } = require('child_process');
-      const odooProc = execChild(cmd, {
-        cwd: projPath,
-        windowsHide: true,
-        maxBuffer: 10 * 1024 * 1024,
-        env: odooEnv,
+      const result = await ensurePgAndStartOdoo({
+        baseDir, projectPath: projPath, confFile: conf, odooSourceDir, cmd,
       });
-
-      // Log Odoo stdout/stderr to installer log
-      odooProc.stdout?.on('data', (data: string) => {
-        for (const line of data.toString().split('\n').filter(Boolean)) {
-          logger.log(`[odoo] ${line.trim()}`);
-        }
-      });
-      odooProc.stderr?.on('data', (data: string) => {
-        for (const line of data.toString().split('\n').filter(Boolean)) {
-          logger.log(`[odoo:err] ${line.trim()}`);
-        }
-      });
-      odooProc.on('exit', (code: number | null) => {
-        if (code !== null && code !== 0) {
-          logger.log(`[odoo] Process exited with code ${code}`);
-        }
-      });
+      if (!result.ok) return result;
 
       // Start/reload Nginx for HTTPS proxy
       try {
@@ -628,8 +596,16 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   });
 
   // --- Watch project log file (realtime tail) ---
+  // Primary: PowerShell Get-Content -Wait (reliable on Windows, like tail -f)
+  // Fallback: stat-based polling if PowerShell fails
   // Supports multiple windows watching the same log file
-  const logWatchers = new Map<string, { watcher: fs.FSWatcher | null; pollTimer: ReturnType<typeof setInterval>; subscribers: Set<BrowserWindow> }>();
+  type LogWatcherEntry = {
+    tailProc: ReturnType<typeof spawn> | null;
+    pollTimer: ReturnType<typeof setInterval> | null;
+    lastSize: number;
+    subscribers: Set<BrowserWindow>;
+  };
+  const logWatchers = new Map<string, LogWatcherEntry>();
 
   function broadcastLogLines(logPath: string, lines: string[]): void {
     const entry = logWatchers.get(logPath);
@@ -644,6 +620,31 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     if (!mainWindow.isDestroyed() && !entry.subscribers.has(mainWindow)) {
       mainWindow.webContents.send('project-log', payload);
     }
+  }
+
+  /** Fallback: stat-based polling when PowerShell is unavailable */
+  function startPollFallback(logPath: string, entry: LogWatcherEntry): void {
+    if (entry.pollTimer) return; // already polling
+    let reading = false;
+    entry.pollTimer = setInterval(() => {
+      if (reading) return;
+      try {
+        const newSize = fs.statSync(logPath).size;
+        if (newSize === entry.lastSize) return;
+        reading = true;
+        const readStart = newSize < entry.lastSize ? 0 : entry.lastSize;
+        const readLen = newSize - readStart;
+        const buf = Buffer.alloc(readLen);
+        const fd = fs.openSync(logPath, 'r');
+        fs.readSync(fd, buf, 0, readLen, readStart);
+        fs.closeSync(fd);
+        entry.lastSize = newSize;
+        const newLines = buf.toString('utf8').split('\n').filter(Boolean);
+        if (newLines.length > 0) broadcastLogLines(logPath, newLines);
+      } catch { /* ignore */ } finally {
+        reading = false;
+      }
+    }, 300);
   }
 
   ipcMain.handle('watch-log', async (event, data: { logPath: string }) => {
@@ -672,36 +673,45 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       return { ok: true, lines: last1000 };
     }
 
-    // Create new watcher — fs.watch + polling fallback for reliability on Windows
-    let lastSize = fs.statSync(logPath).size;
+    // Create new watcher
     const subscribers = new Set<BrowserWindow>([callerWindow]);
+    const entry: LogWatcherEntry = { tailProc: null, pollTimer: null, lastSize: fs.statSync(logPath).size, subscribers };
 
-    function readNewLines() {
-      try {
-        const newSize = fs.statSync(logPath).size;
-        if (newSize === lastSize) return;
-        const readStart = newSize < lastSize ? 0 : lastSize;
-        const stream = fs.createReadStream(logPath, { start: readStart, encoding: 'utf8' });
-        let newData = '';
-        stream.on('data', (chunk) => { newData += String(chunk); });
-        stream.on('end', () => {
-          lastSize = newSize;
-          const newLines = newData.split('\n').filter(Boolean);
-          if (newLines.length > 0) broadcastLogLines(logPath, newLines);
-        });
-      } catch { /* ignore */ }
+    // Primary: PowerShell Get-Content -Wait (like tail -f, reliable on Windows)
+    try {
+      const proc = spawn('powershell', [
+        '-NoProfile', '-NoLogo', '-Command',
+        `Get-Content -Path '${logPath.replace(/'/g, "''")}' -Wait -Tail 0 -Encoding UTF8`,
+      ], { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
+
+      let buffer = '';
+      proc.stdout!.on('data', (chunk: Buffer) => {
+        buffer += chunk.toString('utf8');
+        const parts = buffer.split('\n');
+        buffer = parts.pop() || ''; // keep incomplete last line in buffer
+        const lines = parts.filter(Boolean);
+        if (lines.length > 0) broadcastLogLines(logPath, lines);
+      });
+
+      proc.on('error', () => {
+        // PowerShell failed — start poll fallback
+        entry.tailProc = null;
+        startPollFallback(logPath, entry);
+      });
+      proc.on('exit', () => {
+        // Process ended (e.g. file deleted) — start poll fallback if still watching
+        if (logWatchers.has(logPath) && !entry.pollTimer) {
+          entry.tailProc = null;
+          startPollFallback(logPath, entry);
+        }
+      });
+      entry.tailProc = proc;
+    } catch {
+      // PowerShell not available — use poll fallback
+      startPollFallback(logPath, entry);
     }
 
-    // Primary: fs.watch (instant on most Windows setups)
-    let watcher: fs.FSWatcher | null = null;
-    try {
-      watcher = fs.watch(logPath, () => readNewLines());
-    } catch { /* fs.watch may fail on some paths — polling will cover it */ }
-
-    // Fallback: poll every 1s (fs.watch is unreliable on some Windows configs)
-    const pollTimer = setInterval(readNewLines, 1000);
-
-    logWatchers.set(logPath, { watcher, pollTimer, subscribers });
+    logWatchers.set(logPath, entry);
     return { ok: true, lines: last1000 };
   });
 
@@ -713,8 +723,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     if (callerWindow) entry.subscribers.delete(callerWindow);
     // Close watcher only when no more subscribers
     if (entry.subscribers.size === 0) {
-      if (entry.watcher) entry.watcher.close();
-      clearInterval(entry.pollTimer);
+      if (entry.tailProc) { try { entry.tailProc.kill(); } catch {} }
+      if (entry.pollTimer) clearInterval(entry.pollTimer);
       logWatchers.delete(logPath);
     }
     return { ok: true };
@@ -787,8 +797,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       for (const [watchPath, entry] of logWatchers) {
         entry.subscribers.delete(logWin);
         if (entry.subscribers.size === 0) {
-          if (entry.watcher) entry.watcher.close();
-          clearInterval(entry.pollTimer);
+          if (entry.tailProc) { try { entry.tailProc.kill(); } catch {} }
+          if (entry.pollTimer) clearInterval(entry.pollTimer);
           logWatchers.delete(watchPath);
         }
       }
@@ -802,6 +812,46 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win) win.setAlwaysOnTop(data.pinned);
     return { ok: true };
+  });
+
+  ipcMain.handle('log-window-minimize', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) win.minimize();
+  });
+
+  ipcMain.handle('log-window-maximize', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) {
+      if (win.isMaximized()) win.unmaximize();
+      else win.maximize();
+    }
+  });
+
+  // --- Log Viewer: list all projects (for project switcher dropdown) ---
+  ipcMain.handle('log-viewer-projects', async () => {
+    try {
+      // Read user settings to get current projectsDir
+      const settingsFile = path.join(app.getPath('userData'), 'user-settings.json');
+      let odooVersion = DEFAULT_ODOO_VERSION;
+      if (fs.existsSync(settingsFile)) {
+        try {
+          const raw = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
+          if (raw.odooVersion) odooVersion = raw.odooVersion;
+        } catch {}
+      }
+      const projectsDir = getDefaultProjectsDir(odooVersion);
+      if (!fs.existsSync(projectsDir)) return { ok: true, projects: [] };
+      const entries = fs.readdirSync(projectsDir, { withFileTypes: true });
+      const projects = entries
+        .filter(e => e.isDirectory() && fs.existsSync(path.join(projectsDir, e.name, 'odoo.conf')))
+        .map(e => ({
+          name: e.name,
+          logPath: path.join(projectsDir, e.name, 'odoo.log'),
+        }));
+      return { ok: true, projects };
+    } catch {
+      return { ok: true, projects: [] };
+    }
   });
 
   // --- Log Viewer: get project info (log level + custom modules) ---
@@ -860,27 +910,33 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
       if (!fs.existsSync(confFile)) return { ok: false, msg: 'CONFIG_NOT_FOUND' };
 
-      // Update log_level in odoo.conf if provided
+      // Update log_level + log_handler in odoo.conf if provided
       if (data.logLevel) {
-        const { parseIniFile, iniGet, iniSet, stringifyIni } = require('./services/ini-parser');
+        const { parseIniFile, iniGet } = require('./services/ini-parser');
         const ini = parseIniFile(confFile);
         const currentLevel = iniGet(ini, 'options', 'log_level', 'error');
         if (data.logLevel !== currentLevel) {
-          const newIni = iniSet(ini, 'options', 'log_level', data.logLevel);
-          // Preserve comments — read raw, replace the log_level line
+          const handlerMap: Record<string, string> = {
+            'critical': ':CRITICAL', 'error': ':ERROR', 'warn': ':WARNING', 'warning': ':WARNING',
+            'info': ':INFO', 'debug': ':DEBUG', 'debug_rpc': ':DEBUG', 'debug_sql': ':DEBUG',
+            'debug_rpc_answer': ':DEBUG',
+          };
+          const handlerVal = handlerMap[data.logLevel] || ':INFO';
           let raw = fs.readFileSync(confFile, 'utf8');
           if (raw.includes('log_level')) {
             raw = raw.replace(/^log_level\s*=\s*.+$/m, `log_level = ${data.logLevel}`);
           } else {
-            // Append under [options]
             raw = raw.replace(/^\[options\]\s*$/m, `[options]\nlog_level = ${data.logLevel}`);
           }
+          if (raw.includes('log_handler')) {
+            raw = raw.replace(/^log_handler\s*=\s*.+$/m, `log_handler = ${handlerVal}`);
+          }
           fs.writeFileSync(confFile, raw, 'utf8');
-          logger.log(`  > Log level changed to: ${data.logLevel}`);
+          logger.log(`  > Log level changed to: ${data.logLevel} (handler: ${handlerVal})`);
         }
       }
 
-      // Stop Odoo on the port
+      // Stop Odoo on the port (if running)
       const port = data.httpPort;
       if (port && /^\d{1,5}$/.test(port)) {
         const { output } = await runCmd(`netstat -ano | findstr ":${port}.*LISTENING"`);
@@ -908,7 +964,6 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       let cmd = `"${venvPy}" "${odooBin}" -c "${confFile}" --logfile "${logFile}"`;
 
       if (data.upgradeModules && data.upgradeModules.length > 0) {
-        // Validate module names
         const safeModName = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
         const safeModules = data.upgradeModules.filter(m => safeModName.test(m));
         if (safeModules.length > 0) {
@@ -917,46 +972,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         }
       }
 
-      // Find PostgreSQL bin for PATH injection
-      const { findPostgresForPort, findPostgresBin } = require('./services/detection');
-      const { parseIniFile: pif, iniGet: ig } = require('./services/ini-parser');
-      const iniForPg = pif(confFile);
-      const dbPort = ig(iniForPg, 'options', 'db_port', '5434');
-      const pgInstance = findPostgresForPort(dbPort);
-      const pgBin = pgInstance?.binPath || findPostgresBin();
-
-      const odooEnv = { ...process.env };
-      if (pgBin && !odooEnv.PATH?.includes(pgBin)) {
-        odooEnv.PATH = `${pgBin};${odooEnv.PATH || ''}`;
-      }
-
-      logger.log(`Restarting Odoo: ${cmd}`);
-      const { exec: execChild } = require('child_process');
-      const odooProc = execChild(cmd, {
-        cwd: projectPath,
-        windowsHide: true,
-        maxBuffer: 10 * 1024 * 1024,
-        env: odooEnv,
-      });
-
-      odooProc.stdout?.on('data', (d: string) => {
-        for (const line of d.toString().split('\n').filter(Boolean)) {
-          logger.log(`[odoo] ${line.trim()}`);
-        }
-      });
-      odooProc.stderr?.on('data', (d: string) => {
-        for (const line of d.toString().split('\n').filter(Boolean)) {
-          logger.log(`[odoo:err] ${line.trim()}`);
-        }
-      });
-      odooProc.on('exit', (code: number | null) => {
-        if (code !== null && code !== 0) {
-          logger.log(`[odoo] Process exited with code ${code}`);
-        }
-      });
-
-      invalidateStatusCache();
-      return { ok: true, msg: 'Restarted' };
+      // Use shared function: ensure PG ready + start Odoo
+      return await ensurePgAndStartOdoo({ baseDir, projectPath, confFile, odooSourceDir, cmd });
     } catch (e) {
       return { ok: false, msg: String(e) };
     }
@@ -1080,8 +1097,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   app.on('before-quit', () => {
     // Close all log file watchers + poll timers
     for (const [, entry] of logWatchers) {
-      if (entry.watcher) entry.watcher.close();
-      clearInterval(entry.pollTimer);
+      if (entry.tailProc) { try { entry.tailProc.kill(); } catch {} }
+      if (entry.pollTimer) clearInterval(entry.pollTimer);
     }
     logWatchers.clear();
     // Close all log viewer windows

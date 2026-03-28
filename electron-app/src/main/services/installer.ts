@@ -575,10 +575,23 @@ export async function stepCreateProject(
   for (const [k, v] of Object.entries(opts)) {
     if (v) cfg[k] = v;
   }
-  if (!cfg.longpolling_port) {
-    const httpPort = parseInt(cfg.http_port, 10);
-    cfg.longpolling_port = isNaN(httpPort) ? '8072' : String(httpPort + 3);
+  // Map deprecated longpolling_port → gevent_port
+  if (cfg.longpolling_port && !cfg.gevent_port) {
+    cfg.gevent_port = cfg.longpolling_port;
   }
+  delete cfg.longpolling_port;
+  if (!cfg.gevent_port) {
+    const httpPort = parseInt(cfg.http_port, 10);
+    cfg.gevent_port = isNaN(httpPort) ? '8072' : String(httpPort + 3);
+  }
+
+  // Sync log_handler with log_level (log_handler overrides log_level in Odoo)
+  const handlerMap: Record<string, string> = {
+    'critical': ':CRITICAL', 'error': ':ERROR', 'warn': ':WARNING', 'warning': ':WARNING',
+    'info': ':INFO', 'debug': ':DEBUG', 'debug_rpc': ':DEBUG', 'debug_sql': ':DEBUG',
+    'debug_rpc_answer': ':DEBUG',
+  };
+  cfg.log_handler = handlerMap[cfg.log_level] || ':ERROR';
 
   // logfile = False in odoo.conf (log to stdout by default)
   // Installer start_odoo passes --logfile via command line instead
