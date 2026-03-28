@@ -85,7 +85,7 @@ export interface StatusResult {
 // Port check - detect if Odoo is running
 // ---------------------------------------------------------------------------
 
-function checkPort(port: number, host: string = 'localhost', timeout: number = 1000): Promise<boolean> {
+function checkPort(port: number, host: string = 'localhost', timeout: number = 300): Promise<boolean> {
   return new Promise((resolve) => {
     const socket = new net.Socket();
     socket.setTimeout(timeout);
@@ -274,16 +274,16 @@ export async function detectStatus(baseDir: string, projectsDir: string, odooSou
   const reqInstalled = fs.existsSync(path.join(baseDir, 'venv', 'Lib', 'site-packages', 'lxml'));
   const nginx = isNginxInstalled(baseDir);
 
-  // Slow: run ALL external process checks in parallel
-  const [vsResult, gitVersion, dockerAvailable, nativePg] = await Promise.all([
+  // Slow: run ALL external process checks in parallel (including Docker postgres)
+  const [vsResult, gitVersion, dockerAvailable, nativePg, dockerPgResult] = await Promise.all([
     findVSCodeAsync(),
     findGitAsync(),
     findDockerAsync(),
     detectNativePostgresDetailsAsync(),
+    findDockerPostgresAsync(),   // safe to run even if Docker is unavailable (returns [] on error)
   ]);
 
-  // Docker postgres depends on docker being available
-  const dockerPg = dockerAvailable ? await findDockerPostgresAsync() : [];
+  const dockerPg = dockerAvailable ? dockerPgResult : [];
   const pgOk = pgBin !== null || dockerPg.length > 0;
 
   let pgDetail = '';

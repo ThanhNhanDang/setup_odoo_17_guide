@@ -45,30 +45,36 @@ document.addEventListener('click', (e) => {
   if (!e.target.closest('#langDropdown')) closeLangDropdown();
 });
 
-// Initialize i18n before rendering anything
-// Sync language between localStorage and settings file
+// Initialize i18n — use localStorage immediately (no IPC wait), sync settings async
 (async () => {
-  const localLang = getCurrentLanguage();
-  try {
-    if (window.electronAPI) {
-      const res = await window.electronAPI.invoke('load-settings', {});
-      const savedLang = res?.settings?.language;
-      if (savedLang && savedLang !== localLang) {
-        // Settings file has a different language — use it
-        try { localStorage.setItem('lang', savedLang); } catch {}
-      } else if (!savedLang && localLang) {
-        // Settings file missing language — persist current localStorage value
-        const settings = res?.settings || {};
-        settings.language = localLang;
-        await window.electronAPI.invoke('save-settings', settings);
-      }
-    }
-  } catch {}
+  // Phase 1: instant — render with localStorage language (no async wait)
   await initI18n(getCurrentLanguage());
   applyTranslations();
   updateLangLabel();
   const sel = $('langSelect');
   if (sel) sel.value = getCurrentLanguage();
+
+  // Phase 2: async — sync with settings file (non-blocking, won't cause jank)
+  try {
+    if (window.electronAPI) {
+      const res = await window.electronAPI.invoke('load-settings', {});
+      const savedLang = res?.settings?.language;
+      const localLang = getCurrentLanguage();
+      if (savedLang && savedLang !== localLang) {
+        // Settings file has a different language — re-apply
+        try { localStorage.setItem('lang', savedLang); } catch {}
+        await initI18n(savedLang);
+        applyTranslations();
+        updateLangLabel();
+        if (sel) sel.value = savedLang;
+      } else if (!savedLang && localLang) {
+        // Settings file missing language — persist current
+        const settings = res?.settings || {};
+        settings.language = localLang;
+        window.electronAPI.invoke('save-settings', settings); // fire-and-forget
+      }
+    }
+  } catch {}
 })();
 
 // Version-specific labels — built dynamically from registry via _odooVersions
@@ -409,7 +415,7 @@ async function refreshStatus() {
   const s = await api('status', data);
   _status = s;
 
-  // Status grid
+  // Build all HTML strings FIRST (no DOM access — pure computation)
   const items = [
     ['Git', s.git, s.git_version || ''],
     ['Python 3.11', s.python311, s.python311_path],
@@ -420,9 +426,9 @@ async function refreshStatus() {
     ['Virtual Env', s.venv_created, ''],
     ['Requirements', s.requirements_installed, ''],
   ];
-  // Only show Docker if installed
   if (s.docker) items.push(['Docker', true, 'Available']);
-  $('statusGrid').innerHTML = items.map(([label, ok, detail]) => `
+
+  let statusHtml = items.map(([label, ok, detail]) => `
     <div class="status-card">
       <div class="status-icon ${ok ? 'ok' : 'missing'}">${ok ? '\u2713' : '\u2717'}</div>
       <div class="status-info"><div class="label">${label}</div>
@@ -430,18 +436,16 @@ async function refreshStatus() {
     </div>`).join('');
 
   if (s.docker_postgres && s.docker_postgres.length > 0) {
-    $('statusGrid').insertAdjacentHTML('beforeend', s.docker_postgres.map(c => `
+    statusHtml += s.docker_postgres.map(c => `
       <div class="status-card" style="border-color:#1a3a1a">
         <div class="status-icon ok">PG</div>
         <div class="status-info"><div class="label">${escHtml(c.name)}</div>
         <div class="detail">${escHtml(c.image)} | port:${escHtml(c.port)} | ${escHtml(c.status)}</div></div>
-      </div>`).join(''));
+      </div>`).join('');
   }
 
-  // Native PG detail
   const np = s.native_postgres;
-  if (np) {
-    $('nativePgDetail').innerHTML = `<div class="pg-detail">
+  const npHtml = np ? `<div class="pg-detail">
       <h4>Native PostgreSQL</h4>
       <div class="project-detail-grid">
         <div class="detail-item"><div class="detail-label">Status</div><div class="detail-value">${np.is_ready ? '<span style="color:#22c55e">Running</span>' : '<span style="color:#ef4444">Stopped</span>'}</div></div>
@@ -450,29 +454,26 @@ async function refreshStatus() {
         <div class="detail-item"><div class="detail-label">Bin Path</div><div class="detail-value">${escHtml(np.bin_path || 'N/A')}</div></div>
       </div>
       ${np.databases && np.databases.length ? `<div><span class="detail-label">Databases:</span><div class="pg-databases">${np.databases.map(d => `<span class="db-tag">${escHtml(d)}</span>`).join('')}</div></div>` : ''}
-    </div>`;
-  } else {
-    $('nativePgDetail').innerHTML = '';
-  }
+    </div>` : '';
 
-  // Show PostgreSQL Mode dropdown only when Docker has running PostgreSQL containers
-  const pgModeGroup = $('pgModeGroup');
-  if (pgModeGroup) {
-    const hasDockerPg = s.docker_postgres && s.docker_postgres.length > 0;
-    pgModeGroup.style.display = hasDockerPg ? '' : 'none';
-  }
+  // Apply all DOM updates in a single rAF — one reflow instead of many
+  requestAnimationFrame(() => {
+    $('statusGrid').innerHTML = statusHtml;
+    $('nativePgDetail').innerHTML = npHtml;
 
-  // Projects list + Dashboard + Install steps
-  renderProjects(s);
-  renderDashboard(s);
-  refreshInstallStatus();
+    const pgModeGroup = $('pgModeGroup');
+    if (pgModeGroup) {
+      pgModeGroup.style.display = (s.docker_postgres && s.docker_postgres.length > 0) ? '' : 'none';
+    }
 
-  // Refresh URL field lock state (depends on which versions have projects)
-  renderVersionUrlFields();
+    renderProjects(s);
+    renderDashboard(s);
+    refreshInstallStatus();
+    renderVersionUrlFields();
 
-  // Auto-update port field for new project
-  const nextPort = getNextAvailablePort();
-  if ($('newProjPort')) $('newProjPort').value = nextPort;
+    const nextPort = getNextAvailablePort();
+    if ($('newProjPort')) $('newProjPort').value = nextPort;
+  });
   } finally { _refreshInFlight = false; }
 }
 

@@ -542,7 +542,7 @@ export async function findDockerPostgresAsync(): Promise<readonly DockerContaine
   try {
     const output = await execAsync(
       'docker ps --format "{{.Names}}\\t{{.Image}}\\t{{.Ports}}\\t{{.Status}}"',
-      { timeout: 5000 }
+      { timeout: 2000 }
     );
     const containers: DockerContainer[] = [];
     if (!output.trim()) return containers;
