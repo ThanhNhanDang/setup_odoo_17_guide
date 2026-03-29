@@ -37,6 +37,7 @@
   --bg:#fdf8fc;--bg-surface:#f8f0f6;--text:#2c1828;--text-dim:#685060;
   --border:#e0d0dc;--accent:#a05890;--danger:#b04050;--success:#408868;
 }
+html{font-size:17px}
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 
 /* Custom titlebar */
@@ -227,9 +228,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .log-container::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
 .log-container::-webkit-scrollbar-thumb:hover{background:#484f58}
 
-.line{white-space:pre-wrap;word-break:break-all}
-.line:last-child{color:var(--text)}
-.line{color:var(--text-dim)}
+.line{white-space:pre-wrap;word-break:break-all;color:var(--text-dim)}
 
 /* Log level coloring — matches Odoo's 5 log levels
    All colors tested against --bg (#0d1117) for WCAG AA contrast >= 4.5:1

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-src https://www.youtube.com https://www.youtube-nocookie.com">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file:; frame-src https://www.youtube.com https://www.youtube-nocookie.com">
 <title>Odoo Installer</title>
 <link rel="stylesheet" href="styles/themes.css">
 <link rel="stylesheet" href="styles/main.css">
@@ -90,7 +90,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 105.36-10.36L1 10"/></svg>
           <span data-i18n="dashboard.resetAll">Reset All Templates</span>
         </button>
-        <button class="btn btn-primary btn-sm" data-tour="new-project" onclick="showModal('modalNewProject')">
+        <button class="btn btn-primary btn-sm" data-tour="new-project" onclick="openNewProjectModal()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
           <span data-i18n="dashboard.newProject">New Project</span>
         </button>
@@ -219,7 +219,7 @@
         <h2 data-i18n="settings.title">Settings</h2>
         <p class="desc" data-i18n="settings.desc">Configure directories, database, themes, and more</p>
       </div>
-      <span class="save-status" id="settingsSaveStatus">&#10003; <span data-i18n="settings.saved">Saved</span></span>
+      <span class="save-status" id="settingsSaveStatus">&#10003; <span data-i18n="settings.updated">Updated</span></span>
     </div>
 
     <!-- Appearance -->
@@ -468,6 +468,14 @@
       <div class="form-group"><label data-i18n="settings.dbPort">DB Port</label><input id="newProjDbPort" value="5434" type="number"></div>
       <div class="form-group"><label data-i18n="settings.dbUser">DB User</label><input id="newProjDbUser" value="odoo"></div>
       <div class="form-group"><label data-i18n="settings.dbPassword">DB Password</label><input id="newProjDbPass" value="odoo"></div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label data-i18n="modal.projectLogo">Project Logo</label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <img id="newProjLogoPreview" src="images/placeholder.png" alt="" style="width:48px;height:48px;border-radius:8px;border:1px solid var(--border-muted);object-fit:contain;background:var(--bg-canvas);cursor:pointer" onclick="pickNewProjectLogo()">
+          <button class="btn btn-outline btn-xs" onclick="pickNewProjectLogo()" type="button" data-i18n="settings.browse">Browse</button>
+          <input type="hidden" id="newProjLogoPath" value="">
+        </div>
+      </div>
     </div>
     <div class="form-section" style="margin-top:12px;margin-bottom:0">
       <h3 onclick="toggleAdvanced('advNew')" style="margin-bottom:0"><span class="arrow" id="arrowAdvNew">&#9654;</span> <span data-i18n="modal.advancedConfig">Advanced Config</span></h3>

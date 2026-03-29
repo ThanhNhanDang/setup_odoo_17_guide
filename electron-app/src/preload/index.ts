@@ -10,11 +10,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'start_odoo', 'stop_odoo', 'open_vscode', 'open_explorer', 'open_browser', 'pick-folder',
       'window-minimize', 'window-maximize', 'window-close', 'window-is-maximized',
       'update-check', 'update-download', 'update-install', 'update-info', 'update-reset-interval',
-      'app-version', 'default-paths', 'odoo-versions', 'pick-icon', 'get-icon', 'reset-icon',
+      'app-version', 'default-paths', 'odoo-versions', 'all-used-ports', 'pick-icon', 'get-icon', 'reset-icon',
       'watch-log', 'unwatch-log', 'load-settings', 'save-settings',
       'open-log-window', 'log-window-pin', 'log-window-minimize', 'log-window-maximize',
       'log-viewer-info', 'log-viewer-restart', 'log-viewer-projects', 'log-viewer-server-status',
-      'pick-file', 'broadcast-theme',
+      'pick-file', 'pick-logo', 'save-logo', 'broadcast-theme',
       'monitor-list-databases', 'monitor-create-database', 'monitor-drop-database', 'monitor-restore-database',
       'monitor-db-job-status', 'monitor-dismiss-db-job',
     ];

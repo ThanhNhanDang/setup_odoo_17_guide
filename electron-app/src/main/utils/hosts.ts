@@ -84,7 +84,8 @@ export function removeHostEntry(domain: string): { ok: boolean; msg: string } {
 
 /**
  * Generate domain name from project name.
+ * @param domainSuffix - e.g. 'odoo17.local' (from version registry)
  */
-export function projectToDomain(projectName: string): string {
-  return projectName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase() + '.odoo.local';
+export function projectToDomain(projectName: string, domainSuffix: string = 'odoo.local'): string {
+  return projectName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase() + '.' + domainSuffix;
 }

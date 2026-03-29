@@ -5,7 +5,7 @@ import { IpcContext } from './ipc/context';
 import { registerWindowHandlers } from './ipc/window-handlers';
 import { registerSettingsHandlers } from './ipc/settings-handlers';
 import { registerInstallHandlers } from './ipc/install-handlers';
-import { registerProjectHandlers } from './ipc/project-handlers';
+import { registerProjectHandlers, registerLogoHandlers } from './ipc/project-handlers';
 import { registerMonitorHandlers } from './ipc/monitor-handlers';
 
 // ---------------------------------------------------------------------------
@@ -27,5 +27,6 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   registerSettingsHandlers(ctx);
   registerInstallHandlers(ctx);
   registerProjectHandlers(ctx);
+  registerLogoHandlers(ctx);
   registerMonitorHandlers(ctx);
 }

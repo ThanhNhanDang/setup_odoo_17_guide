@@ -4,6 +4,29 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Project Monitor</title>
+<script>
+// Set theme attributes BEFORE any CSS loads to prevent background flash
+(function(){
+  var p=new URLSearchParams(window.location.search);
+  var preset=p.get('themePreset')||'default';
+  var mode=p.get('themeMode')||'dark';
+  var r=document.documentElement;
+  if(preset&&preset!=='default')r.setAttribute('data-preset',preset);
+  if(mode==='light')r.setAttribute('data-mode','light');
+  else r.removeAttribute('data-mode');
+})();
+</script>
+<style>
+/* Inline critical bg to prevent flash on open/resize */
+html,body{background:#0d1117;margin:0;padding:0}
+[data-mode="light"]{background:#fff}
+[data-preset="autonsi"]{background:#08080c}
+[data-preset="autonsi"][data-mode="light"]{background:#fafaff}
+[data-preset="cyberpunk"]{background:#05050a}
+[data-preset="cyberpunk"][data-mode="light"]{background:#eef4f8}
+[data-preset="luxury"]{background:#14101a}
+[data-preset="luxury"][data-mode="light"]{background:#faf5f8}
+</style>
 <link rel="stylesheet" href="styles/log-viewer.css">
 </head>
 <body>

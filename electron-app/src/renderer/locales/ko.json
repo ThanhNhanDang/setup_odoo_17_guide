@@ -24,7 +24,7 @@
     "dataDir": "데이터 디렉토리 (파일스토어)", "dataDirPlaceholder": "Odoo 기본값을 사용하려면 비워두세요",
     "memHard": "메모리 하드 제한", "memSoft": "메모리 소프트 제한",
     "odooSourceDir": "Odoo 소스 폴더", "odooSourceDirPlaceholder": "기본값: odoo",
-    "saved": "저장됨",
+    "saved": "저장됨", "updated": "업데이트됨",
     "urlLocked": "잠김 — 이 버전을 사용하는 프로젝트가 있습니다",
     "about": "정보", "currentVersion": "현재 버전:", "checkUpdates": "업데이트 확인",
     "language": "언어"
@@ -97,6 +97,7 @@
     "newName": "새 프로젝트 이름", "newNamePlaceholder": "예: my_project_copy",
     "newHttpPort": "새 HTTP 포트",
     "projectDomain": "도메인 (자동 생성)",
+    "projectLogo": "프로젝트 로고",
     "domainPlaceholder": "자동: project-name.odoo.local",
     "dupNote": "데이터베이스는 복사되지 않습니다. 복제 후 새 데이터베이스를 생성하거나 백업에서 복원하세요.",
     "dupPortInvalid": "포트는 1024에서 65535 사이여야 합니다.",

@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron';
+import { ipcMain, dialog } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { runCmd } from '../utils/shell';
@@ -129,7 +129,8 @@ export function registerProjectHandlers(ctx: IpcContext): void {
     const onProgress = (step: string, done: boolean) => {
       ctx.mainWindow.webContents.send('duplicate-progress', { step, done });
     };
-    const result = await duplicateProject(baseDir, projectsDir, projectName, newName, newHttpPort, onProgress);
+    const odooVersion = data?.odoo_version || '17';
+    const result = await duplicateProject(baseDir, projectsDir, projectName, newName, newHttpPort, onProgress, odooVersion);
     invalidateStatusCache();
     return result;
   });
@@ -166,10 +167,19 @@ export function registerProjectHandlers(ctx: IpcContext): void {
           : findNginxAcrossBaseDirs(ALL_VERSIONS.map((v: string) => getDefaultBaseDir(v)));
         if (nginxBaseDir) {
           const { detectStatus } = require('../services/status');
-          const status = await detectStatus(baseDir, projectsDir);
-          const nginxProjects = (status.projects || [])
-            .filter((p: any) => p.domain)
-            .map((p: any) => ({ domain: p.domain, port: p.http_port, longpollingPort: p.longpolling_port }));
+          const { getDefaultProjectsDir } = require('../services/config');
+          // Collect projects from ALL versions for Nginx (shared proxy)
+          const nginxProjects: { domain: string; port: string; longpollingPort: string }[] = [];
+          for (const v of ALL_VERSIONS) {
+            const vProjDir = getDefaultProjectsDir(v);
+            try {
+              const vStatus = await detectStatus(getDefaultBaseDir(v), vProjDir);
+              for (const p of (vStatus.projects || [])) {
+                if (p.domain) nginxProjects.push({ domain: p.domain, port: p.http_port, longpollingPort: p.longpolling_port });
+              }
+            } catch { /* skip */ }
+          }
+          // Add current project domain if not already in list
           let projectDomain = '';
           try {
             const raw = fs.readFileSync(conf, 'utf8');
@@ -338,4 +348,43 @@ export async function ensurePgAndStartOdoo(ctx: IpcContext, opts: {
 
   invalidateStatusCache();
   return { ok: true, msg: 'Started' };
+}
+
+// --- Pick & Save Logo ---
+export function registerLogoHandlers(ctx: IpcContext): void {
+  ipcMain.handle('pick-logo', async (_event, data: Record<string, string>) => {
+    const projectsDir = data?.projects_dir || DEFAULT_PROJECTS_DIR;
+    const projectName = data?.project_name || '';
+    const result = await dialog.showOpenDialog(ctx.mainWindow, {
+      title: 'Select Project Logo',
+      filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'svg', 'webp'] }],
+      properties: ['openFile'],
+    });
+    if (result.canceled || !result.filePaths[0]) return { ok: false };
+    const src = result.filePaths[0];
+    try {
+      const destDir = projectName ? path.join(projectsDir, projectName) : '';
+      if (destDir && fs.existsSync(destDir)) {
+        fs.copyFileSync(src, path.join(destDir, 'logo.png'));
+        invalidateStatusCache();
+      }
+      const buf = fs.readFileSync(src);
+      return { ok: true, dataUrl: `data:image/png;base64,${buf.toString('base64')}` };
+    } catch (e) {
+      return { ok: false, msg: String(e) };
+    }
+  });
+
+  ipcMain.handle('save-logo', async (_event, data: { projects_dir: string; project_name: string; dataUrl: string }) => {
+    const projectDir = path.join(data.projects_dir, data.project_name);
+    if (!fs.existsSync(projectDir)) return { ok: false, msg: 'Project not found' };
+    try {
+      const base64 = data.dataUrl.replace(/^data:image\/\w+;base64,/, '');
+      fs.writeFileSync(path.join(projectDir, 'logo.png'), Buffer.from(base64, 'base64'));
+      invalidateStatusCache();
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, msg: String(e) };
+    }
+  });
 }

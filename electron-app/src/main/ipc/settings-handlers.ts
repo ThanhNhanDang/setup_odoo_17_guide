@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import { IpcContext } from './context';
 import { DEFAULT_ODOO_VERSION, ALL_VERSIONS, ODOO_VERSIONS, getEffectiveVersionConfig } from '../services/odoo-versions';
 import { getDefaultBaseDir, getDefaultProjectsDir } from '../services/config';
+import { runCmd } from '../utils/shell';
 
 /** Read user URL overrides from settings file */
 function readUrlOverrides(): Record<string, { pythonUrl?: string; postgresUrl?: string }> {
@@ -22,6 +23,46 @@ export { readUrlOverrides };
 export function registerSettingsHandlers(ctx: IpcContext): void {
   // --- App Info ---
   ipcMain.handle('app-version', () => app.getVersion());
+
+  // --- All Used Ports (across all versions + system listening ports) ---
+  ipcMain.handle('all-used-ports', async () => {
+    const ports = new Set<number>();
+
+    // 1. Collect ports from all Odoo project configs
+    for (const ver of ALL_VERSIONS) {
+      const projDir = getDefaultProjectsDir(ver);
+      if (!fs.existsSync(projDir)) continue;
+      try {
+        for (const entry of fs.readdirSync(projDir)) {
+          const confFile = path.join(projDir, entry, 'odoo.conf');
+          if (!fs.existsSync(confFile)) continue;
+          try {
+            const raw = fs.readFileSync(confFile, 'utf8');
+            const hp = raw.match(/^http_port\s*=\s*(\d+)/m);
+            const gp = raw.match(/^gevent_port\s*=\s*(\d+)/m);
+            const dp = raw.match(/^db_port\s*=\s*(\d+)/m);
+            if (hp) ports.add(parseInt(hp[1], 10));
+            if (gp) ports.add(parseInt(gp[1], 10));
+            if (dp) ports.add(parseInt(dp[1], 10));
+          } catch { /* skip unreadable conf */ }
+        }
+      } catch { /* skip unreadable dir */ }
+    }
+
+    // 2. Scan system listening ports (netstat) — only in Odoo port range 5000-9999
+    try {
+      const { output } = await runCmd('netstat -ano -p TCP | findstr "LISTENING"');
+      for (const line of output.split('\n')) {
+        const m = line.match(/:(\d+)\s+.*LISTENING/);
+        if (m) {
+          const p = parseInt(m[1], 10);
+          if (p >= 5000 && p <= 9999) ports.add(p);
+        }
+      }
+    } catch { /* netstat failed — non-critical */ }
+
+    return [...ports].sort((a, b) => a - b);
+  });
 
   ipcMain.handle('default-paths', (_event, data?: Record<string, string>) => {
     const version = data?.odoo_version || DEFAULT_ODOO_VERSION;
@@ -47,6 +88,8 @@ export function registerSettingsHandlers(ctx: IpcContext): void {
           pgvector: cfg.pgvector,
           branch: cfg.branch,
           color: cfg.color,
+          domainSuffix: cfg.domainSuffix,
+          defaultDbPort: cfg.defaultDbPort,
           pythonUrl: cfg.pythonUrl,
           postgresUrl: cfg.postgresUrl,
           defaultPythonUrl: ODOO_VERSIONS[v].pythonUrl,

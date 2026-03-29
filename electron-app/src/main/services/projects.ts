@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parseIni, stringifyIni, iniSet } from './ini-parser';
 import { runCmd } from '../utils/shell';
+import { getVersionConfig } from './odoo-versions';
 
 // ---------------------------------------------------------------------------
 // Project Management - CRUD operations
@@ -238,6 +239,7 @@ export async function duplicateProject(
   newName: string,
   newHttpPort: string,
   onProgress?: DuplicateProgress,
+  odooVersion: string = '17',
 ): Promise<ProjectResult> {
   if (!isValidName(newName)) {
     return { ok: false, msg: 'INVALID_NAME' };
@@ -317,7 +319,8 @@ export async function duplicateProject(
         let confStr = stringifyIni(ini);
         // Update domain as comment line (Odoo doesn't recognize project_domain as a key)
         const { projectToDomain } = require('../utils/hosts');
-        const newDomain = projectToDomain(newName);
+        const vCfg = getVersionConfig(odooVersion);
+        const newDomain = projectToDomain(newName, vCfg.domainSuffix);
         if (/^;\s*project_domain\s*=/m.test(confStr)) {
           confStr = confStr.replace(/^;\s*project_domain\s*=.*$/m, `; project_domain = ${newDomain}`);
         } else {
@@ -331,7 +334,8 @@ export async function duplicateProject(
     // Step 6: Setup domain in hosts file
     await emit('setup_domain', false);
     const { projectToDomain, addHostEntry } = require('../utils/hosts');
-    const newDomain = projectToDomain(newName);
+    const vCfg2 = getVersionConfig(odooVersion);
+    const newDomain = projectToDomain(newName, vCfg2.domainSuffix);
     addHostEntry(newDomain);
     await emit('setup_domain', true);
 

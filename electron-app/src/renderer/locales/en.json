@@ -24,7 +24,7 @@
     "dataDir": "Data Dir (filestore)", "dataDirPlaceholder": "Leave empty for Odoo default",
     "memHard": "Memory Hard Limit", "memSoft": "Memory Soft Limit",
     "odooSourceDir": "Odoo Source Folder", "odooSourceDirPlaceholder": "default: odoo",
-    "saved": "Saved",
+    "saved": "Saved", "updated": "Updated",
     "urlLocked": "Locked — a project with this version exists",
     "about": "About", "currentVersion": "Current version:", "checkUpdates": "Check for Updates",
     "language": "Language"
@@ -97,6 +97,7 @@
     "newName": "New Project Name", "newNamePlaceholder": "e.g. my_project_copy",
     "newHttpPort": "New HTTP Port",
     "projectDomain": "Domain (auto-generated)",
+    "projectLogo": "Project Logo",
     "domainPlaceholder": "auto: project-name.odoo.local",
     "dupNote": "Database will not be copied. Create a new database or restore from backup after duplication.",
     "dupPortInvalid": "Port must be between 1024 and 65535.",

@@ -19,6 +19,8 @@ export interface OdooVersionConfig {
   readonly pgvector: boolean;                // Odoo 19 needs pgvector for AI modules
   readonly baseDirSuffix: string;            // e.g. 'odoo_15_base'
   readonly defaultProjectsSubdir: string;    // e.g. 'odoo15'
+  readonly domainSuffix: string;              // e.g. 'odoo17.local' for *.odoo17.local domains
+  readonly defaultDbPort: string;             // unique PG port per version to avoid conflicts
   readonly color: string;                    // badge color
   readonly extraPipPackages: readonly string[];  // extra pip packages beyond requirements.txt
 }
@@ -44,6 +46,8 @@ export const ODOO_VERSIONS: Readonly<Record<OdooVersionKey, OdooVersionConfig>> 
     pgvector: false,
     baseDirSuffix: 'odoo_15_base',
     defaultProjectsSubdir: 'odoo15',
+    domainSuffix: 'odoo15.local',
+    defaultDbPort: '5415',
     color: '#3b82f6',   // blue
     extraPipPackages: [...COMMON_EXTRA_PACKAGES, 'PyPDF2>=3.0'],
   },
@@ -62,6 +66,8 @@ export const ODOO_VERSIONS: Readonly<Record<OdooVersionKey, OdooVersionConfig>> 
     pgvector: false,
     baseDirSuffix: 'odoo_17_base',
     defaultProjectsSubdir: 'odoo17',
+    domainSuffix: 'odoo17.local',
+    defaultDbPort: '5434',
     color: '#f0883e',   // orange (current accent)
     extraPipPackages: [...COMMON_EXTRA_PACKAGES, 'PyPDF2>=3.0'],
   },
@@ -80,6 +86,8 @@ export const ODOO_VERSIONS: Readonly<Record<OdooVersionKey, OdooVersionConfig>> 
     pgvector: false,
     baseDirSuffix: 'odoo_18_base',
     defaultProjectsSubdir: 'odoo18',
+    domainSuffix: 'odoo18.local',
+    defaultDbPort: '5418',
     color: '#a855f7',   // purple
     extraPipPackages: [...COMMON_EXTRA_PACKAGES],
   },
@@ -98,6 +106,8 @@ export const ODOO_VERSIONS: Readonly<Record<OdooVersionKey, OdooVersionConfig>> 
     pgvector: true,
     baseDirSuffix: 'odoo_19_base',
     defaultProjectsSubdir: 'odoo19',
+    domainSuffix: 'odoo19.local',
+    defaultDbPort: '5419',
     color: '#22c55e',   // green
     extraPipPackages: [...COMMON_EXTRA_PACKAGES],
   },

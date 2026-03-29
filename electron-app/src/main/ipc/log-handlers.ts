@@ -190,20 +190,33 @@ export function registerLogHandlers(ctx: IpcContext): void {
     ].join('');
     const queryParams = `?project=${encodeURIComponent(projectName)}&logPath=${encodeURIComponent(logPath)}&color=${encodeURIComponent(color)}${extraParams}`;
 
+    // Resolve background color from theme to prevent flash on open/resize
+    const bgColorMap: Record<string, Record<string, string>> = {
+      default:   { dark: '#0d1117', light: '#ffffff' },
+      autonsi:   { dark: '#08080c', light: '#fafaff' },
+      cyberpunk: { dark: '#05050a', light: '#eef4f8' },
+      luxury:    { dark: '#14101a', light: '#faf5f8' },
+    };
+    const preset = data.themePreset || 'default';
+    const mode = data.themeMode || 'dark';
+    const bgColor = bgColorMap[preset]?.[mode] || bgColorMap.default.dark;
+
     const logWin = new BrowserWindow({
       width: 800,
       height: 500,
       minWidth: 500,
       minHeight: 300,
-      show: false,              // Don't show until content is painted
+      show: false,
       frame: false,
+      titleBarStyle: 'hidden',
       title: `${projectName} — Monitor`,
-      backgroundColor: '#0d1117',
+      backgroundColor: bgColor,
       alwaysOnTop: false,
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: false,
+        backgroundThrottling: false,
         preload: path.join(__dirname, '..', '..', 'preload', 'index.js'),
       },
     });
@@ -231,8 +244,16 @@ export function registerLogHandlers(ctx: IpcContext): void {
 
   // Broadcast theme changes to all log/monitor windows
   ipcMain.handle('broadcast-theme', async (_event, data: { preset: string; mode: string; custom: string }) => {
+    const bgColorMap: Record<string, Record<string, string>> = {
+      default:   { dark: '#0d1117', light: '#ffffff' },
+      autonsi:   { dark: '#08080c', light: '#fafaff' },
+      cyberpunk: { dark: '#05050a', light: '#eef4f8' },
+      luxury:    { dark: '#14101a', light: '#faf5f8' },
+    };
+    const newBg = bgColorMap[data.preset || 'default']?.[data.mode || 'dark'] || '#0d1117';
     for (const [, win] of ctx.logWindows) {
       if (!win.isDestroyed()) {
+        win.setBackgroundColor(newBg);
         win.webContents.send('theme-changed', data);
       }
     }

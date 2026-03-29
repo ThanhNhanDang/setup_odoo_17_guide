@@ -98,15 +98,27 @@ function getVersionLabels(version) {
   return { python: v.pythonVersion, postgres: pgLabel, clone: `Clone ${v.label}` };
 }
 
+let _allUsedPorts = new Set();
+
+/** Fetch all used ports across ALL Odoo versions */
+async function refreshAllUsedPorts() {
+  try {
+    const ports = await api('all-used-ports');
+    _allUsedPorts = new Set(Array.isArray(ports) ? ports : []);
+  } catch { /* ignore */ }
+}
+
 function getNextAvailablePort() {
-  if (!_status || !_status.projects || _status.projects.length === 0) return 8069;
-  const usedSet = new Set();
-  _status.projects.forEach(p => {
-    const hp = parseInt(p.http_port) || 0;
-    const lp = parseInt(p.longpolling_port) || 0;
-    if (hp > 0) usedSet.add(hp);
-    if (lp > 0) usedSet.add(lp);
-  });
+  // Merge ports from current status + global cross-version cache
+  const usedSet = new Set(_allUsedPorts);
+  if (_status && _status.projects) {
+    _status.projects.forEach(p => {
+      const hp = parseInt(p.http_port) || 0;
+      const lp = parseInt(p.longpolling_port) || 0;
+      if (hp > 0) usedSet.add(hp);
+      if (lp > 0) usedSet.add(lp);
+    });
+  }
   if (usedSet.size === 0) return 8069;
   let port = Math.min(...usedSet);
   while (usedSet.has(port) || usedSet.has(port + 3)) { port++; }
@@ -223,13 +235,8 @@ function saveSettingsToDisk() {
   }).catch(() => {});
 }
 
-let _saveStatusTimer = null;
 function showSettingsSaveStatus() {
-  const el = $('settingsSaveStatus');
-  if (!el) return;
-  el.classList.add('visible');
-  clearTimeout(_saveStatusTimer);
-  _saveStatusTimer = setTimeout(() => el.classList.remove('visible'), 2000);
+  showToastMessage(t('settings.updated'), 'success');
 }
 
 async function loadSettingsFromDisk() {
@@ -261,9 +268,14 @@ async function loadSettingsFromDisk() {
   // Attach after DOM is ready (script is at end of body, so DOM is ready)
   for (const id of SETTINGS_FIELD_IDS) {
     const el = $(id);
-    if (el) {
-      el.addEventListener('input', onSettingChange);
+    if (!el) continue;
+    // input: fires on typing (text/number inputs)
+    // change: fires on select dropdown change or blur
+    // Only listen to one per element type to avoid double-save
+    if (el.tagName === 'SELECT') {
       el.addEventListener('change', onSettingChange);
+    } else {
+      el.addEventListener('input', onSettingChange);
     }
   }
 })();
@@ -272,11 +284,14 @@ async function loadSettingsFromDisk() {
 // Version change handlers
 // ---------------------------------------------------------------------------
 async function onVersionChange(version) {
-  // Update directories to match selected version
+  // Update directories + db port to match selected version
   try {
     const paths = await api('default-paths', { odoo_version: version });
     if ($('baseDir')) $('baseDir').value = paths.base_dir || '';
     if ($('projectsDir')) $('projectsDir').value = paths.projects_dir || '';
+    // Sync DB port from version registry
+    const vCfg = _odooVersions?.versions?.find(v => v.key === version);
+    if (vCfg?.defaultDbPort && $('dbPort')) $('dbPort').value = vCfg.defaultDbPort;
     saveSettingsToDisk();
   } catch { /* ignore */ }
   // Sync global + install selectors + labels
@@ -466,7 +481,7 @@ async function refreshStatus() {
   _refreshInFlight = true;
   try {
   const data = getFormData();
-  const s = await api('status', data);
+  const [s] = await Promise.all([api('status', data), refreshAllUsedPorts()]);
   _status = s;
 
   // Build all HTML strings FIRST (no DOM access — pure computation)
@@ -664,8 +679,8 @@ if (window.electronAPI) {
       const currentStep = stepLabelMap[task.step];
       if (currentStep) {
         const st = _stepStates.get(currentStep);
-        // Don't overwrite user-initiated step
-        if (!st || st.source !== 'user') {
+        // Don't overwrite user-initiated or already-done steps
+        if (!st || (st.source !== 'user' && st.state !== 'done')) {
           _stepStates.set(currentStep, { state: 'running', source: 'full' });
           updateStepCard(currentStep, 'running', task.step);
         }
@@ -784,6 +799,21 @@ function _updateProgressStep(stepId, done) {
 // ---------------------------------------------------------------------------
 // Create Project
 // ---------------------------------------------------------------------------
+function openNewProjectModal() {
+  // Sync version from global selector
+  const ver = $('globalVersion')?.value || '17';
+  if ($('newProjVersion')) $('newProjVersion').value = ver;
+  // Reset logo preview
+  if ($('newProjLogoPreview')) $('newProjLogoPreview').src = 'images/placeholder.png';
+  if ($('newProjLogoPath')) $('newProjLogoPath').value = '';
+  // Auto-fill port + db port from version
+  const nextPort = getNextAvailablePort();
+  if ($('newProjPort')) $('newProjPort').value = nextPort;
+  const vCfg = _odooVersions?.versions?.find(v => v.key === ver);
+  if (vCfg?.defaultDbPort && $('newProjDbPort')) $('newProjDbPort').value = vCfg.defaultDbPort;
+  showModal('modalNewProject');
+}
+
 async function createProject(e) {
   try {
     const name = ($('newProjName')?.value || '').trim();
@@ -844,6 +874,11 @@ async function createProject(e) {
     if (modal._origFooter && footerEl) { footerEl.innerHTML = modal._origFooter; footerEl.style.display = ''; modal._origFooter = null; }
 
     if (res.ok) {
+      // Copy logo if selected
+      const logoPath = $('newProjLogoPath')?.value;
+      if (logoPath) {
+        try { await api('save-logo', { projects_dir: data.projects_dir, project_name: name, dataUrl: $('newProjLogoPreview')?.src || '' }); } catch {}
+      }
       await new Promise(r => setTimeout(r, 400));
       hideModal('modalNewProject');
       await refreshStatus();
@@ -1216,9 +1251,10 @@ function validateDupPort() {
     hint.style.display = 'block';
     return;
   }
-  // Check if port is already used by another project
-  const used = _status?.projects?.some(p => parseInt(p.http_port) === port || parseInt(p.longpolling_port) === port);
-  if (used) {
+  // Check if port is already used by any project across all versions
+  const usedByCurrentVersion = _status?.projects?.some(p => parseInt(p.http_port) === port || parseInt(p.longpolling_port) === port);
+  const usedByOtherVersion = _allUsedPorts.has(port);
+  if (usedByCurrentVersion || usedByOtherVersion) {
     hint.textContent = t('modal.dupPortUsed');
     hint.style.display = 'block';
   } else {

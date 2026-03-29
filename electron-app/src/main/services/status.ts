@@ -57,6 +57,7 @@ export interface ProjectInfo {
   readonly start_command: string;
   readonly domain: string;
   readonly is_running: boolean;
+  readonly logo: string;
 }
 
 export interface StatusResult {
@@ -128,6 +129,7 @@ export async function parseProjectConfig(projectPath: string, baseDir: string = 
     start_command: string;
     domain: string;
     is_running: boolean;
+    logo: string;
   } = {
     name: path.basename(projectPath),
     path: projectPath,
@@ -152,6 +154,7 @@ export async function parseProjectConfig(projectPath: string, baseDir: string = 
     start_command: '',
     domain: '',
     is_running: false,
+    logo: '',
   };
 
   if (!fs.existsSync(confFile)) return info;
@@ -246,6 +249,15 @@ export async function parseProjectConfig(projectPath: string, baseDir: string = 
     const domainMatch = rawConf.match(/^;\s*project_domain\s*=\s*(.+)$/m);
     if (domainMatch) info.domain = domainMatch[1].trim();
   } catch { /* ignore */ }
+
+  // Read project logo (logo.png in project dir)
+  const logoPath = path.join(projectPath, 'logo.png');
+  if (fs.existsSync(logoPath)) {
+    try {
+      const buf = fs.readFileSync(logoPath);
+      info.logo = `data:image/png;base64,${buf.toString('base64')}`;
+    } catch { /* ignore */ }
+  }
 
   // Check if Odoo is running on this port
   const httpPort = parseInt(info.http_port, 10);

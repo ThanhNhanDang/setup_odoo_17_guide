@@ -29,6 +29,9 @@ function ensureAdmin(): boolean {
   }
 }
 
+// Reduce resize flicker on Windows frameless windows
+app.commandLine.appendSwitch('disable-features', 'WidgetLayering');
+
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let isQuitting = false;
@@ -56,31 +59,46 @@ function createWindow(): void {
     { role: 'editMenu' },
   ]));
 
+  // Resolve saved theme to set correct initial background color
+  let mainBgColor = '#0d1117';
+  try {
+    const settingsFile = path.join(app.getPath('userData'), 'user-settings.json');
+    if (fs.existsSync(settingsFile)) {
+      const raw = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
+      const preset = raw.preset || 'default';
+      const mode = raw.mode || 'dark';
+      const bgMap: Record<string, Record<string, string>> = {
+        default: { dark: '#0d1117', light: '#ffffff' },
+        autonsi: { dark: '#08080c', light: '#fafaff' },
+        cyberpunk: { dark: '#05050a', light: '#eef4f8' },
+        luxury: { dark: '#14101a', light: '#faf5f8' },
+      };
+      mainBgColor = bgMap[preset]?.[mode] || mainBgColor;
+    }
+  } catch { /* ignore */ }
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 900,
     minHeight: 600,
-    show: false,              // Don't show until content is ready
+    show: false,
     title: 'Odoo Installer',
-    backgroundColor: '#0d1117',
+    backgroundColor: mainBgColor,
     icon: getIconPath(),
-    frame: false,             // Frameless - custom title bar
+    frame: false,
     titleBarStyle: 'hidden',
     autoHideMenuBar: true,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
-      // __dirname = dist/main/, preload is at dist/preload/
+      backgroundThrottling: false,
       preload: path.join(__dirname, '..', 'preload', 'index.js'),
     },
   });
 
-  // Show window only after content is painted — prevents white flash
-  mainWindow.once('ready-to-show', () => {
-    mainWindow!.show();
-  });
+  mainWindow.once('ready-to-show', () => mainWindow!.show());
 
   // Load the renderer HTML
   // __dirname = dist/main/, renderer is at src/renderer/
@@ -189,6 +207,25 @@ async function autoStartNginx(): Promise<void> {
       if (!found) return;
       nginxBaseDir = found;
     }
+
+    // Sync hosts file — add entries for all project domains across all versions
+    try {
+      const { getDefaultProjectsDir } = require('./services/config');
+      const { addHostEntry } = require('./utils/hosts');
+      for (const v of ALL_VERSIONS) {
+        const projDir = getDefaultProjectsDir(v);
+        if (!fs.existsSync(projDir)) continue;
+        for (const entry of fs.readdirSync(projDir)) {
+          try {
+            const conf = path.join(projDir, entry, 'odoo.conf');
+            if (!fs.existsSync(conf)) continue;
+            const raw = fs.readFileSync(conf, 'utf8');
+            const dm = raw.match(/^;\s*project_domain\s*=\s*(.+)$/m);
+            if (dm) addHostEntry(dm[1].trim());
+          } catch { /* skip */ }
+        }
+      }
+    } catch { /* non-critical */ }
 
     // Check if already running (port 443)
     const { runCmd } = require('./utils/shell');

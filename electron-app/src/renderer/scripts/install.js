@@ -153,12 +153,19 @@ async function fullInstall() {
   if (logEl) logEl.innerHTML = '';
   $('installLog').style.display = 'block';
 
-  // Reset step cards — skip user-initiated running steps
+  // Check current status first — mark already-installed steps as done immediately
+  await refreshStatus();
   for (const stepId of Object.keys(STEP_MAP)) {
     const st = _stepStates.get(stepId);
     if (st && st.state === 'running' && st.source === 'user') continue;
-    _stepStates.set(stepId, { state: 'idle', source: 'full' });
-    updateStepCard(stepId, '', 'Pending');
+    const info = STEP_MAP[stepId];
+    if (info.check && _status && info.check(_status)) {
+      _stepStates.set(stepId, { state: 'done', source: 'full' });
+      updateStepCard(stepId, 'done', t('install.installed'));
+    } else {
+      _stepStates.set(stepId, { state: 'idle', source: 'full' });
+      updateStepCard(stepId, '', 'Pending');
+    }
   }
 
   const res = await api('full_install', getFormData());

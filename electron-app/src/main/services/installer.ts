@@ -449,6 +449,14 @@ export async function stepInstallRequirements(baseDir: string, logger: LoggerSer
   if (!fs.existsSync(reqFile)) {
     return { ok: false, msg: 'requirements.txt not found.' };
   }
+  // Quick check: if key packages already exist, skip full pip install
+  const sitePackages = path.join(baseDir, 'venv', 'Lib', 'site-packages');
+  const checkPkgs = ['lxml', 'psycopg2', 'werkzeug', 'Babel'];
+  const allInstalled = checkPkgs.every(p => fs.existsSync(path.join(sitePackages, p)));
+  if (allInstalled) {
+    logger.log('Requirements already installed.');
+    return { ok: true, msg: 'Already installed' };
+  }
   logger.log('Installing dependencies...');
   // Count total packages for progress tracking
   const reqLines = fs.readFileSync(reqFile, 'utf8')
@@ -612,9 +620,10 @@ export async function stepCreateProject(
   // Tag project with Odoo version
   cfg.odoo_version = odooVersion;
 
-  // Per-project domain (isolate browser sessions)
+  // Per-project domain (isolate browser sessions) — version-specific suffix
   const { projectToDomain, addHostEntry } = require('../utils/hosts');
-  const projectDomain = opts.project_domain || projectToDomain(projectName);
+  const vCfgDomain = getVersionConfig(odooVersion);
+  const projectDomain = opts.project_domain || projectToDomain(projectName, vCfgDomain.domainSuffix);
   cfg.project_domain = projectDomain;
 
   // Auto-set dbfilter from project name (DB isolation without manual config)
@@ -748,7 +757,8 @@ export async function stepFullInstall(
   fs.mkdirSync(baseDir, { recursive: true });
   fs.mkdirSync(projectsDir, { recursive: true });
 
-  const dbPort = opts.db_port || '5434';
+  const vCfgPorts = getVersionConfig(odooVersion);
+  const dbPort = opts.db_port || vCfgPorts.defaultDbPort;
   const dbUser = opts.db_user || 'odoo';
   const dbPassword = opts.db_password || 'odoo';
   const pgSuperPassword = opts.pg_super_password || 'postgres';

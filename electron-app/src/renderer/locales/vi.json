@@ -24,7 +24,7 @@
     "dataDir": "Thư mục dữ liệu (filestore)", "dataDirPlaceholder": "Để trống để dùng mặc định Odoo",
     "memHard": "Giới hạn bộ nhớ (hard)", "memSoft": "Giới hạn bộ nhớ (soft)",
     "odooSourceDir": "Thư mục mã nguồn Odoo", "odooSourceDirPlaceholder": "mặc định: odoo",
-    "saved": "Đã lưu",
+    "saved": "Đã lưu", "updated": "Đã cập nhật",
     "urlLocked": "Đã khóa — có project đang dùng phiên bản này",
     "about": "Thông tin", "currentVersion": "Phiên bản hiện tại:", "checkUpdates": "Kiểm tra cập nhật",
     "language": "Ngôn ngữ"
@@ -97,6 +97,7 @@
     "newName": "Tên dự án mới", "newNamePlaceholder": "VD: du_an_ban_sao",
     "newHttpPort": "Cổng HTTP mới",
     "projectDomain": "Tên miền (tự động)",
+    "projectLogo": "Logo dự án",
     "domainPlaceholder": "tự động: ten-du-an.odoo.local",
     "dupNote": "Database sẽ không được sao chép. Tạo database mới hoặc khôi phục từ bản sao lưu sau khi nhân bản.",
     "dupPortInvalid": "Cổng phải từ 1024 đến 65535.",

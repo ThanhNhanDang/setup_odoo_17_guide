@@ -370,8 +370,7 @@ function appendLines(lines) {
     lineCount++;
   }
   box.appendChild(fragment);
-  // Trim to 5000 lines max
-  while (box.childElementCount > 5000) {
+  while (box.childElementCount > 1000) {
     box.removeChild(box.firstChild);
     lineCount--;
   }
@@ -687,6 +686,26 @@ if (window.electronAPI) {
   });
 }
 
+// --- Elapsed timer: update running job rows every second ---
+let _elapsedTimer = null;
+function _startElapsedTimer() {
+  if (_elapsedTimer) return;
+  _elapsedTimer = setInterval(() => {
+    let hasRunning = false;
+    for (const [key, job] of _inlineJobs) {
+      if (job.status !== 'running') continue;
+      hasRunning = true;
+      const elapsed = job.startTime ? formatElapsed(Date.now() - job.startTime) : '';
+      const row = document.querySelector(`tr[data-job-type="${job.type}"][data-job-db="${CSS.escape(job.dbName)}"]`);
+      if (row) {
+        const el = row.querySelector('.db-elapsed');
+        if (el) el.textContent = elapsed;
+      }
+    }
+    if (!hasRunning) { clearInterval(_elapsedTimer); _elapsedTimer = null; }
+  }, 1000);
+}
+
 // --- Load databases + active jobs into table ---
 async function loadDatabases(silent) {
   const wrap = document.getElementById('dbTableWrap');
@@ -818,6 +837,7 @@ async function doCreateDb() {
   hideDbModal('modalCreateDb');
   const tbody = document.querySelector('.db-table tbody');
   if (tbody) tbody.insertAdjacentHTML('afterbegin', renderProgressRow(_inlineJobs.get('create')));
+  _startElapsedTimer();
 
   try {
     const res = await window.electronAPI.invoke('monitor-create-database', {
@@ -882,6 +902,7 @@ async function doRestoreDb() {
   hideDbModal('modalRestoreDb');
   const tbody = document.querySelector('.db-table tbody');
   if (tbody) tbody.insertAdjacentHTML('afterbegin', renderProgressRow(_inlineJobs.get('restore')));
+  _startElapsedTimer();
 
   try {
     const res = await window.electronAPI.invoke('monitor-restore-database', {
@@ -932,6 +953,7 @@ async function doDropDb() {
     tmp.innerHTML = renderProgressRow(_inlineJobs.get(dropKey));
     existingRow.replaceWith(tmp.firstElementChild);
   }
+  _startElapsedTimer();
 
   try {
     const res = await window.electronAPI.invoke('monitor-drop-database', {
@@ -977,7 +999,7 @@ function getMonitorTourSteps() {
     { selector: '[data-tour="monitor-log-level"]', title: _mt('logViewer.tourLogLevel', 'Log Level'), text: _mt('logViewer.tourLogLevelText', 'Change Odoo log verbosity. Takes effect after Save & Restart.'), position: 'right' },
     { selector: '[data-tour="monitor-modules"]', title: _mt('logViewer.tourModules', 'Module Upgrade'), text: _mt('logViewer.tourModulesText', 'Select modules to upgrade (-u flag) when restarting Odoo.'), position: 'right' },
     { selector: '[data-tour="monitor-log-controls"]', title: _mt('logViewer.tourLogControls', 'Log Controls'), text: _mt('logViewer.tourLogControlsText', 'Clear log, toggle auto-scroll, toggle log level highlighting.'), position: 'left' },
-    { selector: '[data-tour="monitor-log-area"]', title: _mt('logViewer.tourLogArea', 'Log Viewer'), text: _mt('logViewer.tourLogAreaText', 'Real-time Odoo logs. Colors: red = error, yellow = warning, blue = info. Max 5000 lines.'), position: 'top' },
+    { selector: '[data-tour="monitor-log-area"]', title: _mt('logViewer.tourLogArea', 'Log Viewer'), text: _mt('logViewer.tourLogAreaText', 'Real-time Odoo logs. Colors: red = error, yellow = warning, blue = info. Max 1000 lines.'), position: 'top' },
     { selector: '[data-tour="monitor-db-toolbar"]', title: _mt('logViewer.tourDbToolbar', 'Database Toolbar'), text: _mt('logViewer.tourDbToolbarText', 'Create new database, restore from backup, or refresh the list. Works without Odoo running.'), position: 'bottom', actionBefore: 'switchToDb' },
   ];
 }
