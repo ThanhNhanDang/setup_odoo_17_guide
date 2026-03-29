@@ -351,10 +351,14 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .db-job-badge-create{background:rgba(63,185,80,0.15);color:var(--success)}
 .db-job-badge-restore{background:rgba(88,166,255,0.15);color:#58a6ff}
 .db-job-badge-drop{background:rgba(248,81,73,0.15);color:var(--danger)}
-.db-progress-cell{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.db-progress-cell{padding-top:5px!important;padding-bottom:5px!important}
+.db-progress-info{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:4px}
 .db-step-label{color:var(--text-dim);font-size:0.7rem}
 .db-elapsed{color:var(--text-dim);font-size:0.65rem;opacity:0.7;margin-left:4px}
+.db-pct{color:var(--text-dim);font-size:0.65rem;opacity:0.7;margin-left:auto}
 .db-error-msg{color:var(--danger);font-size:0.68rem;margin-left:6px}
+.db-progress-bar{height:3px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden}
+.db-progress-fill{height:100%;border-radius:2px;transition:width 0.4s ease}
 .db-empty{
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   flex:1;color:var(--text-dim);gap:8px;font-size:0.8rem;
@@ -1441,22 +1445,42 @@ const stepLabels = {
 // --- Inline progress rows: track active jobs in frontend ---
 const _inlineJobs = new Map(); // key → { type, dbName, status, step, elapsed, output[], error }
 
+// --- Step progress weights per job type ---
+const _stepProgress = {
+  create: { creating_db: 10, init_schema: 60, configuring_admin: 90, done: 100 },
+  restore: { preparing: 5, extracting: 20, restoring_data: 70, copying_filestore: 90, done: 100 },
+  drop: { terminating_connections: 30, dropping_db: 70, done: 100 },
+};
+
+function getJobProgress(job) {
+  if (job.status === 'done') return 100;
+  if (job.status === 'error' || job.status === 'interrupted') return 0;
+  const map = _stepProgress[job.type];
+  return map ? (map[job.step] || 5) : 0;
+}
+
 // --- Render a single inline progress row ---
 function renderProgressRow(job) {
   const typeLabels = { create: ti('monitor.creating'), restore: ti('monitor.restoring'), drop: ti('monitor.dropping') };
   const typeLabel = typeLabels[job.type] || job.type;
   const stepLabel = (stepLabels[job.step] || (() => job.step))();
   const elapsed = job.elapsed ? formatElapsed(job.elapsed) : (job.startTime ? formatElapsed(Date.now() - job.startTime) : '');
+  const pct = getJobProgress(job);
 
   const statusCls = job.status === 'done' ? 'db-row-done' : job.status === 'error' ? 'db-row-error' : job.status === 'interrupted' ? 'db-row-error' : 'db-row-progress';
-  const spinner = job.status === 'running' ? '<span class="restart-spinner" style="width:12px;height:12px;margin-right:6px"></span>' : '';
   const icon = job.status === 'done' ? '<span style="color:var(--success);margin-right:6px">&#10003;</span>' : job.status === 'error' || job.status === 'interrupted' ? '<span style="color:var(--danger);margin-right:6px">&#10007;</span>' : '';
   const errorMsg = job.error ? (() => { const t = ti('monitor.' + job.error); return t !== 'monitor.' + job.error ? t : job.error; })() : '';
   const dismissBtn = (job.status === 'done' || job.status === 'error' || job.status === 'interrupted') ? `<button class="db-toolbar-btn" onclick="dismissJob('${escJs(job.type)}','${escJs(job.dbName)}')" style="padding:2px 8px;font-size:0.65rem">${ti('monitor.dismiss')}</button>` : '';
 
+  const barColor = job.status === 'done' ? 'var(--success)' : job.status === 'error' || job.status === 'interrupted' ? 'var(--danger)' : 'var(--accent)';
+  const progressBar = `<div class="db-progress-bar"><div class="db-progress-fill" style="width:${pct}%;background:${barColor}"></div></div>`;
+
   return `<tr class="${statusCls}" data-job-type="${esc(job.type)}" data-job-db="${esc(job.dbName)}">
     <td><strong>${esc(job.dbName)}</strong> <span class="db-job-badge db-job-badge-${job.type}">${typeLabel}</span></td>
-    <td colspan="3" class="db-progress-cell">${icon}${spinner}<span class="db-step-label">${stepLabel}</span>${elapsed ? `<span class="db-elapsed">${elapsed}</span>` : ''}${errorMsg ? `<span class="db-error-msg">${esc(errorMsg)}</span>` : ''}</td>
+    <td colspan="3" class="db-progress-cell">
+      <div class="db-progress-info">${icon}<span class="db-step-label">${stepLabel}</span>${elapsed ? `<span class="db-elapsed">${elapsed}</span>` : ''}${job.status === 'running' ? `<span class="db-pct">${pct}%</span>` : ''}${errorMsg ? `<span class="db-error-msg">${esc(errorMsg)}</span>` : ''}</div>
+      ${progressBar}
+    </td>
     <td class="db-actions">${dismissBtn}</td>
   </tr>`;
 }
