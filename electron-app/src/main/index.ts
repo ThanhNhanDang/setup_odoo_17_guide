@@ -104,9 +104,10 @@ function createWindow(): void {
       updater.startPeriodicCheck();
     }, 3000);
 
-    // Auto-start Nginx if installed but not running
+    // Auto-start Nginx if installed but not running, then check every 60s
     setTimeout(() => {
       autoStartNginx();
+      setInterval(() => autoStartNginx(), 60_000);
     }, 5000);
   });
 
