@@ -85,11 +85,30 @@ function endTour() {
   window.removeEventListener('keydown', _tourKeyHandler);
   window.removeEventListener('resize', _tourResizeHandler);
 
+  // Close any open modals from tour
+  _execTourAction('closeSettings');
+
   // Mark tour as completed
   try { localStorage.setItem('tour_completed', '1'); } catch {}
 }
 
+/** Execute named tour actions (open/close modals, etc.) */
+function _execTourAction(action) {
+  switch (action) {
+    case 'openSettings':
+      if (typeof openSettingsModal === 'function') openSettingsModal();
+      else { const el = document.getElementById('settingsModal'); if (el) el.classList.add('visible'); }
+      break;
+    case 'closeSettings':
+      { const el = document.getElementById('settingsModal'); if (el) el.classList.remove('visible'); }
+      break;
+  }
+}
+
 function nextTourStep() {
+  // Execute post-action of current step before moving to next
+  const currentStep = TOUR_STEPS[_tourStep];
+  if (currentStep && currentStep.actionAfter) _execTourAction(currentStep.actionAfter);
   if (_tourStep < TOUR_STEPS.length - 1) {
     goToTourStep(_tourStep + 1);
   } else {
@@ -98,6 +117,9 @@ function nextTourStep() {
 }
 
 function prevTourStep() {
+  // Execute post-action of current step before going back
+  const currentStep = TOUR_STEPS[_tourStep];
+  if (currentStep && currentStep.actionAfter) _execTourAction(currentStep.actionAfter);
   if (_tourStep > 0) {
     goToTourStep(_tourStep - 1);
   }
@@ -108,9 +130,9 @@ function goToTourStep(index) {
   if (!step) { endTour(); return; }
   _tourStep = index;
 
-  // Switch panel if needed
+  // Execute pre-action (open modal, switch panel, etc.)
+  if (step.actionBefore) _execTourAction(step.actionBefore);
   if (step.panelBefore && typeof showPanel === 'function') {
-    // Find the nav tab for this panel
     const tabs = document.querySelectorAll('.nav-tab');
     for (const tab of tabs) {
       if (tab.textContent.trim().toLowerCase().includes(step.panelBefore)) {
@@ -118,12 +140,11 @@ function goToTourStep(index) {
         break;
       }
     }
-    // Fallback: just show the panel
     showPanel(step.panelBefore);
   }
 
   // Wait for element to exist in DOM, then position after layout settles
-  const timeout = step.panelBefore ? 5000 : 1000;
+  const timeout = (step.panelBefore || step.actionBefore) ? 5000 : 1000;
   _waitForElement(step.selector, timeout, () => {
     // Double rAF ensures layout has been calculated after panel switch
     requestAnimationFrame(() => requestAnimationFrame(() => _positionTourStep(step, index)));
