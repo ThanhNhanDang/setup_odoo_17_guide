@@ -123,9 +123,18 @@ export async function stepInstallVSCode(baseDir: string, logger: LoggerService):
 
 const WKHTMLTOPDF_URL = 'https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/wkhtmltox-0.12.6-1.msvc2015-win64.exe';
 
+const WKHTMLTOPDF_BIN = 'C:\\Program Files\\wkhtmltopdf\\bin';
+
+function ensureWkhtmltopdfInPath(): void {
+  if (!process.env.PATH?.includes('wkhtmltopdf\\bin')) {
+    process.env.PATH = `${WKHTMLTOPDF_BIN};${process.env.PATH}`;
+  }
+}
+
 export async function stepInstallWkhtmltopdf(baseDir: string, logger: LoggerService): Promise<StepResult> {
   const existing = findWkhtmltopdf();
   if (existing) {
+    ensureWkhtmltopdfInPath();
     logger.log(`wkhtmltopdf already installed (${existing}).`);
     return { ok: true, msg: 'Already installed' };
   }
@@ -148,6 +157,7 @@ export async function stepInstallWkhtmltopdf(baseDir: string, logger: LoggerServ
 
   const installed = findWkhtmltopdf();
   if (installed) {
+    ensureWkhtmltopdfInPath();
     logger.log('wkhtmltopdf installed!');
     return { ok: true, msg: 'Installed' };
   }
