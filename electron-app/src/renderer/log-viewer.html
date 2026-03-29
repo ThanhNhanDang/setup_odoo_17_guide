@@ -1445,19 +1445,7 @@ const stepLabels = {
 // --- Inline progress rows: track active jobs in frontend ---
 const _inlineJobs = new Map(); // key → { type, dbName, status, step, elapsed, output[], error }
 
-// --- Step progress weights per job type ---
-const _stepProgress = {
-  create: { creating_db: 10, init_schema: 60, configuring_admin: 90, done: 100 },
-  restore: { preparing: 5, extracting: 20, restoring_data: 70, copying_filestore: 90, done: 100 },
-  drop: { terminating_connections: 30, dropping_db: 70, done: 100 },
-};
-
-function getJobProgress(job) {
-  if (job.status === 'done') return 100;
-  if (job.status === 'error' || job.status === 'interrupted') return 0;
-  const map = _stepProgress[job.type];
-  return map ? (map[job.step] || 5) : 0;
-}
+// Progress percentage comes from backend via `progress` field in events
 
 // --- Render a single inline progress row ---
 function renderProgressRow(job) {
@@ -1465,7 +1453,7 @@ function renderProgressRow(job) {
   const typeLabel = typeLabels[job.type] || job.type;
   const stepLabel = (stepLabels[job.step] || (() => job.step))();
   const elapsed = job.elapsed ? formatElapsed(job.elapsed) : (job.startTime ? formatElapsed(Date.now() - job.startTime) : '');
-  const pct = getJobProgress(job);
+  const pct = job.status === 'done' ? 100 : job.status === 'error' || job.status === 'interrupted' ? 0 : (job.progress || 0);
 
   const statusCls = job.status === 'done' ? 'db-row-done' : job.status === 'error' ? 'db-row-error' : job.status === 'interrupted' ? 'db-row-error' : 'db-row-progress';
   const icon = job.status === 'done' ? '<span style="color:var(--success);margin-right:6px">&#10003;</span>' : job.status === 'error' || job.status === 'interrupted' ? '<span style="color:var(--danger);margin-right:6px">&#10007;</span>' : '';
@@ -1498,6 +1486,7 @@ if (window.electronAPI) {
     job.status = data.status;
     job.step = data.step;
     job.elapsed = data.elapsed || 0;
+    if (data.progress !== undefined) job.progress = data.progress;
     if (data.error) job.error = data.error;
     if (data.detail) {
       job.output.push(data.detail);

@@ -1204,11 +1204,11 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     };
     dbJobs.set(jobKey, job); persistJobs();
 
-    const emit = (step: string, detail?: string) => {
+    const emit = (step: string, progress: number, detail?: string) => {
       job.step = step;
       emitDbProgress(data.projectName, 'db-job-progress', {
         type: 'create', dbName, step, detail, status: 'running',
-        elapsed: Date.now() - job.startTime,
+        elapsed: Date.now() - job.startTime, progress,
       });
     };
 
@@ -1216,7 +1216,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     (async () => {
       try {
         // Step 1: Create empty DB
-        emit('creating_db');
+        emit('creating_db', 10);
         const createdb = path.join(pg.pgBin, 'createdb.exe');
         const { code: createCode, output: createOut } = await runCmd(
           `"${createdb}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -E UTF8 "${dbName}"`,
@@ -1230,7 +1230,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         }
 
         // Step 2: Init Odoo schema with odoo-bin
-        emit('init_schema');
+        emit('init_schema', 30);
         const venvPy = path.join(baseDir, 'venv', 'Scripts', 'python.exe');
         const odooBin = path.join(baseDir, odooSourceDir, 'odoo-bin');
         const projectPath = path.join(projectsDir, data.projectName);
@@ -1251,7 +1251,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
           onData: (line) => {
             job.output.push(line);
             if (job.output.length > 200) job.output.shift();
-            emit('init_schema', line);
+            emit('init_schema', 30, line);
           },
         });
 
@@ -1270,7 +1270,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         }
 
         // Step 3: Configure admin user (email/password/phone/country) via SQL
-        emit('configuring_admin');
+        emit('configuring_admin', 90);
         const adminEmail = data.adminEmail || 'admin';
         const adminPassword = data.adminPassword || 'admin';
         const psqlExe = path.join(pg.pgBin, 'psql.exe');
@@ -1314,13 +1314,13 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         logger.log(`[monitor] Database created + initialized: ${dbName} (admin: ${adminEmail})`);
         emitDbProgress(data.projectName, 'db-job-progress', {
           type: 'create', dbName, step: 'done', status: 'done',
-          elapsed: Date.now() - job.startTime,
+          elapsed: Date.now() - job.startTime, progress: 100,
         });
         scheduleJobCleanup(jobKey);
       } catch (e) {
         job.status = 'error'; job.error = String(e);
         emitDbProgress(data.projectName, 'db-job-progress', {
-          type: 'create', dbName, step: 'error', status: 'error', error: String(e),
+          type: 'create', dbName, step: 'error', status: 'error', error: String(e), progress: 0,
         });
         scheduleJobCleanup(jobKey);
       }
@@ -1367,7 +1367,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         // Step 1: Terminate connections
         emitDbProgress(data.projectName, 'db-job-progress', {
           type: 'drop', dbName, step: 'terminating_connections', status: 'running',
-          elapsed: 0,
+          elapsed: 0, progress: 30,
         });
         const psql = path.join(pg.pgBin, 'psql.exe');
         await runCmd(
@@ -1379,7 +1379,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         job.step = 'dropping_db';
         emitDbProgress(data.projectName, 'db-job-progress', {
           type: 'drop', dbName, step: 'dropping_db', status: 'running',
-          elapsed: Date.now() - job.startTime,
+          elapsed: Date.now() - job.startTime, progress: 70,
         });
         const dropdb = path.join(pg.pgBin, 'dropdb.exe');
         const { code, output } = await runCmd(
@@ -1402,7 +1402,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         logger.log(`[monitor] Database dropped: ${dbName}`);
         emitDbProgress(data.projectName, 'db-job-progress', {
           type: 'drop', dbName, step: 'done', status: 'done',
-          elapsed: Date.now() - job.startTime,
+          elapsed: Date.now() - job.startTime, progress: 100,
         });
         scheduleJobCleanup(jobKey);
       } catch (e) {
@@ -1448,11 +1448,11 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     };
     dbJobs.set(jobKey, job);
 
-    const emit = (step: string, detail?: string) => {
+    const emit = (step: string, progress: number, detail?: string) => {
       job.step = step;
       emitDbProgress(data.projectName, 'db-job-progress', {
         type: 'restore', dbName, step, detail, status: 'running',
-        elapsed: Date.now() - job.startTime,
+        elapsed: Date.now() - job.startTime, progress,
         objectCount: job.output.length,
       });
     };
@@ -1465,7 +1465,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
         // Step 1: Extract .zip if needed
         if (ext === '.zip') {
-          emit('extracting');
+          emit('extracting', 10);
           tempDir = path.join(app.getPath('temp'), `odoo-restore-${Date.now()}`);
           fs.mkdirSync(tempDir, { recursive: true });
           await runCmd(`powershell -NoProfile -Command "Expand-Archive -Path '${resolvedFile}' -DestinationPath '${tempDir}' -Force"`);
@@ -1492,7 +1492,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         }
 
         // Step 2: Create empty DB
-        emit('creating_db');
+        emit('creating_db', 20);
         const createdb = path.join(pg.pgBin, 'createdb.exe');
         const { code: cCode, output: cOut } = await runCmd(
           `"${createdb}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -E UTF8 "${dbName}"`,
@@ -1507,7 +1507,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         }
 
         // Step 3: Restore dump with streaming
-        emit('restoring_data');
+        emit('restoring_data', 30);
         const dumpExt = path.extname(dumpFile).toLowerCase();
         const pgEnv: NodeJS.ProcessEnv = { ...pg.env };
         if (!pgEnv.PATH?.includes(pg.pgBin)) pgEnv.PATH = `${pg.pgBin};${pgEnv.PATH || ''}`;
@@ -1527,7 +1527,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
             job.output.push(line);
             if (job.output.length > 200) job.output.shift();
             // Emit progress every 10 objects to avoid flooding
-            if (job.output.length % 10 === 0) emit('restoring_data', line);
+            if (job.output.length % 10 === 0) emit('restoring_data', 30, line);
           },
         });
 
@@ -1548,7 +1548,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
         // Step 4: Copy filestore if .zip had one
         if (hasFilestore && tempDir) {
-          emit('copying_filestore');
+          emit('copying_filestore', 85);
           const dataDir = dbConf.dataDir || path.join(projectsDir, data.projectName, 'data');
           const destFilestore = path.join(dataDir, 'filestore', dbName);
           const srcFilestore = path.join(tempDir, 'filestore');
@@ -1570,13 +1570,13 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         logger.log(`[monitor] Database restored: ${dbName} from ${path.basename(filePath)} (${job.output.length} objects)`);
         emitDbProgress(data.projectName, 'db-job-progress', {
           type: 'restore', dbName, step: 'done', status: 'done',
-          elapsed: Date.now() - job.startTime, objectCount: job.output.length,
+          elapsed: Date.now() - job.startTime, objectCount: job.output.length, progress: 100,
         });
         scheduleJobCleanup(jobKey);
       } catch (e) {
         job.status = 'error'; job.error = String(e);
         emitDbProgress(data.projectName, 'db-job-progress', {
-          type: 'restore', dbName, step: 'error', status: 'error', error: String(e),
+          type: 'restore', dbName, step: 'error', status: 'error', error: String(e), progress: 0,
         });
         scheduleJobCleanup(jobKey);
       }
