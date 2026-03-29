@@ -75,7 +75,7 @@ Three-process Electron architecture with IPC communication:
 | `i18n.js` | Zero-dependency i18n engine: `t('key')`, `applyTranslations()` |
 | `docs-data.js` | Help documentation + tour steps + troubleshooting data |
 | `tour.js` | Guided tour overlay component |
-| `app.js` | Core: navigation, API layer, forms, settings persistence, projects, log, create/delete |
+| `app.js` | Core: navigation (Dashboard/Install/Settings/Help), API layer, forms, settings persistence, projects, log, create/delete |
 | `install.js` | Install step cards UI, progress bars |
 | `dashboard.js` | Dashboard stats, Kanban cards, Project Detail modal, Duplicate |
 | `update.js` | Auto-update download + install |

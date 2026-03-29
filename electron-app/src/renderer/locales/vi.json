@@ -1,8 +1,9 @@
 {
   "app": { "name": "Odoo Installer" },
-  "nav": { "dashboard": "Trang chủ", "fullInstall": "Cài đặt", "help": "Trợ giúp" },
+  "nav": { "dashboard": "Trang chủ", "fullInstall": "Cài đặt", "help": "Trợ giúp", "settings": "Thiết lập" },
   "settings": {
-    "title": "Cài đặt", "appearance": "Giao diện", "themePreset": "Giao diện mẫu",
+    "title": "Cài đặt", "desc": "Cấu hình thư mục, cơ sở dữ liệu, giao diện và nhiều hơn nữa",
+    "appearance": "Giao diện", "themePreset": "Giao diện mẫu",
     "appIcon": "Icon ứng dụng", "browse": "Chọn", "reset": "Đặt lại",
     "customColors": "Tuỳ chỉnh màu", "accent": "Màu nhấn", "background": "Nền",
     "surface": "Bề mặt", "text": "Chữ", "resetColors": "Đặt lại màu",
@@ -30,7 +31,7 @@
   },
   "dashboard": {
     "title": "Trang chủ", "desc": "Tổng quan các dự án Odoo của bạn",
-    "search": "Tìm kiếm dự án...", "all": "Tất cả dự án", "running": "Đang chạy",
+    "search": "Tìm kiếm dự án...", "all": "Tất cả dự án", "allVersions": "Tất cả phiên bản", "running": "Đang chạy",
     "hasCustom": "Có module tuỳ chỉnh", "resetAll": "Đặt lại tất cả Template",
     "newProject": "Dự án mới", "totalProjects": "Tổng dự án",
     "runningCount": "Đang chạy", "customModules": "Module tuỳ chỉnh",
@@ -316,8 +317,8 @@
       "4": { "title": "Đặt lại tất cả Template", "text": "Đặt lại launch.json và settings.json cho tất cả dự án về mặc định mới nhất." },
       "5": { "title": "Các bước cài đặt", "text": "8 bước: Nginx, Git, VS Code, Python, PostgreSQL, mã nguồn Odoo, Môi trường ảo và Pip." },
       "6": { "title": "Cài đặt tất cả", "text": "Một nhấp để chạy tất cả 8 bước. Chọn phiên bản Odoo trước." },
-      "7": { "title": "Phiên bản Odoo", "text": "Chọn Odoo {versions}. Mỗi phiên bản cài Python và PostgreSQL tương ứng." },
-      "8": { "title": "Cài đặt", "text": "Nhấn để mở Cài đặt. Cấu hình thư mục, cơ sở dữ liệu, giao diện và nhiều hơn nữa." },
+      "7": { "title": "Phiên bản Odoo", "text": "Chọn phiên bản Odoo chung — thay đổi mục tiêu cài đặt, bộ lọc dashboard và đường dẫn." },
+      "8": { "title": "Thiết lập", "text": "Tab Thiết lập — cấu hình thư mục, cơ sở dữ liệu, giao diện và nhiều hơn nữa." },
       "8a": { "title": "Giao diện", "text": "Chọn từ 4 giao diện: Default, Amethyst, Cyberpunk, Pink Luxury. Mỗi giao diện có chế độ sáng/tối." },
       "8b": { "title": "Phiên bản Odoo", "text": "Chọn phiên bản Odoo. Tự động điều chỉnh Python, PostgreSQL và URL tải xuống." },
       "8c": { "title": "Thư mục", "text": "Thư mục gốc chứa mã nguồn Odoo + venv. Thư mục dự án chứa tất cả project." },

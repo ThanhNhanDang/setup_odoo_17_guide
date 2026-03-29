@@ -1,8 +1,9 @@
 {
   "app": { "name": "Odoo Installer" },
-  "nav": { "dashboard": "Dashboard", "fullInstall": "Full Install", "help": "Help" },
+  "nav": { "dashboard": "Dashboard", "fullInstall": "Full Install", "help": "Help", "settings": "Settings" },
   "settings": {
-    "title": "Settings", "appearance": "Appearance", "themePreset": "Theme Preset",
+    "title": "Settings", "desc": "Configure directories, database, themes, and more",
+    "appearance": "Appearance", "themePreset": "Theme Preset",
     "appIcon": "App Icon", "browse": "Browse", "reset": "Reset",
     "customColors": "Custom Colors", "accent": "Accent", "background": "Background",
     "surface": "Surface", "text": "Text", "resetColors": "Reset Colors",
@@ -30,7 +31,7 @@
   },
   "dashboard": {
     "title": "Dashboard", "desc": "Overview of your Odoo projects",
-    "search": "Search projects...", "all": "All Projects", "running": "Running",
+    "search": "Search projects...", "all": "All Projects", "allVersions": "All Versions", "running": "Running",
     "hasCustom": "Has Custom Modules", "resetAll": "Reset All Templates",
     "newProject": "New Project", "totalProjects": "Total Projects",
     "runningCount": "Running", "customModules": "Custom Modules",
@@ -306,7 +307,7 @@
   "status": { "ok": "OK", "missing": "Missing", "available": "Available", "notFound": "Not found" },
   "td": {
     "tour": {
-      "8": { "title": "Settings", "text": "Click to open Settings. Configure directories, database, themes, and more." },
+      "8": { "title": "Settings", "text": "Settings tab — configure directories, database, themes, and more." },
       "8a": { "title": "Theme Presets", "text": "Choose from 4 themes: Default, Amethyst, Cyberpunk, Pink Luxury. Each with dark/light mode." },
       "8b": { "title": "Odoo Version", "text": "Select Odoo version. Auto-adjusts Python, PostgreSQL versions and download URLs." },
       "8c": { "title": "Directories", "text": "Base directory for Odoo source + venv. Projects directory for all your projects." },

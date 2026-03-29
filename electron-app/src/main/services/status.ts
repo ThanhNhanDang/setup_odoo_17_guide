@@ -69,6 +69,8 @@ export interface StatusResult {
   readonly docker_postgres: readonly DockerContainer[];
   readonly native_postgres: NativePostgresDetails | null;
   readonly odoo_cloned: boolean;
+  readonly odoo_source_dir: string;
+  readonly odoo_source_candidates: readonly string[];
   readonly venv_created: boolean;
   readonly requirements_installed: boolean;
   readonly git: boolean;
@@ -253,6 +255,36 @@ export async function parseProjectConfig(projectPath: string, baseDir: string = 
 }
 
 // ---------------------------------------------------------------------------
+// Detect Odoo source directories in baseDir
+// ---------------------------------------------------------------------------
+
+/**
+ * Scan baseDir for directories containing odoo-bin.
+ * Returns list of directory names (not full paths), sorted with preferred name first.
+ */
+function detectOdooSourceDirs(baseDir: string): readonly string[] {
+  if (!fs.existsSync(baseDir)) return [];
+  const candidates: string[] = [];
+  try {
+    for (const entry of fs.readdirSync(baseDir)) {
+      try {
+        const dirPath = path.join(baseDir, entry);
+        if (fs.statSync(dirPath).isDirectory() && fs.existsSync(path.join(dirPath, 'odoo-bin'))) {
+          candidates.push(entry);
+        }
+      } catch { /* skip unreadable entries */ }
+    }
+  } catch { /* skip unreadable baseDir */ }
+  // Sort: "odoo" first, then alphabetically
+  candidates.sort((a, b) => {
+    if (a === 'odoo') return -1;
+    if (b === 'odoo') return 1;
+    return a.localeCompare(b);
+  });
+  return candidates;
+}
+
+// ---------------------------------------------------------------------------
 // Detect full system status — parallel + cached
 // ---------------------------------------------------------------------------
 
@@ -269,7 +301,12 @@ export async function detectStatus(baseDir: string, projectsDir: string, odooSou
   // Fast: file-only checks (no external processes)
   const py311 = findPython311();
   const pgBin = findPostgresBin();
-  const odooCloned = fs.existsSync(path.join(baseDir, odooSourceDir, 'odoo-bin'));
+  const sourceCandidates = detectOdooSourceDirs(baseDir);
+  // Use user's choice if it exists, otherwise auto-detect first candidate
+  const effectiveSourceDir = fs.existsSync(path.join(baseDir, odooSourceDir, 'odoo-bin'))
+    ? odooSourceDir
+    : (sourceCandidates.length > 0 ? sourceCandidates[0] : odooSourceDir);
+  const odooCloned = fs.existsSync(path.join(baseDir, effectiveSourceDir, 'odoo-bin'));
   const venvCreated = fs.existsSync(path.join(baseDir, 'venv', 'Scripts', 'python.exe'));
   const reqInstalled = fs.existsSync(path.join(baseDir, 'venv', 'Lib', 'site-packages', 'lxml'));
   const nginx = isNginxInstalled(baseDir);
@@ -302,7 +339,7 @@ export async function detectStatus(baseDir: string, projectsDir: string, odooSou
       const dirPath = path.join(projectsDir, entry);
       try {
         if (fs.statSync(dirPath).isDirectory() && fs.existsSync(path.join(dirPath, 'odoo.conf'))) {
-          projectPromises.push(parseProjectConfig(dirPath, baseDir, odooSourceDir).catch(() => null));
+          projectPromises.push(parseProjectConfig(dirPath, baseDir, effectiveSourceDir).catch(() => null));
         }
       } catch { /* skip */ }
     }
@@ -322,6 +359,8 @@ export async function detectStatus(baseDir: string, projectsDir: string, odooSou
     docker_postgres: dockerPg,
     native_postgres: nativePg,
     odoo_cloned: odooCloned,
+    odoo_source_dir: effectiveSourceDir,
+    odoo_source_candidates: sourceCandidates,
     venv_created: venvCreated,
     requirements_installed: reqInstalled,
     git: gitVersion !== null,

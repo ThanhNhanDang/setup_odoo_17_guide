@@ -90,23 +90,15 @@ function endTour() {
   window.removeEventListener('keydown', _tourKeyHandler);
   window.removeEventListener('resize', _tourResizeHandler);
 
-  // Close any open modals from tour
-  _execTourAction('closeSettings');
-
   // Mark tour as completed
   try { localStorage.setItem('tour_completed', '1'); } catch {}
 }
 
 /** Execute named tour actions (open/close modals, etc.) */
 function _execTourAction(action) {
-  switch (action) {
-    case 'openSettings':
-      if (typeof openSettingsModal === 'function') openSettingsModal();
-      else { const el = document.getElementById('settingsModal'); if (el) el.classList.add('visible'); }
-      break;
-    case 'closeSettings':
-      { const el = document.getElementById('settingsModal'); if (el) el.classList.remove('visible'); }
-      break;
+  // Legacy actions — Settings is now a panel, no modals to open/close
+  if (action === 'openSettings') {
+    if (typeof showPanel === 'function') showPanel('settings', document.querySelector('[data-tour="settings"]'));
   }
 }
 

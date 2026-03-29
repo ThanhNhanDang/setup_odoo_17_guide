@@ -145,8 +145,12 @@ function applyTheme(theme) {
   }, 0);
 })();
 
-// --- Settings Modal ---
+// --- Settings Panel helpers ---
 function openSettingsModal() {
+  // Backward compat: redirect to panel navigation
+  showPanel('settings', document.querySelector('[data-tour="settings"]'));
+}
+function syncSettingsPanel() {
   // Sync preset cards
   const preset = localStorage.getItem('preset') || 'default';
   document.querySelectorAll('.preset-card').forEach(card => {
@@ -154,7 +158,6 @@ function openSettingsModal() {
   });
   syncColorPickers();
   loadIconPreview();
-  $('settingsModal').classList.add('visible');
 }
 
 // --- Custom Colors ---

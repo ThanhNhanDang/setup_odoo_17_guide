@@ -1,8 +1,9 @@
 {
   "app": { "name": "Odoo 설치 관리자" },
-  "nav": { "dashboard": "대시보드", "fullInstall": "전체 설치", "help": "도움말" },
+  "nav": { "dashboard": "대시보드", "fullInstall": "전체 설치", "help": "도움말", "settings": "설정" },
   "settings": {
-    "title": "설정", "appearance": "외관", "themePreset": "테마 프리셋",
+    "title": "설정", "desc": "디렉토리, 데이터베이스, 테마 등을 구성합니다",
+    "appearance": "외관", "themePreset": "테마 프리셋",
     "appIcon": "앱 아이콘", "browse": "찾아보기", "reset": "초기화",
     "customColors": "사용자 정의 색상", "accent": "강조색", "background": "배경",
     "surface": "표면", "text": "텍스트", "resetColors": "색상 초기화",
@@ -30,7 +31,7 @@
   },
   "dashboard": {
     "title": "대시보드", "desc": "Odoo 프로젝트 개요",
-    "search": "프로젝트 검색...", "all": "전체 프로젝트", "running": "실행 중",
+    "search": "프로젝트 검색...", "all": "전체 프로젝트", "allVersions": "전체 버전", "running": "실행 중",
     "hasCustom": "커스텀 모듈 있음", "resetAll": "모든 템플릿 초기화",
     "newProject": "새 프로젝트", "totalProjects": "전체 프로젝트",
     "runningCount": "실행 중", "customModules": "커스텀 모듈",
@@ -316,8 +317,8 @@
       "4": { "title": "모든 템플릿 초기화", "text": "모든 프로젝트의 launch.json과 settings.json을 최신 기본값으로 초기화." },
       "5": { "title": "설치 단계", "text": "8단계: Nginx, Git, VS Code, Python, PostgreSQL, Odoo 소스, 가상 환경, Pip." },
       "6": { "title": "전체 설치", "text": "한 번 클릭으로 8단계 모두 자동 실행. 먼저 Odoo 버전을 선택하세요." },
-      "7": { "title": "Odoo 버전", "text": "Odoo {versions} 선택. 각 버전에 맞는 Python과 PostgreSQL 설치." },
-      "8": { "title": "설정", "text": "설정을 열려면 클릭하세요. 디렉토리, 데이터베이스, 테마 등을 구성합니다." },
+      "7": { "title": "Odoo 버전", "text": "글로벌 버전 선택 — 설치 대상, 대시보드 필터, 설정 경로를 변경합니다." },
+      "8": { "title": "설정", "text": "설정 탭 — 디렉토리, 데이터베이스, 테마 등을 구성합니다." },
       "8a": { "title": "테마 프리셋", "text": "4가지 테마 중 선택: Default, Amethyst, Cyberpunk, Pink Luxury. 각각 다크/라이트 모드 지원." },
       "8b": { "title": "Odoo 버전", "text": "Odoo 버전을 선택합니다. Python, PostgreSQL 버전과 다운로드 URL이 자동 조정됩니다." },
       "8c": { "title": "디렉토리", "text": "Odoo 소스 + venv를 위한 기본 디렉토리. 모든 프로젝트를 위한 프로젝트 디렉토리." },

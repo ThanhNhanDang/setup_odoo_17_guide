@@ -65,6 +65,7 @@ export function registerInstallHandlers(ctx: IpcContext): void {
     const step = data?.step || '';
     const odooVersion = data?.odoo_version || DEFAULT_ODOO_VERSION;
     const baseDir = data?.base_dir || getDefaultBaseDir(odooVersion);
+    const odooSourceDir = data?.odoo_source_dir || 'odoo';
 
     const stepFns: Record<string, () => Promise<{ ok: boolean; msg: string }>> = {
       install_nginx: () => stepInstallNginx(baseDir, ctx.logger),
@@ -81,9 +82,9 @@ export function registerInstallHandlers(ctx: IpcContext): void {
         odooVersion,
         readUrlOverrides(),
       ),
-      clone_odoo: () => stepCloneOdoo(baseDir, ctx.logger, odooVersion),
+      clone_odoo: () => stepCloneOdoo(baseDir, ctx.logger, odooVersion, odooSourceDir),
       create_venv: () => stepCreateVenv(baseDir, ctx.logger, odooVersion),
-      install_requirements: () => stepInstallRequirements(baseDir, ctx.logger, odooVersion),
+      install_requirements: () => stepInstallRequirements(baseDir, ctx.logger, odooVersion, odooSourceDir),
     };
 
     const fn = stepFns[step];

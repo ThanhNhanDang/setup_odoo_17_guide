@@ -45,6 +45,18 @@ document.addEventListener('click', (e) => {
   if (!e.target.closest('#langDropdown')) closeLangDropdown();
 });
 
+// When user picks a candidate from the detected Odoo source dropdown, fill the input
+document.addEventListener('change', (e) => {
+  if (e.target.id === 'odooSourceCandidates') {
+    const input = $('odooSourceDir');
+    if (input) {
+      input.value = e.target.value;
+      saveSettingsToDisk();
+      refreshStatus();
+    }
+  }
+});
+
 // Initialize i18n — use localStorage immediately (no IPC wait), sync settings async
 (async () => {
   // Phase 1: instant — render with localStorage language (no async wait)
@@ -110,6 +122,7 @@ function showPanel(name, el) {
   $('panel-' + name).classList.add('active');
   if (el) el.classList.add('active');
   if (name === 'dashboard' || name === 'settings' || name === 'projects') refreshStatus();
+  if (name === 'settings' && typeof syncSettingsPanel === 'function') syncSettingsPanel();
   if (name === 'help') renderHelpPanel();
   if (name === 'log') pollLog();
 }
@@ -158,7 +171,7 @@ async function api(endpoint, data = {}) {
 // ---------------------------------------------------------------------------
 function getFormData() {
   return {
-    odoo_version: $('odooVersion')?.value || '17',
+    odoo_version: $('globalVersion')?.value || $('odooVersion')?.value || '17',
     base_dir: $('baseDir').value,
     projects_dir: $('projectsDir').value,
     odoo_source_dir: $('odooSourceDir')?.value || 'odoo',
@@ -230,6 +243,11 @@ async function loadSettingsFromDisk() {
         $(id).value = s[id];
       }
     }
+    // Sync global version selector with saved settings
+    if (s.odooVersion && $('globalVersion')) {
+      $('globalVersion').value = s.odooVersion;
+      _syncInstallVersionLabel(s.odooVersion);
+    }
   } catch { /* first launch — no saved settings */ }
 }
 
@@ -261,8 +279,15 @@ async function onVersionChange(version) {
     if ($('projectsDir')) $('projectsDir').value = paths.projects_dir || '';
     saveSettingsToDisk();
   } catch { /* ignore */ }
-  // Sync install panel version selector
-  if ($('installVersion')) $('installVersion').value = version;
+  // Sync global + install selectors + labels
+  if ($('globalVersion') && $('globalVersion').value !== version) $('globalVersion').value = version;
+  if ($('installVersion') && $('installVersion').value !== version) $('installVersion').value = version;
+  const labels = getVersionLabels(version);
+  if ($('stepName-install_python')) $('stepName-install_python').textContent = labels.python;
+  if ($('stepName-install_postgres')) $('stepName-install_postgres').textContent = labels.postgres;
+  if ($('stepName-clone_odoo')) $('stepName-clone_odoo').textContent = labels.clone;
+  _syncInstallVersionLabel(version);
+  renderVersionUrlFields();
 }
 
 function getVersionColor(version) {
@@ -271,13 +296,37 @@ function getVersionColor(version) {
   return v ? v.color : '#888';
 }
 
-function onInstallVersionChange(version) {
+/** Global version changed from topnav — sync everything */
+function onGlobalVersionChange(version) {
+  // Sync all version selectors
+  if ($('odooVersion')) $('odooVersion').value = version;
+  if ($('installVersion')) $('installVersion').value = version;
+  // Update install step labels
   const labels = getVersionLabels(version);
   if ($('stepName-install_python')) $('stepName-install_python').textContent = labels.python;
   if ($('stepName-install_postgres')) $('stepName-install_postgres').textContent = labels.postgres;
   if ($('stepName-clone_odoo')) $('stepName-clone_odoo').textContent = labels.clone;
-  // Sync settings version selector
-  if ($('odooVersion')) $('odooVersion').value = version;
+  // Update install version label badge
+  _syncInstallVersionLabel(version);
+  // Update paths + save, then refresh status to re-detect for new version
+  onVersionChange(version).then(() => refreshStatus());
+  // Re-filter dashboard
+  filterDashboard();
+}
+
+function _syncInstallVersionLabel(version) {
+  const el = $('installVersionLabel');
+  if (!el || !_odooVersions) return;
+  const v = _odooVersions.versions.find(x => x.key === version);
+  el.textContent = v ? v.label : `Odoo ${version}`;
+}
+
+function onInstallVersionChange(version) {
+  // Hidden select changed (backward compat) — sync global
+  if ($('globalVersion') && $('globalVersion').value !== version) {
+    $('globalVersion').value = version;
+    onGlobalVersionChange(version);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -296,8 +345,9 @@ async function loadOdooVersions() {
   if (!_odooVersions || !_odooVersions.versions) return;
   const defaultVer = _odooVersions.default || '17';
 
-  // Populate all 3 version selects
+  // Populate all version selects (global, settings, install hidden, new project)
   const selects = [
+    { id: 'globalVersion', useSettingsLabel: false },
     { id: 'odooVersion', useSettingsLabel: true },
     { id: 'installVersion', useSettingsLabel: false },
     { id: 'newProjVersion', useSettingsLabel: false },
@@ -323,9 +373,13 @@ async function loadOdooVersions() {
   // Render URL fields in settings
   renderVersionUrlFields();
 
-  // Apply install step labels for current version
-  const curVer = $('installVersion')?.value || defaultVer;
-  onInstallVersionChange(curVer);
+  // Sync install label + step labels for current version
+  const curVer = $('globalVersion')?.value || defaultVer;
+  _syncInstallVersionLabel(curVer);
+  const labels = getVersionLabels(curVer);
+  if ($('stepName-install_python')) $('stepName-install_python').textContent = labels.python;
+  if ($('stepName-install_postgres')) $('stepName-install_postgres').textContent = labels.postgres;
+  if ($('stepName-clone_odoo')) $('stepName-clone_odoo').textContent = labels.clone;
 }
 
 /**
@@ -422,7 +476,7 @@ async function refreshStatus() {
     ['PostgreSQL', s.postgres, s.postgres_path],
     ['VS Code', s.vscode, s.vscode_version || ''],
     ['Nginx', s.nginx, s.nginx ? 'HTTPS proxy' : ''],
-    ['Odoo Source', s.odoo_cloned, ''],
+    ['Odoo Source', s.odoo_cloned, s.odoo_cloned ? s.odoo_source_dir : ''],
     ['Virtual Env', s.venv_created, ''],
     ['Requirements', s.requirements_installed, ''],
   ];
@@ -464,6 +518,23 @@ async function refreshStatus() {
     const pgModeGroup = $('pgModeGroup');
     if (pgModeGroup) {
       pgModeGroup.style.display = (s.docker_postgres && s.docker_postgres.length > 0) ? '' : 'none';
+    }
+
+    // Update Odoo source candidates dropdown
+    const candidatesSel = $('odooSourceCandidates');
+    const sourceInput = $('odooSourceDir');
+    if (candidatesSel && s.odoo_source_candidates && s.odoo_source_candidates.length > 0) {
+      candidatesSel.style.display = '';
+      candidatesSel.innerHTML = s.odoo_source_candidates.map(c =>
+        `<option value="${escAttr(c)}"${c === s.odoo_source_dir ? ' selected' : ''}>${escHtml(c)}</option>`
+      ).join('');
+      // Auto-fill if user hasn't manually set a custom value or if current value doesn't exist
+      if (sourceInput && (!sourceInput.value || sourceInput.value === 'odoo') && s.odoo_source_dir !== 'odoo') {
+        sourceInput.value = s.odoo_source_dir;
+        saveSettingsToDisk();
+      }
+    } else if (candidatesSel) {
+      candidatesSel.style.display = 'none';
     }
 
     renderProjects(s);

@@ -302,6 +302,9 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .collapsible{display:none}.collapsible.show{display:block}
 
 /* ===== Dashboard ===== */
+.settings-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;gap:16px;flex-wrap:wrap}
+.settings-header .save-status{font-size:0.75rem;color:var(--success);opacity:0;transition:opacity 0.3s;align-self:center}
+.settings-header .save-status.visible{opacity:1}
 .dash-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;gap:16px;flex-wrap:wrap}
 .dash-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .dash-search{

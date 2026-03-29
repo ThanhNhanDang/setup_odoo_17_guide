@@ -108,8 +108,14 @@ function renderKanbanCard(p, isDemo) {
 function renderKanban(projects) {
   const search = ($('dashSearch')?.value || '').toLowerCase();
   const filter = $('dashFilter')?.value || 'all';
+  const globalVer = $('globalVersion')?.value || '';
 
   let filtered = projects;
+
+  // Version filter from global selector
+  if (globalVer) {
+    filtered = filtered.filter(p => (p.odoo_version || '17') === globalVer);
+  }
 
   // Search filter
   if (search) {
@@ -122,7 +128,9 @@ function renderKanban(projects) {
   }
 
   // Category filter
-  if (filter === 'custom') {
+  if (filter === 'running') {
+    filtered = filtered.filter(p => p.is_running);
+  } else if (filter === 'custom') {
     filtered = filtered.filter(p => p.custom_modules > 0);
   }
 
