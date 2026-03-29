@@ -964,17 +964,21 @@ async function dismissJob(type, dbName) {
 }
 
 // ======== Monitor Guided Tour ========
-const MONITOR_TOUR_STEPS = [
-  { selector: '[data-tour="monitor-tabs"]', title: ti('logViewer.tourTabs') || 'Tabs', text: ti('logViewer.tourTabsText') || 'Switch between Log (real-time Odoo logs) and Database (create, restore, drop databases).', position: 'bottom' },
-  { selector: '[data-tour="monitor-status"]', title: ti('logViewer.tourStatus') || 'Status Bar', text: ti('logViewer.tourStatusText') || 'Log watcher status and Odoo server status. Green dot = active.', position: 'bottom' },
-  { selector: '[data-tour="monitor-pin"]', title: ti('logViewer.tourPin') || 'Pin Window', text: ti('logViewer.tourPinText') || 'Keep this window always on top of other windows.', position: 'bottom' },
-  { selector: '[data-tour="monitor-actions"]', title: ti('logViewer.tourActions') || 'Save & Restart', text: ti('logViewer.tourActionsText') || 'Save config changes (log level, modules) and restart Odoo. Open browser button on the right.', position: 'bottom' },
-  { selector: '[data-tour="monitor-log-level"]', title: ti('logViewer.tourLogLevel') || 'Log Level', text: ti('logViewer.tourLogLevelText') || 'Change Odoo log verbosity. Takes effect after Save & Restart.', position: 'right' },
-  { selector: '[data-tour="monitor-modules"]', title: ti('logViewer.tourModules') || 'Module Upgrade', text: ti('logViewer.tourModulesText') || 'Select modules to upgrade (-u flag) when restarting Odoo.', position: 'right' },
-  { selector: '[data-tour="monitor-log-controls"]', title: ti('logViewer.tourLogControls') || 'Log Controls', text: ti('logViewer.tourLogControlsText') || 'Clear log, toggle auto-scroll, toggle log level highlighting.', position: 'left' },
-  { selector: '[data-tour="monitor-log-area"]', title: ti('logViewer.tourLogArea') || 'Log Viewer', text: ti('logViewer.tourLogAreaText') || 'Real-time Odoo logs. Colors: red = error, yellow = warning, blue = info. Max 5000 lines.', position: 'top' },
-  { selector: '[data-tour="monitor-db-toolbar"]', title: ti('logViewer.tourDbToolbar') || 'Database Toolbar', text: ti('logViewer.tourDbToolbarText') || 'Create new database, restore from backup, or refresh the list. Works without Odoo running.', position: 'bottom', actionBefore: 'switchToDb' },
-];
+// Use function (lazy) so ti() is called after i18n is loaded
+function _mt(key, fallback) { const v = ti(key); return v !== key ? v : fallback; }
+function getMonitorTourSteps() {
+  return [
+    { selector: '[data-tour="monitor-tabs"]', title: _mt('logViewer.tourTabs', 'Tabs'), text: _mt('logViewer.tourTabsText', 'Switch between Log (real-time Odoo logs) and Database (create, restore, drop databases).'), position: 'bottom' },
+    { selector: '[data-tour="monitor-status"]', title: _mt('logViewer.tourStatus', 'Status Bar'), text: _mt('logViewer.tourStatusText', 'Log watcher status and Odoo server status. Green dot = active.'), position: 'bottom' },
+    { selector: '[data-tour="monitor-pin"]', title: _mt('logViewer.tourPin', 'Pin Window'), text: _mt('logViewer.tourPinText', 'Keep this window always on top of other windows.'), position: 'bottom' },
+    { selector: '[data-tour="monitor-actions"]', title: _mt('logViewer.tourActions', 'Save & Restart'), text: _mt('logViewer.tourActionsText', 'Save config changes (log level, modules) and restart Odoo. Open browser button on the right.'), position: 'bottom' },
+    { selector: '[data-tour="monitor-log-level"]', title: _mt('logViewer.tourLogLevel', 'Log Level'), text: _mt('logViewer.tourLogLevelText', 'Change Odoo log verbosity. Takes effect after Save & Restart.'), position: 'right' },
+    { selector: '[data-tour="monitor-modules"]', title: _mt('logViewer.tourModules', 'Module Upgrade'), text: _mt('logViewer.tourModulesText', 'Select modules to upgrade (-u flag) when restarting Odoo.'), position: 'right' },
+    { selector: '[data-tour="monitor-log-controls"]', title: _mt('logViewer.tourLogControls', 'Log Controls'), text: _mt('logViewer.tourLogControlsText', 'Clear log, toggle auto-scroll, toggle log level highlighting.'), position: 'left' },
+    { selector: '[data-tour="monitor-log-area"]', title: _mt('logViewer.tourLogArea', 'Log Viewer'), text: _mt('logViewer.tourLogAreaText', 'Real-time Odoo logs. Colors: red = error, yellow = warning, blue = info. Max 5000 lines.'), position: 'top' },
+    { selector: '[data-tour="monitor-db-toolbar"]', title: _mt('logViewer.tourDbToolbar', 'Database Toolbar'), text: _mt('logViewer.tourDbToolbarText', 'Create new database, restore from backup, or refresh the list. Works without Odoo running.'), position: 'bottom', actionBefore: 'switchToDb' },
+  ];
+}
 
 let _mTourStep = -1;
 let _mTourEls = {};
@@ -1022,15 +1026,15 @@ function endMonitorTour() {
 }
 
 function nextMTour() {
-  const cur = MONITOR_TOUR_STEPS[_mTourStep];
+  const cur = getMonitorTourSteps()[_mTourStep];
   if (cur && cur.actionAfter) _execMTourAction(cur.actionAfter);
   _mTourStep++;
-  if (_mTourStep >= MONITOR_TOUR_STEPS.length) { endMonitorTour(); return; }
+  if (_mTourStep >= getMonitorTourSteps().length) { endMonitorTour(); return; }
   _goMTourStep(_mTourStep);
 }
 
 function prevMTour() {
-  const cur = MONITOR_TOUR_STEPS[_mTourStep];
+  const cur = getMonitorTourSteps()[_mTourStep];
   if (cur && cur.actionAfter) _execMTourAction(cur.actionAfter);
   if (_mTourStep > 0) { _mTourStep--; _goMTourStep(_mTourStep); }
 }
@@ -1041,7 +1045,7 @@ function _execMTourAction(action) {
 }
 
 function _goMTourStep(idx) {
-  const step = MONITOR_TOUR_STEPS[idx];
+  const step = getMonitorTourSteps()[idx];
   if (!step) { endMonitorTour(); return; }
   if (step.actionBefore) _execMTourAction(step.actionBefore);
 
@@ -1092,9 +1096,9 @@ function _goMTourStep(idx) {
 
       document.getElementById('mtourTitle').textContent = step.title;
       document.getElementById('mtourText').textContent = step.text;
-      document.getElementById('mtourCounter').textContent = (idx + 1) + ' / ' + MONITOR_TOUR_STEPS.length;
+      document.getElementById('mtourCounter').textContent = (idx + 1) + ' / ' + getMonitorTourSteps().length;
       document.getElementById('mtourPrev').style.display = idx === 0 ? 'none' : '';
-      document.getElementById('mtourNext').textContent = idx === MONITOR_TOUR_STEPS.length - 1 ? 'Done' : 'Next';
+      document.getElementById('mtourNext').textContent = idx === getMonitorTourSteps().length - 1 ? 'Done' : 'Next';
     });
   }));
 }
