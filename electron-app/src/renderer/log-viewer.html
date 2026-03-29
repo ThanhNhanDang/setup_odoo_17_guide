@@ -1480,20 +1480,14 @@ if (window.electronAPI) {
       if (job.output.length > 100) job.output.shift();
     }
 
-    // Find existing row in DOM
+    // Find existing row in DOM and update in place
     const row = document.querySelector(`tr[data-job-type="${data.type}"][data-job-db="${CSS.escape(data.dbName)}"]`);
     if (row) {
-      // Update in place
       const tmp = document.createElement('tbody');
       tmp.innerHTML = renderProgressRow(job);
       row.replaceWith(tmp.firstElementChild);
-    } else if (data.status === 'running') {
-      // Insert new row (e.g. table was rebuilt)
-      const tbody = document.querySelector('.db-table tbody');
-      if (tbody) {
-        tbody.insertAdjacentHTML('afterbegin', renderProgressRow(job));
-      }
     }
+    // If row not found, loadDatabases() will render it from _inlineJobs
 
     // On done: reload table after short delay
     if (data.status === 'done') {
@@ -1629,23 +1623,32 @@ async function doCreateDb() {
   const country = document.getElementById('createDbCountry').value.trim();
 
   document.getElementById('btnDoCreateDb').disabled = true;
+
+  // Pre-register job + insert row BEFORE API call to prevent race with db-job-progress event
+  _inlineJobs.set('create', { type: 'create', dbName: name, status: 'running', step: 'creating_db', elapsed: 0, output: [], error: null, startTime: Date.now() });
+  hideDbModal('modalCreateDb');
+  const tbody = document.querySelector('.db-table tbody');
+  if (tbody) tbody.insertAdjacentHTML('afterbegin', renderProgressRow(_inlineJobs.get('create')));
+
   try {
     const res = await window.electronAPI.invoke('monitor-create-database', {
       projectName: currentProjectName, dbName: name, demoData,
       adminEmail, adminPassword, adminPhone, lang, country,
       projectsDir, baseDir, odooVersion, odooSourceDir,
     });
-    if (res?.ok || res?.msg === 'STARTED') {
-      // Close modal → inline row will appear via db-job-progress event
-      hideDbModal('modalCreateDb');
-      _inlineJobs.set('create', { type: 'create', dbName: name, status: 'running', step: 'creating_db', elapsed: 0, output: [], error: null, startTime: Date.now() });
-      // Inject row immediately
-      const tbody = document.querySelector('.db-table tbody');
-      if (tbody) tbody.insertAdjacentHTML('afterbegin', renderProgressRow(_inlineJobs.get('create')));
-    } else {
+    if (!res?.ok && res?.msg !== 'STARTED') {
+      // API rejected — remove inline row, reopen modal with error
+      _inlineJobs.delete('create');
+      const row = document.querySelector('tr[data-job-type="create"][data-job-db="' + CSS.escape(name) + '"]');
+      if (row) row.remove();
+      showDbModal('modalCreateDb');
       msgEl.className = 'db-msg error'; msgEl.textContent = ti('monitor.' + res?.msg) || res?.msg || 'Error';
     }
   } catch (e) {
+    _inlineJobs.delete('create');
+    const row = document.querySelector('tr[data-job-type="create"][data-job-db="' + CSS.escape(name) + '"]');
+    if (row) row.remove();
+    showDbModal('modalCreateDb');
     msgEl.className = 'db-msg error'; msgEl.textContent = e?.message || 'Error';
   } finally {
     document.getElementById('btnDoCreateDb').disabled = false;
@@ -1683,20 +1686,30 @@ async function doRestoreDb() {
   if (!filePath) { msgEl.className = 'db-msg error'; msgEl.textContent = ti('logViewer.backupRequired'); return; }
 
   document.getElementById('btnDoRestoreDb').disabled = true;
+
+  // Pre-register job + insert row BEFORE API call to prevent race with db-job-progress event
+  _inlineJobs.set('restore', { type: 'restore', dbName: name, status: 'running', step: 'preparing', elapsed: 0, output: [], error: null, startTime: Date.now() });
+  hideDbModal('modalRestoreDb');
+  const tbody = document.querySelector('.db-table tbody');
+  if (tbody) tbody.insertAdjacentHTML('afterbegin', renderProgressRow(_inlineJobs.get('restore')));
+
   try {
     const res = await window.electronAPI.invoke('monitor-restore-database', {
       projectName: currentProjectName, dbName: name, filePath,
       projectsDir, baseDir, odooVersion, odooSourceDir,
     });
-    if (res?.ok || res?.msg === 'STARTED') {
-      hideDbModal('modalRestoreDb');
-      _inlineJobs.set('restore', { type: 'restore', dbName: name, status: 'running', step: 'preparing', elapsed: 0, output: [], error: null, startTime: Date.now() });
-      const tbody = document.querySelector('.db-table tbody');
-      if (tbody) tbody.insertAdjacentHTML('afterbegin', renderProgressRow(_inlineJobs.get('restore')));
-    } else {
+    if (!res?.ok && res?.msg !== 'STARTED') {
+      _inlineJobs.delete('restore');
+      const row = document.querySelector('tr[data-job-type="restore"][data-job-db="' + CSS.escape(name) + '"]');
+      if (row) row.remove();
+      showDbModal('modalRestoreDb');
       msgEl.className = 'db-msg error'; msgEl.textContent = ti('monitor.' + res?.msg) || res?.msg || 'Error';
     }
   } catch (e) {
+    _inlineJobs.delete('restore');
+    const row = document.querySelector('tr[data-job-type="restore"][data-job-db="' + CSS.escape(name) + '"]');
+    if (row) row.remove();
+    showDbModal('modalRestoreDb');
     msgEl.className = 'db-msg error'; msgEl.textContent = e?.message || 'Error';
   } finally {
     document.getElementById('btnDoRestoreDb').disabled = false;
@@ -1717,25 +1730,33 @@ async function doDropDb() {
   const msgEl = document.getElementById('dropDbMsg');
   if (input !== _dbDropTarget) { msgEl.className = 'db-msg error'; msgEl.textContent = ti('logViewer.nameNotMatch'); return; }
   document.getElementById('btnDoDropDb').disabled = true;
+  const dropTarget = _dbDropTarget;
+  const dropKey = `drop:${dropTarget}`;
+
+  // Pre-register job + transform row BEFORE API call to prevent race
+  _inlineJobs.set(dropKey, { type: 'drop', dbName: dropTarget, status: 'running', step: 'terminating_connections', elapsed: 0, output: [], error: null, startTime: Date.now() });
+  hideDbModal('modalDropDb');
+  const existingRow = [...document.querySelectorAll('.db-table tbody tr')].find(r => r.querySelector('td strong')?.textContent === dropTarget);
+  if (existingRow) {
+    const tmp = document.createElement('tbody');
+    tmp.innerHTML = renderProgressRow(_inlineJobs.get(dropKey));
+    existingRow.replaceWith(tmp.firstElementChild);
+  }
+
   try {
     const res = await window.electronAPI.invoke('monitor-drop-database', {
-      projectName: currentProjectName, dbName: _dbDropTarget, projectsDir, odooVersion,
+      projectName: currentProjectName, dbName: dropTarget, projectsDir, odooVersion,
     });
-    if (res?.ok || res?.msg === 'STARTED') {
-      hideDbModal('modalDropDb');
-      const key = `drop:${_dbDropTarget}`;
-      _inlineJobs.set(key, { type: 'drop', dbName: _dbDropTarget, status: 'running', step: 'terminating_connections', elapsed: 0, output: [], error: null, startTime: Date.now() });
-      // Transform existing row in-place
-      const existingRow = [...document.querySelectorAll('.db-table tbody tr')].find(r => r.querySelector('td strong')?.textContent === _dbDropTarget);
-      if (existingRow) {
-        const tmp = document.createElement('tbody');
-        tmp.innerHTML = renderProgressRow(_inlineJobs.get(key));
-        existingRow.replaceWith(tmp.firstElementChild);
-      }
-    } else {
+    if (!res?.ok && res?.msg !== 'STARTED') {
+      _inlineJobs.delete(dropKey);
+      loadDatabases(true);
+      showDbModal('modalDropDb');
       msgEl.className = 'db-msg error'; msgEl.textContent = res?.msg || 'Error';
     }
   } catch (e) {
+    _inlineJobs.delete(dropKey);
+    loadDatabases(true);
+    showDbModal('modalDropDb');
     msgEl.className = 'db-msg error'; msgEl.textContent = e?.message || 'Error';
   } finally {
     document.getElementById('btnDoDropDb').disabled = false;
