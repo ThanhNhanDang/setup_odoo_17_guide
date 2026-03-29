@@ -122,24 +122,20 @@ function goToTourStep(index) {
     showPanel(step.panelBefore);
   }
 
-  // Wait for element to appear AND have valid layout (panel switch + async API may take 3-5s)
-  _waitForVisibleElement(step.selector, step.panelBefore ? 5000 : 1000, () => _positionTourStep(step, index));
+  // Wait for element to exist in DOM, then position after layout settles
+  const timeout = step.panelBefore ? 5000 : 1000;
+  _waitForElement(step.selector, timeout, () => {
+    // Double rAF ensures layout has been calculated after panel switch
+    requestAnimationFrame(() => requestAnimationFrame(() => _positionTourStep(step, index)));
+  });
 }
 
-/** Poll until element exists AND has visible rect (height > 0, not at origin). Falls back after timeout. */
-function _waitForVisibleElement(selector, timeout, callback) {
+/** Poll until element exists in DOM. Falls back after timeout. */
+function _waitForElement(selector, timeout, callback) {
   const start = Date.now();
   const check = () => {
-    const el = document.querySelector(selector);
-    if (el) {
-      const r = el.getBoundingClientRect();
-      if (r.height > 0 && (r.top > 0 || r.bottom > 0)) {
-        callback();
-        return;
-      }
-    }
-    if (Date.now() - start > timeout) {
-      callback(); // fallback: proceed even if not found
+    if (document.querySelector(selector) || Date.now() - start > timeout) {
+      callback();
     } else {
       requestAnimationFrame(check);
     }
