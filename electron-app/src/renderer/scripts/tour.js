@@ -122,16 +122,24 @@ function goToTourStep(index) {
     showPanel(step.panelBefore);
   }
 
-  // Wait for element to appear (panel switch + async render may take time)
-  _waitForElement(step.selector, step.panelBefore ? 2000 : 500, () => _positionTourStep(step, index));
+  // Wait for element to appear AND have valid layout (panel switch + async API may take 3-5s)
+  _waitForVisibleElement(step.selector, step.panelBefore ? 5000 : 1000, () => _positionTourStep(step, index));
 }
 
-/** Poll for element existence, then call callback. Falls back after timeout. */
-function _waitForElement(selector, timeout, callback) {
+/** Poll until element exists AND has visible rect (height > 0, not at origin). Falls back after timeout. */
+function _waitForVisibleElement(selector, timeout, callback) {
   const start = Date.now();
   const check = () => {
-    if (document.querySelector(selector) || Date.now() - start > timeout) {
-      callback();
+    const el = document.querySelector(selector);
+    if (el) {
+      const r = el.getBoundingClientRect();
+      if (r.height > 0 && (r.top > 0 || r.bottom > 0)) {
+        callback();
+        return;
+      }
+    }
+    if (Date.now() - start > timeout) {
+      callback(); // fallback: proceed even if not found
     } else {
       requestAnimationFrame(check);
     }
@@ -162,8 +170,8 @@ function _positionTourStep(step, index) {
   const scrollTarget = target.closest('.kanban-card') || target.closest('.install-steps') || target;
   scrollTarget.scrollIntoView({ behavior: 'instant', block: 'center' });
 
-  // Wait for layout to settle — poll until element has valid position
-  _waitForLayout(target, () => {
+  // Small delay for scroll to settle, then position overlay
+  requestAnimationFrame(() => {
     const rect = target.getBoundingClientRect();
     const pad = 8;
     const W = window.innerWidth;
@@ -207,20 +215,6 @@ function _positionTourStep(step, index) {
   });
 }
 
-/** Wait until element has valid bounding rect (height > 0, not at origin) */
-function _waitForLayout(el, callback) {
-  const start = Date.now();
-  const poll = () => {
-    const r = el.getBoundingClientRect();
-    if ((r.height > 0 && r.top > 0) || Date.now() - start > 1500) {
-      callback();
-    } else {
-      requestAnimationFrame(poll);
-    }
-  };
-  // Give 1 frame for scroll to settle
-  requestAnimationFrame(poll);
-}
 
 function _setOverlay(side, x, y, w, h) {
   const el = _tourEls[side];
