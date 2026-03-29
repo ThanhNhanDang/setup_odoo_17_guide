@@ -66,7 +66,7 @@ export const PROJECT_DEFAULTS: Readonly<Record<string, string>> = {
   db_password: 'odoo',
   log_level: 'error',
   log_handler: ':ERROR',
-  workers: '0',
+  workers: '2',
   limit_memory_hard: '10737418240',
   limit_memory_soft: '10737418240',
   list_db: 'True',

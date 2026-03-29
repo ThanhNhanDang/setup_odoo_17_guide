@@ -326,6 +326,27 @@ export async function ensurePgAndStartOdoo(ctx: IpcContext, opts: {
     }
   }
 
+  // Auto-upgrade workers=0 → workers=2 for legacy projects
+  try {
+    const { parseIniFile, iniGet, iniSet, stringifyIni } = require('../services/ini-parser');
+    const ini = parseIniFile(confFile);
+    const currentWorkers = iniGet(ini, 'options', 'workers', '0');
+    if (currentWorkers === '0') {
+      ctx.logger.log('  > Upgrading workers=0 → workers=2 for better performance...');
+      const updated = iniSet(ini, 'options', 'workers', '2');
+      // Preserve comment lines (project_domain, odoo_version) at top of file
+      const rawConf = fs.readFileSync(confFile, 'utf8');
+      const commentLines = rawConf.split('\n').filter((l: string) => l.startsWith(';'));
+      const newContent = commentLines.length > 0
+        ? commentLines.join('\n') + '\n' + stringifyIni(updated)
+        : stringifyIni(updated);
+      fs.writeFileSync(confFile, newContent, 'utf8');
+      ctx.logger.log('  > odoo.conf updated: workers=2');
+    }
+  } catch (e) {
+    ctx.logger.log(`  > Auto-upgrade workers check failed: ${e}`);
+  }
+
   const odooEnv = { ...process.env };
   if (pgBin && !odooEnv.PATH?.includes(pgBin)) {
     odooEnv.PATH = `${pgBin};${odooEnv.PATH || ''}`;

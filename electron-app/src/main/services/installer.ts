@@ -121,7 +121,7 @@ export async function stepInstallVSCode(baseDir: string, logger: LoggerService):
   return { ok: false, msg: 'Install may need admin rights.' };
 }
 
-const WKHTMLTOPDF_URL = 'https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6.1-3/wkhtmltox-0.12.6.1-3.msvc2015-win64.exe';
+const WKHTMLTOPDF_URL = 'https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/wkhtmltox-0.12.6-1.msvc2015-win64.exe';
 
 export async function stepInstallWkhtmltopdf(baseDir: string, logger: LoggerService): Promise<StepResult> {
   const existing = findWkhtmltopdf();

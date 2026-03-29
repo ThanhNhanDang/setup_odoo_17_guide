@@ -840,7 +840,7 @@ async function createProject(e) {
     data.db_user = $('newProjDbUser')?.value || data.db_user || 'odoo';
     data.db_password = $('newProjDbPass')?.value || data.db_password || 'odoo';
     data.log_level = $('newLogLevel')?.value || 'error';
-    data.workers = $('newWorkers')?.value || '0';
+    data.workers = $('newWorkers')?.value || '2';
     data.dbfilter = $('newDbfilter')?.value || '';
     data.proxy_mode = $('newProxyMode')?.value || 'True';
     data.project_domain = $('newProjDomain')?.value || '';
