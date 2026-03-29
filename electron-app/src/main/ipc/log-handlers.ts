@@ -176,7 +176,7 @@ export function registerLogHandlers(ctx: IpcContext): void {
     const color = LOG_WINDOW_COLORS[logColorIndex % LOG_WINDOW_COLORS.length];
     logColorIndex++;
 
-    const logViewerPath = path.join(__dirname, '..', '..', 'src', 'renderer', 'log-viewer.html');
+    const logViewerPath = path.join(__dirname, '..', '..', '..', 'src', 'renderer', 'log-viewer.html');
     const extraParams = [
       data.odooVersion ? `&odooVersion=${encodeURIComponent(data.odooVersion)}` : '',
       data.baseDir ? `&baseDir=${encodeURIComponent(data.baseDir)}` : '',
@@ -203,7 +203,7 @@ export function registerLogHandlers(ctx: IpcContext): void {
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: false,
-        preload: path.join(__dirname, '..', 'preload', 'index.js'),
+        preload: path.join(__dirname, '..', '..', 'preload', 'index.js'),
       },
     });
 

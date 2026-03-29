@@ -94,7 +94,7 @@ export function registerSettingsHandlers(ctx: IpcContext): void {
   // --- Icon Management ---
   ipcMain.handle('get-icon', async () => {
     const customDir = path.join(app.getPath('userData'), 'custom-icon');
-    const defaultDir = app.isPackaged ? process.resourcesPath : path.join(__dirname, '..', '..', 'resources');
+    const defaultDir = app.isPackaged ? process.resourcesPath : path.join(__dirname, '..', '..', '..', 'resources');
     for (const ext of ['.ico', '.png', '.svg']) {
       const p = path.join(customDir, `icon${ext}`);
       if (fs.existsSync(p)) {
@@ -156,7 +156,7 @@ export function registerSettingsHandlers(ctx: IpcContext): void {
       }
       const defaultIcon = app.isPackaged
         ? path.join(process.resourcesPath, 'icon.ico')
-        : path.join(__dirname, '..', '..', 'resources', 'icon.ico');
+        : path.join(__dirname, '..', '..', '..', 'resources', 'icon.ico');
       if (fs.existsSync(defaultIcon)) {
         const { nativeImage } = require('electron');
         ctx.mainWindow.setIcon(nativeImage.createFromPath(defaultIcon));
