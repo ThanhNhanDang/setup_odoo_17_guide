@@ -351,6 +351,11 @@ export async function ensurePgAndStartOdoo(ctx: IpcContext, opts: {
   if (pgBin && !odooEnv.PATH?.includes(pgBin)) {
     odooEnv.PATH = `${pgBin};${odooEnv.PATH || ''}`;
   }
+  // Add wkhtmltopdf to PATH if installed but not already in PATH
+  const wkhtmlBin = 'C:\\Program Files\\wkhtmltopdf\\bin';
+  if (fs.existsSync(path.join(wkhtmlBin, 'wkhtmltopdf.exe')) && !odooEnv.PATH?.includes(wkhtmlBin)) {
+    odooEnv.PATH = `${wkhtmlBin};${odooEnv.PATH || ''}`;
+  }
 
   ctx.logger.log(`Starting Odoo: ${cmd}`);
   const { exec: execChild } = require('child_process');
