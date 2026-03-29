@@ -217,7 +217,25 @@
     "preparing": "Preparing...",
     "dbNameRequired": "Database name is required",
     "backupRequired": "Backup file is required",
-    "nameNotMatch": "Name does not match"
+    "nameNotMatch": "Name does not match",
+    "tourTabs": "Tabs",
+    "tourTabsText": "Switch between Log (real-time Odoo logs) and Database (create, restore, drop databases).",
+    "tourStatus": "Status Bar",
+    "tourStatusText": "Log watcher status and Odoo server status. Green dot = active.",
+    "tourPin": "Pin Window",
+    "tourPinText": "Keep this window always on top of other windows.",
+    "tourActions": "Save & Restart",
+    "tourActionsText": "Save config changes (log level, modules) and restart Odoo. Open browser button on the right.",
+    "tourLogLevel": "Log Level",
+    "tourLogLevelText": "Change Odoo log verbosity. Takes effect after Save & Restart.",
+    "tourModules": "Module Upgrade",
+    "tourModulesText": "Select modules to upgrade (-u flag) when restarting Odoo.",
+    "tourLogControls": "Log Controls",
+    "tourLogControlsText": "Clear log, toggle auto-scroll, toggle log level highlighting.",
+    "tourLogArea": "Log Viewer",
+    "tourLogAreaText": "Real-time Odoo logs. Colors: red = error, yellow = warning, blue = info. Max 5000 lines.",
+    "tourDbToolbar": "Database Toolbar",
+    "tourDbToolbarText": "Create new database, restore from backup, or refresh the list. Works without Odoo running."
   },
   "monitor": {
     "tabLog": "Log",
@@ -284,5 +302,14 @@
     "PROTECTED_DB": "Cannot drop system database (postgres, template0, template1)."
   },
   "tour": { "skip": "Skip", "prev": "Prev", "next": "Next", "done": "Done" },
-  "status": { "ok": "OK", "missing": "Missing", "available": "Available", "notFound": "Not found" }
+  "status": { "ok": "OK", "missing": "Missing", "available": "Available", "notFound": "Not found" },
+  "td": {
+    "tour": {
+      "8": { "title": "Settings", "text": "Click to open Settings. Configure directories, database, themes, and more." },
+      "8a": { "title": "Theme Presets", "text": "Choose from 4 themes: Default, Amethyst, Cyberpunk, Pink Luxury. Each with dark/light mode." },
+      "8b": { "title": "Odoo Version", "text": "Select Odoo version. Auto-adjusts Python, PostgreSQL versions and download URLs." },
+      "8c": { "title": "Directories", "text": "Base directory for Odoo source + venv. Projects directory for all your projects." },
+      "8d": { "title": "Database Config", "text": "PostgreSQL connection: host, port, user, password. These are defaults for new projects." }
+    }
+  }
 }
