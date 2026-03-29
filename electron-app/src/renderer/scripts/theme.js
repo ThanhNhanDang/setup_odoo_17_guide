@@ -10,8 +10,8 @@ function toggleMode() {
 
   // Fallback if View Transition API not available
   if (!document.startViewTransition || !btn) {
-    applyMode(next);
     localStorage.setItem('mode', next);
+    applyMode(next);
     return;
   }
 
@@ -33,9 +33,9 @@ function toggleMode() {
   const dirClass = next === 'dark' ? 'vt-going-dark' : 'vt-going-light';
   document.documentElement.classList.add(dirClass);
 
+  localStorage.setItem('mode', next);
   const transition = document.startViewTransition(() => {
     applyMode(next);
-    localStorage.setItem('mode', next);
   });
 
   // Cleanup classes + CSS vars when done (or on error)
