@@ -156,7 +156,7 @@ export function registerLogHandlers(ctx: IpcContext): void {
   ipcMain.handle('open-log-window', async (_event, data: {
     projectName: string; logPath: string;
     odooVersion?: string; baseDir?: string; projectsDir?: string;
-    httpPort?: string; odooSourceDir?: string;
+    httpPort?: string; domain?: string; odooSourceDir?: string;
     themePreset?: string; themeMode?: string; themeCustom?: string;
   }) => {
     const { projectName, logPath } = data;
@@ -182,6 +182,7 @@ export function registerLogHandlers(ctx: IpcContext): void {
       data.baseDir ? `&baseDir=${encodeURIComponent(data.baseDir)}` : '',
       data.projectsDir ? `&projectsDir=${encodeURIComponent(data.projectsDir)}` : '',
       data.httpPort ? `&httpPort=${encodeURIComponent(data.httpPort)}` : '',
+      data.domain ? `&domain=${encodeURIComponent(data.domain)}` : '',
       data.odooSourceDir ? `&odooSourceDir=${encodeURIComponent(data.odooSourceDir)}` : '',
       data.themePreset ? `&themePreset=${encodeURIComponent(data.themePreset)}` : '',
       data.themeMode ? `&themeMode=${encodeURIComponent(data.themeMode)}` : '',

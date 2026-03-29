@@ -943,13 +943,14 @@ async function withBtnPending(e, guardKey, label, asyncFn, cooldown) {
     setTimeout(() => { _actionGuards[guardKey] = false; }, cooldown || 2000);
   }
 }
-async function openLogWindow(projectName, logPath, e, httpPort) {
+async function openLogWindow(projectName, logPath, e, httpPort, domain) {
   await withBtnPending(e, 'log-' + projectName, t('project.monitor'), () => api('open-log-window', {
     projectName, logPath,
     odooVersion: $('odooVersion')?.value || '17',
     baseDir: $('baseDir')?.value || '',
     projectsDir: $('projectsDir')?.value || '',
     httpPort: httpPort || '',
+    domain: domain || '',
     odooSourceDir: $('odooSourceDir')?.value || 'odoo',
     themePreset: localStorage.getItem('preset') || 'default',
     themeMode: localStorage.getItem('mode') || 'dark',

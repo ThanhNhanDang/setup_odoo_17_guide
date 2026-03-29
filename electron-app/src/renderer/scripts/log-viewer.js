@@ -6,6 +6,7 @@ const odooVersion = params.get('odooVersion') || '';
 const baseDir = params.get('baseDir') || '';
 const projectsDir = params.get('projectsDir') || '';
 let httpPort = params.get('httpPort') || '';
+const projectDomain = params.get('domain') || '';
 const odooSourceDir = params.get('odooSourceDir') || '';
 
 // Apply theme from main app
@@ -500,8 +501,10 @@ function deselectAllModules() {
 
 // --- Open Browser ---
 async function openBrowserFromMonitor() {
-  if (!window.electronAPI || !httpPort) return;
-  await window.electronAPI.invoke('open_browser', { url: `http://localhost:${httpPort}` });
+  if (!window.electronAPI) return;
+  // Prefer HTTPS domain if available, fallback to localhost
+  const url = projectDomain ? `https://${projectDomain}` : `http://localhost:${httpPort}`;
+  await window.electronAPI.invoke('open_browser', { url });
 }
 
 // --- Save & Restart ---
