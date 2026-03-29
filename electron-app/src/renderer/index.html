@@ -27,7 +27,7 @@
 </div>
 
 <!-- Top Navigation -->
-<div class="topnav">
+<div class="topnav" data-tour="nav">
   <button class="nav-tab active" onclick="showPanel('dashboard',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
     <span data-i18n="nav.dashboard">Dashboard</span>
@@ -45,7 +45,7 @@
     <svg id="themeIconDark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
     <svg id="themeIconLight" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
   </button>
-  <div class="lang-dropdown" id="langDropdown">
+  <div class="lang-dropdown" id="langDropdown" data-tour="language">
     <button class="theme-toggle lang-btn" onclick="toggleLangDropdown()" title="Language">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
       <span class="lang-label" id="langLabel">EN</span>
@@ -56,10 +56,10 @@
       <div class="lang-option" onclick="setLanguage('ko');closeLangDropdown()">한국어</div>
     </div>
   </div>
-  <button class="theme-toggle" onclick="openSettingsModal()" title="Settings">
+  <button class="theme-toggle" data-tour="settings" onclick="openSettingsModal()" title="Settings">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
   </button>
-  <span class="nav-version" id="navVersion" onclick="checkForUpdate()" title="Click to check for updates" style="cursor:pointer">v1.0.0</span>
+  <span class="nav-version" id="navVersion" data-tour="version" onclick="checkForUpdate()" title="Click to check for updates" style="cursor:pointer">v1.0.0</span>
 </div>
 
 <!-- Settings Modal -->
@@ -275,7 +275,7 @@
 
   <!-- DASHBOARD -->
   <div class="panel active" id="panel-dashboard">
-    <div class="dash-header">
+    <div class="dash-header" data-tour="dash-header">
       <div>
         <h2 data-i18n="dashboard.title">Dashboard</h2>
         <p class="desc" data-i18n="dashboard.desc">Overview of your Odoo projects</p>
@@ -290,18 +290,18 @@
           <option value="running" data-i18n="dashboard.running">Running</option>
           <option value="custom" data-i18n="dashboard.hasCustom">Has Custom Modules</option>
         </select>
-        <button class="btn btn-outline btn-sm" onclick="resetAllTemplates()">
+        <button class="btn btn-outline btn-sm" data-tour="reset-templates" onclick="resetAllTemplates()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="1,4 1,10 7,10"/><path d="M3.51 15a9 9 0 105.36-10.36L1 10"/></svg>
           <span data-i18n="dashboard.resetAll">Reset All Templates</span>
         </button>
-        <button class="btn btn-primary btn-sm" onclick="showModal('modalNewProject')">
+        <button class="btn btn-primary btn-sm" data-tour="new-project" onclick="showModal('modalNewProject')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
           <span data-i18n="dashboard.newProject">New Project</span>
         </button>
       </div>
     </div>
     <div class="dash-stats" id="dashStats"></div>
-    <div class="dash-kanban" id="dashKanban"></div>
+    <div class="dash-kanban" id="dashKanban" data-tour="kanban"></div>
     <div class="empty" id="dashEmpty" style="display:none">
       <p data-i18n-html="dashboard.noProjects">No projects yet. Go to <strong>New Project</strong> to create one.</p>
     </div>
@@ -313,13 +313,13 @@
   <div class="panel" id="panel-install">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px">
       <h2 style="margin:0" data-i18n="install.title">Full Install</h2>
-      <select id="installVersion" onchange="onInstallVersionChange(this.value)" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border-muted);background:var(--bg-surface);color:var(--text-primary);font-size:0.85rem">
+      <select id="installVersion" data-tour="install-version" onchange="onInstallVersionChange(this.value)" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border-muted);background:var(--bg-surface);color:var(--text-primary);font-size:0.85rem">
         <!-- Populated dynamically from odoo-versions registry -->
       </select>
     </div>
     <p class="desc" data-i18n="install.desc">Install all components. Configure defaults in Settings tab first.</p>
     <!-- Step Cards -->
-    <div class="install-steps" id="installSteps">
+    <div class="install-steps" id="installSteps" data-tour="install-steps">
       <div class="step-card" id="step-install_nginx" onclick="runStep('install_nginx')">
         <div class="step-icon" id="stepIcon-install_nginx">1</div>
         <div class="step-info">
@@ -394,7 +394,7 @@
       </div>
     </div>
     <div class="btn-row" style="margin-top:16px">
-      <button class="btn btn-primary" id="btnFullInstall" onclick="fullInstall()" data-i18n="install.installAll">Install Everything</button>
+      <button class="btn btn-primary" id="btnFullInstall" data-tour="install-all" onclick="fullInstall()" data-i18n="install.installAll">Install Everything</button>
       <button class="btn btn-outline" id="btnCheckStatus" onclick="checkInstallStatus()" data-i18n="install.checkStatus">Check Status</button>
     </div>
     <!-- Install Log (inline) -->
@@ -436,7 +436,7 @@
 </div>
 
 <!-- Floating help button -->
-<button class="tour-fab" id="tourFab" onclick="startTour()" title="Start Guided Tour">?</button>
+<button class="tour-fab" id="tourFab" data-tour="help-btn" onclick="startTour()" title="Start Guided Tour">?</button>
 
 <!-- Modals -->
 <!-- New Project Modal -->

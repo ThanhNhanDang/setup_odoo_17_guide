@@ -75,7 +75,7 @@ function renderKanbanCard(p, isDemo) {
 
   return `
     <div class="kanban-card${demoClass}">
-      <div class="kanban-card-header">
+      <div class="kanban-card-header" data-tour="card-header">
         <span class="kanban-card-name">${escHtml(p.name)} ${demoLabel}</span>
         <div style="display:flex;align-items:center;gap:4px">
           <span class="kanban-card-port" ${onclick(`openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port || '8069')}')`)} title="Open in browser" style="cursor:pointer">:${escHtml(p.http_port || '8069')}</span>
@@ -84,16 +84,16 @@ function renderKanbanCard(p, isDemo) {
       </div>
       <div class="kanban-card-url" ${onclick(`openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port || '8069')}')`)} title="Click to open">${escHtml(getProjectUrl(p.domain, p.http_port || '8069'))}</div>
       <div class="kanban-card-body">
-        <div class="kanban-card-tags">
+        <div class="kanban-card-tags" data-tour="card-tags">
           <span class="kanban-tag kanban-tag-version" style="background:${versionColor};color:#fff">v${escHtml(versionKey)}</span>
           ${statusTag}
           ${p.custom_modules > 0 ? `<span class="kanban-tag kanban-tag-modules">${p.custom_modules} modules</span>` : ''}
         </div>
-        <button class="kanban-log-btn" ${onclick(`openLogWindow('${escAttr(p.name)}','${escAttr(p.logfile || (p.path + '\\\\odoo.log'))}',event,'${escAttr(p.http_port || '8069')}','${escAttr(p.domain || '')}')`)} title="${t('project.monitor')}"${btnDisabled}>
+        <button class="kanban-log-btn" data-tour="card-monitor" ${onclick(`openLogWindow('${escAttr(p.name)}','${escAttr(p.logfile || (p.path + '\\\\odoo.log'))}',event,'${escAttr(p.http_port || '8069')}','${escAttr(p.domain || '')}')`)} title="${t('project.monitor')}"${btnDisabled}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
         </button>
       </div>
-      <div class="kanban-card-actions">
+      <div class="kanban-card-actions" data-tour="card-actions">
         ${actionBtn}
         <div class="kanban-actions-center">
           <button class="kanban-icon-btn kanban-action-btn btn-vscode" ${onclick(`openVSCode('${escAttr(p.path)}',event)`)} title="${t('project.vsCode')}"${btnDisabled}><img src="images/vscode.png" width="18" height="18" style="border-radius:2px"></button>
