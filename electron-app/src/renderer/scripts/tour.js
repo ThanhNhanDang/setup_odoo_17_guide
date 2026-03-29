@@ -265,6 +265,23 @@ function _positionTooltip(step, rect) {
 
   tooltip.style.left = tooltipLeft + 'px';
   tooltip.style.top = tooltipTop + 'px';
+
+  // Position arrow to point at target center (not hardcoded left:24px)
+  if (arrow) {
+    arrow.style.left = '';
+    arrow.style.top = '';
+    const targetCenterX = rect.left + rect.width / 2;
+    const targetCenterY = rect.top + rect.height / 2;
+    if (pos === 'bottom' || pos === 'top') {
+      // Arrow horizontal position = target center relative to tooltip
+      const arrowLeft = Math.max(16, Math.min(targetCenterX - tooltipLeft - 6, 350));
+      arrow.style.left = arrowLeft + 'px';
+    } else {
+      // Arrow vertical position = target center relative to tooltip
+      const arrowTop = Math.max(12, Math.min(targetCenterY - tooltipTop - 6, 160));
+      arrow.style.top = arrowTop + 'px';
+    }
+  }
 }
 
 function _tourKeyHandler(e) {
