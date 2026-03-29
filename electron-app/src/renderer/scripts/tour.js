@@ -122,8 +122,21 @@ function goToTourStep(index) {
     showPanel(step.panelBefore);
   }
 
-  // Small delay to let panel render
-  setTimeout(() => _positionTourStep(step, index), step.panelBefore ? 150 : 0);
+  // Wait for element to appear (panel switch + async render may take time)
+  _waitForElement(step.selector, step.panelBefore ? 2000 : 500, () => _positionTourStep(step, index));
+}
+
+/** Poll for element existence, then call callback. Falls back after timeout. */
+function _waitForElement(selector, timeout, callback) {
+  const start = Date.now();
+  const check = () => {
+    if (document.querySelector(selector) || Date.now() - start > timeout) {
+      callback();
+    } else {
+      requestAnimationFrame(check);
+    }
+  };
+  requestAnimationFrame(check);
 }
 
 function _positionTourStep(step, index) {
