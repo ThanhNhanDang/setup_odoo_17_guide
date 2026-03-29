@@ -662,21 +662,23 @@ if (window.electronAPI) {
   });
 
   window.electronAPI.onTaskProgress((task) => {
-    // Map step labels to step IDs for card updates
-    const stepLabelMap = {
-      'Installing Nginx (HTTPS)...': 'install_nginx',
-      'Installing Git...': 'install_git',
-      'Installing VS Code...': 'install_vscode',
-      'Installing Python 3.11...': 'install_python',
-      'Installing PostgreSQL...': 'install_postgres',
-      'Creating DB user...': 'install_postgres', // group with PG
-      'Cloning Odoo 17...': 'clone_odoo',
-      'Creating virtual environment...': 'create_venv',
-      'Installing requirements...': 'install_requirements',
-    };
+    // Map step labels to step IDs — use pattern matching for version-dynamic labels
+    function matchStepId(label) {
+      if (!label) return null;
+      if (label.includes('Nginx')) return 'install_nginx';
+      if (label.includes('Git') && !label.includes('venv')) return 'install_git';
+      if (label.includes('VS Code')) return 'install_vscode';
+      if (label.includes('Python')) return 'install_python';
+      if (label.includes('PostgreSQL') || label.includes('DB user')) return 'install_postgres';
+      if (label.includes('Cloning')) return 'clone_odoo';
+      if (label.includes('virtual environment') || label.includes('venv')) return 'create_venv';
+      if (label.includes('requirements') || label.includes('pip')) return 'install_requirements';
+      if (label.includes('wkhtmltopdf')) return 'install_wkhtmltopdf';
+      return null;
+    }
 
     if (task.status === 'running') {
-      const currentStep = stepLabelMap[task.step];
+      const currentStep = matchStepId(task.step);
       if (currentStep) {
         const st = _stepStates.get(currentStep);
         // Don't overwrite user-initiated or already-done steps
@@ -688,7 +690,7 @@ if (window.electronAPI) {
     } else if (task.status === 'done') {
       if (task.results) {
         for (const r of task.results) {
-          const stepId = stepLabelMap[r.step];
+          const stepId = matchStepId(r.step);
           if (!stepId) continue;
           const st = _stepStates.get(stepId);
           if (st && st.source === 'user') continue; // Don't overwrite user step
