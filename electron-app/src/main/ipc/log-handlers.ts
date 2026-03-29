@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow, app, dialog } from 'electron';
+import { ipcMain, BrowserWindow, app } from 'electron';
 import { spawn } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -434,17 +434,7 @@ export function registerLogHandlers(ctx: IpcContext): void {
     }
   });
 
-  // --- Pick a file (for restore DB etc.) ---
-  ipcMain.handle('pick-file', async (event, data: { title?: string; filters?: { name: string; extensions: string[] }[] }) => {
-    const parentWin = BrowserWindow.fromWebContents(event.sender) || ctx.mainWindow;
-    const result = await dialog.showOpenDialog(parentWin, {
-      properties: ['openFile'],
-      title: data?.title || 'Select File',
-      filters: data?.filters || [],
-    });
-    if (result.canceled || result.filePaths.length === 0) return { path: '' };
-    return { path: result.filePaths[0] };
-  });
+  // pick-file handler is in window-handlers.ts (shared across main app + monitor)
 
   // =========================================================================
   // Cleanup on app quit
