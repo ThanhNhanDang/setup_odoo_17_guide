@@ -160,10 +160,10 @@ function _positionTourStep(step, index) {
 
   // Scroll the card (or parent container) into view, not the tiny sub-element
   const scrollTarget = target.closest('.kanban-card') || target.closest('.install-steps') || target;
-  scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  scrollTarget.scrollIntoView({ behavior: 'instant', block: 'center' });
 
-  // Wait for scroll to finish, then get position of actual target
-  setTimeout(() => {
+  // Wait for layout to settle — poll until element has valid position
+  _waitForLayout(target, () => {
     const rect = target.getBoundingClientRect();
     const pad = 8;
     const W = window.innerWidth;
@@ -204,7 +204,22 @@ function _positionTourStep(step, index) {
         tooltip.classList.add('visible');
       });
     });
-  }, 350);
+  });
+}
+
+/** Wait until element has valid bounding rect (height > 0, not at origin) */
+function _waitForLayout(el, callback) {
+  const start = Date.now();
+  const poll = () => {
+    const r = el.getBoundingClientRect();
+    if ((r.height > 0 && r.top > 0) || Date.now() - start > 1500) {
+      callback();
+    } else {
+      requestAnimationFrame(poll);
+    }
+  };
+  // Give 1 frame for scroll to settle
+  requestAnimationFrame(poll);
 }
 
 function _setOverlay(side, x, y, w, h) {
