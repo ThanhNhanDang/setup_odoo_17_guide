@@ -13,11 +13,16 @@ function startTourAtStep(index) {
   startTour(index);
 }
 
-function startTour(startIndex) {
+let _tourStartIndex = 0;
+let _tourEndIndex = -1; // -1 = full tour (all steps)
+
+function startTour(startIndex, endIndex) {
   if (_tourActive) return;
   _tourActive = true;
   document.body.classList.add('tour-active');
-  _tourStep = startIndex || 0;
+  _tourStartIndex = startIndex || 0;
+  _tourStep = _tourStartIndex;
+  _tourEndIndex = (endIndex !== undefined && endIndex >= 0) ? endIndex : -1;
 
   // Create overlay panels (top, bottom, left, right)
   const container = document.createElement('div');
@@ -106,10 +111,10 @@ function _execTourAction(action) {
 }
 
 function nextTourStep() {
-  // Execute post-action of current step before moving to next
   const currentStep = TOUR_STEPS[_tourStep];
   if (currentStep && currentStep.actionAfter) _execTourAction(currentStep.actionAfter);
-  if (_tourStep < TOUR_STEPS.length - 1) {
+  const maxStep = _tourEndIndex >= 0 ? _tourEndIndex : TOUR_STEPS.length - 1;
+  if (_tourStep < maxStep) {
     goToTourStep(_tourStep + 1);
   } else {
     endTour();
@@ -120,7 +125,7 @@ function prevTourStep() {
   // Execute post-action of current step before going back
   const currentStep = TOUR_STEPS[_tourStep];
   if (currentStep && currentStep.actionAfter) _execTourAction(currentStep.actionAfter);
-  if (_tourStep > 0) {
+  if (_tourStep > _tourStartIndex) {
     goToTourStep(_tourStep - 1);
   }
 }
@@ -215,11 +220,12 @@ function _positionTourStep(step, index) {
     // Update content
     document.getElementById('tourTitle').textContent = step.title;
     document.getElementById('tourText').textContent = step.text;
-    document.getElementById('tourCounter').textContent = (index + 1) + ' / ' + TOUR_STEPS.length;
-
-    // Prev button visibility
-    document.getElementById('tourBtnPrev').style.display = index === 0 ? 'none' : '';
-    document.getElementById('tourBtnNext').textContent = index === TOUR_STEPS.length - 1 ? t('tour.done') : t('tour.next');
+    const maxStep = _tourEndIndex >= 0 ? _tourEndIndex : TOUR_STEPS.length - 1;
+    const totalSteps = maxStep - _tourStartIndex + 1;
+    const currentInRange = index - _tourStartIndex + 1;
+    document.getElementById('tourCounter').textContent = currentInRange + ' / ' + totalSteps;
+    document.getElementById('tourBtnPrev').style.display = index <= _tourStartIndex ? 'none' : '';
+    document.getElementById('tourBtnNext').textContent = index >= maxStep ? t('tour.done') : t('tour.next');
 
     // Animate tooltip in
     const tooltip = _tourEls.tooltip;

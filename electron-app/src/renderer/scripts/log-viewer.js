@@ -1110,10 +1110,7 @@ function _setMOverlay(side, x, y, w, h) {
   el.style.width = Math.max(0, w) + 'px'; el.style.height = Math.max(0, h) + 'px';
 }
 
-// Auto-start tour on first Monitor open
-if (!localStorage.getItem('monitor_tour_done')) {
-  setTimeout(() => startMonitorTour(), 1500);
-}
+// Monitor tour available via startMonitorTour() — not auto-started
 
 // Cleanup on close
 window.addEventListener('beforeunload', () => {

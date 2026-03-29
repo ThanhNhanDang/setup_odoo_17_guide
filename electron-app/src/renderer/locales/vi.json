@@ -170,7 +170,8 @@
     "tourStepsDesc": "Nhấn vào bất kỳ bước nào để xem trên ứng dụng. Hoặc nhấn \"Chạy toàn bộ\" để xem tất cả.",
     "noDocs": "Không tìm thấy tài liệu phù hợp.",
     "noIssues": "Không tìm thấy sự cố phù hợp.",
-    "symptom": "Triệu chứng", "cause": "Nguyên nhân", "solution": "Cách xử lý", "close": "Đóng"
+    "symptom": "Triệu chứng", "cause": "Nguyên nhân", "solution": "Cách xử lý", "close": "Đóng",
+    "runTour": "Hướng dẫn tương tác"
   },
   "logViewer": {
     "sidebar": "Thanh bên",

@@ -46,18 +46,21 @@ function _getDocsEntries() { return [
     title: _t('td.doc.firstInstall.title', 'First-Time Setup'), icon: 'rocket',
     description: _t('td.doc.firstInstall.desc', 'Install everything from scratch — Python, PostgreSQL, Odoo source, and create your first project.'),
     body: _t('td.doc.firstInstall.body', '<ol><li>Open the app and go to <strong>Full Install</strong> tab</li><li>Select your Odoo version (15, 17, or 19)</li><li>Click <strong>"Install Everything"</strong></li><li>Wait for all 8 steps to complete</li><li>Go to <strong>Dashboard</strong> — your first project is ready!</li><li>Click <strong>Start</strong> to launch Odoo</li></ol><p><strong>Tip:</strong> The app needs Administrator rights to install PostgreSQL and create symlinks.</p>'),
+    tourRange: [9, 11],
   },
   {
     id: 'create-project', category: _t('td.cat.start', 'Getting Started'),
     title: _t('td.doc.createProject.title', 'Create a New Project'), icon: 'plus',
     description: _t('td.doc.createProject.desc', 'Add a new Odoo project with its own config, port, and database.'),
     body: _t('td.doc.createProject.body', '<ol><li>On Dashboard, click <strong>"New Project"</strong></li><li>Enter a project name</li><li>HTTP Port is auto-assigned</li><li>Click <strong>"Create Project"</strong></li></ol><p>Each project gets: <code>addons/</code>, <code>data/</code>, <code>odoo.conf</code>, and <code>.vscode/launch.json</code>.</p>'),
+    tourRange: [7, 7],
   },
   {
     id: 'start-stop', category: _t('td.cat.project', 'Project Management'),
     title: _t('td.doc.startStop.title', 'Start & Stop Odoo'), icon: 'play',
     description: _t('td.doc.startStop.desc', 'Launch Odoo server and manage running instances.'),
     body: _t('td.doc.startStop.body', '<ul><li><strong>Start:</strong> Click the green Start button. PostgreSQL auto-starts if needed.</li><li><strong>Stop:</strong> Click the red Stop button.</li><li>Status syncs every 10 seconds.</li><li><strong>VS Code:</strong> Press <kbd>F5</kbd> to debug with logs in terminal.</li></ul>'),
+    tourRange: [6, 6],
   },
   {
     id: 'duplicate-delete', category: _t('td.cat.project', 'Project Management'),
@@ -76,6 +79,7 @@ function _getDocsEntries() { return [
     title: _t('td.doc.editConfig.title', 'Editing odoo.conf'), icon: 'settings',
     description: _t('td.doc.editConfig.desc', 'Modify Odoo configuration — ports, database, logging.'),
     body: _t('td.doc.editConfig.body', '<p>Common settings: <code>http_port</code>, <code>db_port</code>, <code>log_level</code>, <code>addons_path</code>, <code>admin_passwd</code>, <code>dbfilter</code>.</p>'),
+    tourRange: [12, 16],
   },
   {
     id: 'debug-vscode', category: _t('td.cat.config', 'Configuration'),
@@ -100,6 +104,7 @@ function _getDocsEntries() { return [
     id: 'create-restore-db', category: _t('td.cat.project', 'Project Management'),
     title: _t('td.doc.createDb.title', 'Create & Restore Database'), icon: 'database',
     description: _t('td.doc.createDb.desc', 'Create a new database or restore from a backup — using Project Monitor or Odoo web.'),
+    tourRange: [5, 5],
     body: _t('td.doc.createDb.body', '<h4>Method 1: Project Monitor (Recommended)</h4><p>Click the <strong>Monitor</strong> button on a project card, then switch to the <strong>Database</strong> tab.</p><h4>Create Database</h4><ol><li>Click <strong>"Create Database"</strong></li><li>Master Password is shown automatically (from odoo.conf)</li><li>Enter: Database Name, Email, Password</li><li>Choose Language and Country</li><li>Check "Demo Data" if you want sample data</li><li>Click <strong>"Create"</strong> — wait 2-5 minutes for schema initialization</li><li>Progress is shown in real-time. You can close and reopen the window without losing progress.</li></ol><h4>Restore Database</h4><ol><li>Click <strong>"Restore Database"</strong></li><li>Enter a name for the restored database</li><li>Click <strong>"Browse"</strong> and select your backup file (<code>.zip</code>, <code>.dump</code>, or <code>.sql</code>)</li><li>Click <strong>"Restore"</strong></li><li>For <code>.zip</code> files: the app auto-extracts the dump and copies the filestore</li></ol><h4>Method 2: Odoo Web Manager</h4><ol><li>Start Odoo and open <code>/web/database/manager</code> in the browser</li><li>Use the web interface to create or restore databases</li></ol><p><strong>Tips:</strong></p><ul><li>Project Monitor works <strong>without Odoo running</strong> — it uses PostgreSQL directly</li><li>Database name should match the project\'s dbfilter pattern</li><li>Default Master Password is <code>odoo</code> (configurable in Settings)</li><li>System databases (postgres, template0, template1) are protected from deletion</li></ul>'),
   },
   {

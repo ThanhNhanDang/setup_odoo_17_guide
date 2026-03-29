@@ -21,7 +21,6 @@ function renderHelpPanel() {
   if (_helpRendered) return;
   _helpRendered = true;
   renderDocs();
-  renderTourSteps();
   renderTroubleshooting();
 }
 
@@ -108,11 +107,18 @@ function expandDocCard(id) {
     videoHtml = `<div class="doc-video-wrap"><iframe src="${escHtml(entry.videoUrl)}" loading="lazy" allowfullscreen></iframe></div>`;
   }
 
+  const tourBtn = entry.tourRange
+    ? `<button class="btn btn-primary btn-xs" onclick="startTour(${entry.tourRange[0]},${entry.tourRange[1]})" style="margin-right:8px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="margin-right:4px"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        ${t('help.runTour')}
+      </button>`
+    : '';
+
   container.innerHTML = `
     <div class="doc-expanded">
       <div class="doc-expanded-header">
         <div class="doc-expanded-title">${escHtml(entry.title)}</div>
-        <button class="btn btn-outline btn-xs" onclick="expandDocCard('${id}')">${t('help.close')}</button>
+        <div>${tourBtn}<button class="btn btn-outline btn-xs" onclick="expandDocCard('${id}')">${t('help.close')}</button></div>
       </div>
       <div class="doc-expanded-body">${entry.body || ''}${videoHtml}</div>
     </div>
@@ -205,11 +211,6 @@ if (window.electronAPI) {
   });
 }
 
-// First-launch tour prompt
+// Auto-tour removed — users trigger tours from Help panel per-feature
 try {
-  if (!localStorage.getItem('tour_completed')) {
-    setTimeout(() => {
-      showToastMessage(t('toast.welcome'), 'info');
-    }, 5000);
-  }
 } catch {}

@@ -170,7 +170,8 @@
     "tourStepsDesc": "앱에서 강조 표시하려면 아무 단계나 클릭하세요. 또는 \"전체 투어 실행\"을 클릭하세요.",
     "noDocs": "일치하는 문서를 찾을 수 없습니다.",
     "noIssues": "일치하는 문제를 찾을 수 없습니다.",
-    "symptom": "증상", "cause": "원인", "solution": "해결 방법", "close": "닫기"
+    "symptom": "증상", "cause": "원인", "solution": "해결 방법", "close": "닫기",
+    "runTour": "인터랙티브 투어"
   },
   "logViewer": {
     "sidebar": "사이드바",

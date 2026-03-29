@@ -171,7 +171,8 @@
     "tourStepsDesc": "Click any step to highlight it on the app. Or click \"Start Full Tour\" to run all steps.",
     "noDocs": "No matching documentation found.",
     "noIssues": "No matching issues found.",
-    "symptom": "Symptom", "cause": "Cause", "solution": "Solution", "close": "Close"
+    "symptom": "Symptom", "cause": "Cause", "solution": "Solution", "close": "Close",
+    "runTour": "Interactive Tour"
   },
   "logViewer": {
     "sidebar": "Sidebar",
