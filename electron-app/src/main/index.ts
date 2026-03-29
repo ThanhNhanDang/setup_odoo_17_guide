@@ -103,6 +103,11 @@ function createWindow(): void {
       updater.checkForUpdates();
       updater.startPeriodicCheck();
     }, 3000);
+
+    // Auto-start Nginx if installed but not running
+    setTimeout(() => {
+      autoStartNginx();
+    }, 5000);
   });
 
   // Minimize to tray instead of closing
@@ -156,6 +161,38 @@ function createTray(): void {
       mainWindow.focus();
     }
   });
+}
+
+/** Auto-start Nginx on app launch if installed but not running */
+async function autoStartNginx(): Promise<void> {
+  try {
+    const settingsFile = path.join(app.getPath('userData'), 'user-settings.json');
+    let odooVersion = '17';
+    try {
+      if (fs.existsSync(settingsFile)) {
+        const raw = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
+        if (raw.odooVersion) odooVersion = raw.odooVersion;
+      }
+    } catch {}
+
+    const { getDefaultBaseDir } = require('./services/config');
+    const baseDir = getDefaultBaseDir(odooVersion);
+    const { isNginxInstalled, startNginx } = require('./utils/nginx');
+
+    if (!isNginxInstalled(baseDir)) return;
+
+    // Check if already running (port 443)
+    const { runCmd } = require('./utils/shell');
+    const { output } = await runCmd('netstat -ano | findstr ":443.*LISTEN"');
+    if (output.trim().length > 0) return; // already running
+
+    // Start Nginx silently (no logger needed — just ensure it runs)
+    const { LoggerService } = require('./services/logger');
+    const silentLogger = { log: () => {} } as any;
+    await startNginx(baseDir, silentLogger);
+  } catch {
+    // Ignore — non-critical
+  }
 }
 
 function registerUpdateHandlers(win: BrowserWindow, updater: UpdaterService): void {
