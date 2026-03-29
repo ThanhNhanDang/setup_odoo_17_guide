@@ -178,9 +178,17 @@ async function autoStartNginx(): Promise<void> {
 
     const { getDefaultBaseDir } = require('./services/config');
     const baseDir = getDefaultBaseDir(odooVersion);
-    const { isNginxInstalled, startNginx } = require('./utils/nginx');
+    const { isNginxInstalled, findNginxAcrossBaseDirs, startNginx } = require('./utils/nginx');
+    const { ALL_VERSIONS } = require('./services/odoo-versions');
 
-    if (!isNginxInstalled(baseDir)) return;
+    // Find Nginx in current or any other version's base dir
+    let nginxBaseDir = baseDir;
+    if (!isNginxInstalled(baseDir)) {
+      const allBaseDirs = ALL_VERSIONS.map((v: string) => getDefaultBaseDir(v));
+      const found = findNginxAcrossBaseDirs(allBaseDirs);
+      if (!found) return;
+      nginxBaseDir = found;
+    }
 
     // Check if already running (port 443)
     const { runCmd } = require('./utils/shell');
@@ -190,7 +198,7 @@ async function autoStartNginx(): Promise<void> {
     // Start Nginx silently (no logger needed — just ensure it runs)
     const { LoggerService } = require('./services/logger');
     const silentLogger = { log: () => {} } as any;
-    await startNginx(baseDir, silentLogger);
+    await startNginx(nginxBaseDir, silentLogger);
   } catch {
     // Ignore — non-critical
   }

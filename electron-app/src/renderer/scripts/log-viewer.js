@@ -790,7 +790,7 @@ function _getDbPrefix() {
 function showCreateDbModal() {
   document.getElementById('createDbPrefix').textContent = _getDbPrefix();
   document.getElementById('createDbName').value = '';
-  document.getElementById('createDbName').placeholder = '';
+  document.getElementById('createDbName').placeholder = ti('logViewer.dbNamePlaceholder');
   document.getElementById('createDbMsg').className = 'db-msg';
   document.getElementById('btnDoCreateDb').disabled = false;
   document.getElementById('createDbPasswd').value = _adminPasswd || 'odoo';
@@ -800,9 +800,10 @@ function showCreateDbModal() {
 
 async function doCreateDb() {
   const suffix = document.getElementById('createDbName').value.trim();
+  const prefix = _getDbPrefix();
+  const name = suffix ? prefix + suffix : prefix;
   const msgEl = document.getElementById('createDbMsg');
-  if (!suffix) { msgEl.className = 'db-msg error'; msgEl.textContent = ti('logViewer.dbNameRequired'); return; }
-  const name = _getDbPrefix() + suffix;
+  if (!name) { msgEl.className = 'db-msg error'; msgEl.textContent = ti('logViewer.dbNameRequired'); return; }
   const demoData = document.getElementById('createDbDemo').checked;
   const adminEmail = document.getElementById('createDbEmail').value.trim() || 'admin';
   const adminPassword = document.getElementById('createDbPassword').value.trim() || 'admin';
@@ -846,7 +847,7 @@ async function doCreateDb() {
 function showRestoreDbModal() {
   document.getElementById('restoreDbPrefix').textContent = _getDbPrefix();
   document.getElementById('restoreDbName').value = '';
-  document.getElementById('restoreDbName').placeholder = '';
+  document.getElementById('restoreDbName').placeholder = ti('logViewer.dbNamePlaceholder');
   document.getElementById('restoreDbFile').value = '';
   document.getElementById('restoreDbMsg').className = 'db-msg';
   document.getElementById('restoreDbPasswd').value = _adminPasswd || 'odoo';
@@ -868,9 +869,10 @@ async function pickRestoreFile() {
 async function doRestoreDb() {
   const suffix = document.getElementById('restoreDbName').value.trim();
   const filePath = document.getElementById('restoreDbFile').value.trim();
+  const prefix = _getDbPrefix();
+  const name = suffix ? prefix + suffix : prefix;
   const msgEl = document.getElementById('restoreDbMsg');
-  if (!suffix) { msgEl.className = 'db-msg error'; msgEl.textContent = ti('logViewer.dbNameRequired'); return; }
-  const name = _getDbPrefix() + suffix;
+  if (!name) { msgEl.className = 'db-msg error'; msgEl.textContent = ti('logViewer.dbNameRequired'); return; }
   if (!filePath) { msgEl.className = 'db-msg error'; msgEl.textContent = ti('logViewer.backupRequired'); return; }
 
   document.getElementById('btnDoRestoreDb').disabled = true;

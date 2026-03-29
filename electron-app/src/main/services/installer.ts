@@ -7,14 +7,15 @@ import {
   ODOO_GIT_URL,
   PROJECT_DEFAULTS,
   getTemplatesDir,
+  getDefaultBaseDir,
 } from './config';
-import { getVersionConfig, getEffectiveVersionConfig, getPythonCandidates, DEFAULT_ODOO_VERSION } from './odoo-versions';
+import { getVersionConfig, getEffectiveVersionConfig, getPythonCandidates, DEFAULT_ODOO_VERSION, ALL_VERSIONS } from './odoo-versions';
 
 export type UrlOverrides = Record<string, { pythonUrl?: string; postgresUrl?: string }>;
 import { findPython, findPythonViaLauncher, findPostgresBin, findDocker, findDockerPostgres, findVSCode, findGit } from './detection';
 import { runCmd, runCmdStreaming } from '../utils/shell';
 import { downloadFile } from '../utils/download';
-import { installNginx, isNginxInstalled } from '../utils/nginx';
+import { installNginx, isNginxInstalled, findNginxAcrossBaseDirs } from '../utils/nginx';
 import { StepLockManager } from './step-lock';
 
 // ---------------------------------------------------------------------------
@@ -36,6 +37,13 @@ interface StepResult {
 export async function stepInstallNginx(baseDir: string, logger: LoggerService): Promise<StepResult> {
   if (isNginxInstalled(baseDir)) {
     logger.log('Nginx already installed.');
+    return { ok: true, msg: 'Already installed' };
+  }
+  // Check if Nginx exists in another version's base dir
+  const allBaseDirs = ALL_VERSIONS.map(v => getDefaultBaseDir(v));
+  const existingDir = findNginxAcrossBaseDirs(allBaseDirs);
+  if (existingDir) {
+    logger.log(`Nginx found in ${existingDir} (shared across versions).`);
     return { ok: true, msg: 'Already installed' };
   }
   const success = await installNginx(baseDir, logger);

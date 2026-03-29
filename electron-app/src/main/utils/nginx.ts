@@ -35,6 +35,17 @@ export function isNginxInstalled(baseDir: string): boolean {
   return fs.existsSync(getNginxExe(baseDir));
 }
 
+/**
+ * Find Nginx across multiple base directories.
+ * Returns the baseDir where Nginx is found, or null.
+ */
+export function findNginxAcrossBaseDirs(baseDirs: readonly string[]): string | null {
+  for (const dir of baseDirs) {
+    if (fs.existsSync(getNginxExe(dir))) return dir;
+  }
+  return null;
+}
+
 function getSslDir(baseDir: string): string {
   return path.join(getNginxDir(baseDir), 'ssl');
 }

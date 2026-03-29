@@ -156,9 +156,15 @@ export function registerProjectHandlers(ctx: IpcContext): void {
 
       // Start/reload Nginx for HTTPS proxy
       try {
-        const { generateNginxConfig, startNginx, isNginxInstalled } = require('../utils/nginx');
+        const { generateNginxConfig, startNginx, isNginxInstalled, findNginxAcrossBaseDirs } = require('../utils/nginx');
+        const { ALL_VERSIONS } = require('../services/odoo-versions');
+        const { getDefaultBaseDir } = require('../services/config');
         const { addHostEntry } = require('../utils/hosts');
-        if (isNginxInstalled(baseDir)) {
+        // Find Nginx in current or any version's base dir
+        const nginxBaseDir = isNginxInstalled(baseDir)
+          ? baseDir
+          : findNginxAcrossBaseDirs(ALL_VERSIONS.map((v: string) => getDefaultBaseDir(v)));
+        if (nginxBaseDir) {
           const { detectStatus } = require('../services/status');
           const status = await detectStatus(baseDir, projectsDir);
           const nginxProjects = (status.projects || [])
@@ -179,8 +185,8 @@ export function registerProjectHandlers(ctx: IpcContext): void {
             if (np.domain) addHostEntry(np.domain);
           }
           if (nginxProjects.length > 0) {
-            await generateNginxConfig(baseDir, nginxProjects, ctx.logger);
-            await startNginx(baseDir, ctx.logger);
+            await generateNginxConfig(nginxBaseDir, nginxProjects, ctx.logger);
+            await startNginx(nginxBaseDir, ctx.logger);
             ctx.logger.log(`  > HTTPS: https://${projectDomain}`);
           }
         }

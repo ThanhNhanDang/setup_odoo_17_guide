@@ -19,9 +19,9 @@ import {
   NativePostgresDetails,
 } from './detection';
 import { parseIniFile, iniGet } from './ini-parser';
-import { DEFAULT_BASE_DIR } from './config';
-import { DEFAULT_ODOO_VERSION } from './odoo-versions';
-import { isNginxInstalled } from '../utils/nginx';
+import { DEFAULT_BASE_DIR, getDefaultBaseDir } from './config';
+import { DEFAULT_ODOO_VERSION, ALL_VERSIONS } from './odoo-versions';
+import { isNginxInstalled, findNginxAcrossBaseDirs } from '../utils/nginx';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -309,7 +309,9 @@ export async function detectStatus(baseDir: string, projectsDir: string, odooSou
   const odooCloned = fs.existsSync(path.join(baseDir, effectiveSourceDir, 'odoo-bin'));
   const venvCreated = fs.existsSync(path.join(baseDir, 'venv', 'Scripts', 'python.exe'));
   const reqInstalled = fs.existsSync(path.join(baseDir, 'venv', 'Lib', 'site-packages', 'lxml'));
-  const nginx = isNginxInstalled(baseDir);
+  // Nginx is shared across versions — check current baseDir first, then all version base dirs
+  const nginx = isNginxInstalled(baseDir)
+    || findNginxAcrossBaseDirs(ALL_VERSIONS.map(v => getDefaultBaseDir(v))) !== null;
 
   // Slow: run ALL external process checks in parallel (including Docker postgres)
   const [vsResult, gitVersion, dockerAvailable, nativePg, dockerPgResult] = await Promise.all([

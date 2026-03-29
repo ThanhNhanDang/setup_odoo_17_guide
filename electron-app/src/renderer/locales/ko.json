@@ -217,6 +217,7 @@
     "initializing": "초기화 중...",
     "preparing": "준비 중...",
     "dbNameRequired": "데이터베이스 이름은 필수입니다",
+    "dbNamePlaceholder": "비우면 프로젝트 이름 사용",
     "backupRequired": "백업 파일은 필수입니다",
     "nameNotMatch": "이름이 일치하지 않습니다",
     "tourTabs": "탭",

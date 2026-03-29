@@ -176,7 +176,10 @@
 <!-- Create DB Modal -->
 <div class="db-modal-overlay" id="modalCreateDb">
   <div class="db-modal">
-    <h3 id="createDbTitle">Create Database</h3>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h3 id="createDbTitle" style="margin:0">Create Database</h3>
+      <button class="btn-close-modal" onclick="hideDbModal('modalCreateDb')" title="Close">&times;</button>
+    </div>
     <div class="db-msg" id="createDbMsg"></div>
     <div id="createDbForm">
       <label id="createDbPasswdLabel">Master Password</label>
@@ -379,7 +382,10 @@
 <!-- Restore DB Modal -->
 <div class="db-modal-overlay" id="modalRestoreDb">
   <div class="db-modal">
-    <h3 id="restoreDbTitle">Restore Database</h3>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h3 id="restoreDbTitle" style="margin:0">Restore Database</h3>
+      <button class="btn-close-modal" onclick="hideDbModal('modalRestoreDb')" title="Close">&times;</button>
+    </div>
     <div class="db-msg" id="restoreDbMsg"></div>
     <div id="restoreDbForm">
       <label id="restoreDbPasswdLabel">Master Password</label>

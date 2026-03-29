@@ -218,6 +218,7 @@
     "initializing": "Initializing...",
     "preparing": "Preparing...",
     "dbNameRequired": "Database name is required",
+    "dbNamePlaceholder": "empty = use project name",
     "backupRequired": "Backup file is required",
     "nameNotMatch": "Name does not match",
     "tourTabs": "Tabs",

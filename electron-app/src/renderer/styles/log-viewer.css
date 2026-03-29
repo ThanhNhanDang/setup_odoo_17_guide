@@ -391,6 +391,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   padding-left:2px!important;flex:1;min-width:0;
 }
 .db-name-input-wrap input:focus{border:none!important}
+.db-modal .btn-close-modal{background:none;border:none;color:var(--text-dim);font-size:1.2rem;cursor:pointer;padding:4px 8px;border-radius:4px;line-height:1}
+.db-modal .btn-close-modal:hover{color:var(--text);background:var(--border)}
 .db-modal .db-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
 .db-modal .db-msg{font-size:0.7rem;padding:6px 8px;border-radius:4px;margin-bottom:8px;display:none}
 .db-modal .db-msg.error{display:block;background:rgba(255,123,114,0.1);color:#ff7b72;border:1px solid rgba(255,123,114,0.2)}

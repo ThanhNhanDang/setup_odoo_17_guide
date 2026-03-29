@@ -217,6 +217,7 @@
     "initializing": "Đang khởi tạo...",
     "preparing": "Đang chuẩn bị...",
     "dbNameRequired": "Tên CSDL là bắt buộc",
+    "dbNamePlaceholder": "để trống = dùng tên project",
     "backupRequired": "File sao lưu là bắt buộc",
     "nameNotMatch": "Tên không khớp",
     "tourTabs": "Thanh Tab",
