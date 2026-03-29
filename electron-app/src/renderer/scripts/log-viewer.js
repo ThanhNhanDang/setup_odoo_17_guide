@@ -963,6 +963,154 @@ async function dismissJob(type, dbName) {
   }
 }
 
+// ======== Monitor Guided Tour ========
+const MONITOR_TOUR_STEPS = [
+  { selector: '[data-tour="monitor-tabs"]', title: ti('logViewer.tourTabs') || 'Tabs', text: ti('logViewer.tourTabsText') || 'Switch between Log (real-time Odoo logs) and Database (create, restore, drop databases).', position: 'bottom' },
+  { selector: '[data-tour="monitor-status"]', title: ti('logViewer.tourStatus') || 'Status Bar', text: ti('logViewer.tourStatusText') || 'Log watcher status and Odoo server status. Green dot = active.', position: 'bottom' },
+  { selector: '[data-tour="monitor-pin"]', title: ti('logViewer.tourPin') || 'Pin Window', text: ti('logViewer.tourPinText') || 'Keep this window always on top of other windows.', position: 'bottom' },
+  { selector: '[data-tour="monitor-actions"]', title: ti('logViewer.tourActions') || 'Save & Restart', text: ti('logViewer.tourActionsText') || 'Save config changes (log level, modules) and restart Odoo. Open browser button on the right.', position: 'bottom' },
+  { selector: '[data-tour="monitor-log-level"]', title: ti('logViewer.tourLogLevel') || 'Log Level', text: ti('logViewer.tourLogLevelText') || 'Change Odoo log verbosity. Takes effect after Save & Restart.', position: 'right' },
+  { selector: '[data-tour="monitor-modules"]', title: ti('logViewer.tourModules') || 'Module Upgrade', text: ti('logViewer.tourModulesText') || 'Select modules to upgrade (-u flag) when restarting Odoo.', position: 'right' },
+  { selector: '[data-tour="monitor-log-controls"]', title: ti('logViewer.tourLogControls') || 'Log Controls', text: ti('logViewer.tourLogControlsText') || 'Clear log, toggle auto-scroll, toggle log level highlighting.', position: 'left' },
+  { selector: '[data-tour="monitor-log-area"]', title: ti('logViewer.tourLogArea') || 'Log Viewer', text: ti('logViewer.tourLogAreaText') || 'Real-time Odoo logs. Colors: red = error, yellow = warning, blue = info. Max 5000 lines.', position: 'top' },
+  { selector: '[data-tour="monitor-db-toolbar"]', title: ti('logViewer.tourDbToolbar') || 'Database Toolbar', text: ti('logViewer.tourDbToolbarText') || 'Create new database, restore from backup, or refresh the list. Works without Odoo running.', position: 'bottom', actionBefore: 'switchToDb' },
+];
+
+let _mTourStep = -1;
+let _mTourEls = {};
+let _mTourPrev = null;
+
+function startMonitorTour() {
+  if (_mTourEls.container) _mTourEls.container.remove();
+
+  const container = document.createElement('div');
+  container.id = 'monitorTourOverlay';
+  container.innerHTML = `
+    <div class="mtour-overlay mtour-top"></div>
+    <div class="mtour-overlay mtour-bottom"></div>
+    <div class="mtour-overlay mtour-left"></div>
+    <div class="mtour-overlay mtour-right"></div>
+    <div class="mtour-tooltip" id="mtourTooltip">
+      <div class="mtour-arrow" id="mtourArrow"></div>
+      <div class="mtour-title" id="mtourTitle"></div>
+      <div class="mtour-text" id="mtourText"></div>
+      <div class="mtour-footer">
+        <span class="mtour-counter" id="mtourCounter"></span>
+        <span class="mtour-skip" onclick="endMonitorTour()">Skip</span>
+        <button class="mtour-btn" id="mtourPrev" onclick="prevMTour()">Prev</button>
+        <button class="mtour-btn mtour-btn-next" id="mtourNext" onclick="nextMTour()">Next</button>
+      </div>
+    </div>`;
+  document.body.appendChild(container);
+  _mTourEls = {
+    container,
+    top: container.querySelector('.mtour-top'),
+    bottom: container.querySelector('.mtour-bottom'),
+    left: container.querySelector('.mtour-left'),
+    right: container.querySelector('.mtour-right'),
+    tooltip: document.getElementById('mtourTooltip'),
+  };
+  _mTourStep = -1;
+  nextMTour();
+}
+
+function endMonitorTour() {
+  if (_mTourPrev) { _mTourPrev.classList.remove('tour-highlight'); _mTourPrev = null; }
+  if (_mTourEls.container) _mTourEls.container.remove();
+  _mTourEls = {};
+  try { localStorage.setItem('monitor_tour_done', '1'); } catch {}
+}
+
+function nextMTour() {
+  const cur = MONITOR_TOUR_STEPS[_mTourStep];
+  if (cur && cur.actionAfter) _execMTourAction(cur.actionAfter);
+  _mTourStep++;
+  if (_mTourStep >= MONITOR_TOUR_STEPS.length) { endMonitorTour(); return; }
+  _goMTourStep(_mTourStep);
+}
+
+function prevMTour() {
+  const cur = MONITOR_TOUR_STEPS[_mTourStep];
+  if (cur && cur.actionAfter) _execMTourAction(cur.actionAfter);
+  if (_mTourStep > 0) { _mTourStep--; _goMTourStep(_mTourStep); }
+}
+
+function _execMTourAction(action) {
+  if (action === 'switchToDb') switchTab('database');
+  if (action === 'switchToLog') switchTab('log');
+}
+
+function _goMTourStep(idx) {
+  const step = MONITOR_TOUR_STEPS[idx];
+  if (!step) { endMonitorTour(); return; }
+  if (step.actionBefore) _execMTourAction(step.actionBefore);
+
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    if (_mTourPrev) { _mTourPrev.classList.remove('tour-highlight'); _mTourPrev = null; }
+    const target = document.querySelector(step.selector);
+    if (!target) { nextMTour(); return; }
+
+    target.scrollIntoView({ behavior: 'instant', block: 'center' });
+    requestAnimationFrame(() => {
+      const rect = target.getBoundingClientRect();
+      const pad = 8;
+      const W = window.innerWidth, H = window.innerHeight;
+      const top = Math.max(0, rect.top - pad), left = Math.max(0, rect.left - pad);
+      const bottom = Math.min(H, rect.bottom + pad), right = Math.min(W, rect.right + pad);
+
+      _setMOverlay('top', 0, 0, W, top);
+      _setMOverlay('bottom', 0, bottom, W, H - bottom);
+      _setMOverlay('left', 0, top, left, bottom - top);
+      _setMOverlay('right', right, top, W - right, bottom - top);
+
+      target.classList.add('tour-highlight');
+      _mTourPrev = target;
+
+      // Position tooltip
+      const pos = step.position || 'bottom';
+      const tooltip = _mTourEls.tooltip;
+      const arrow = document.getElementById('mtourArrow');
+      tooltip.setAttribute('data-pos', pos);
+      let tl, tt;
+      const gap = 14;
+      if (pos === 'bottom') { tt = rect.bottom + gap; tl = Math.max(8, Math.min(rect.left, W - 320)); }
+      else if (pos === 'top') { tt = rect.top - gap - 150; tl = Math.max(8, Math.min(rect.left, W - 320)); }
+      else if (pos === 'left') { tt = rect.top; tl = rect.left - gap - 310; }
+      else { tt = rect.top; tl = rect.right + gap; }
+      tl = Math.max(8, Math.min(tl, W - 320));
+      tt = Math.max(8, Math.min(tt, H - 180));
+      tooltip.style.left = tl + 'px';
+      tooltip.style.top = tt + 'px';
+
+      // Arrow
+      if (arrow) {
+        arrow.style.left = ''; arrow.style.top = '';
+        const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+        if (pos === 'bottom' || pos === 'top') arrow.style.left = Math.max(12, Math.min(cx - tl - 6, 290)) + 'px';
+        else arrow.style.top = Math.max(10, Math.min(cy - tt - 6, 130)) + 'px';
+      }
+
+      document.getElementById('mtourTitle').textContent = step.title;
+      document.getElementById('mtourText').textContent = step.text;
+      document.getElementById('mtourCounter').textContent = (idx + 1) + ' / ' + MONITOR_TOUR_STEPS.length;
+      document.getElementById('mtourPrev').style.display = idx === 0 ? 'none' : '';
+      document.getElementById('mtourNext').textContent = idx === MONITOR_TOUR_STEPS.length - 1 ? 'Done' : 'Next';
+    });
+  }));
+}
+
+function _setMOverlay(side, x, y, w, h) {
+  const el = _mTourEls[side];
+  if (!el) return;
+  el.style.left = x + 'px'; el.style.top = y + 'px';
+  el.style.width = Math.max(0, w) + 'px'; el.style.height = Math.max(0, h) + 'px';
+}
+
+// Auto-start tour on first Monitor open
+if (!localStorage.getItem('monitor_tour_done')) {
+  setTimeout(() => startMonitorTour(), 1500);
+}
+
 // Cleanup on close
 window.addEventListener('beforeunload', () => {
   if (window.electronAPI) {

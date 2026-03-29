@@ -15,7 +15,7 @@
     </select>
   </span>
   <div class="titlebar-controls">
-    <button onclick="togglePin()" id="btnPin" class="pin-btn" title="Always on top">
+    <button onclick="togglePin()" id="btnPin" class="pin-btn" data-tour="monitor-pin" title="Always on top">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 2h6l-1.5 5.5L17 11H7l3.5-3.5z"/></svg>
     </button>
     <button onclick="minimizeWindow()" title="Minimize">
@@ -27,7 +27,7 @@
     <button class="close" onclick="window.close()" title="Close">&#10005;</button>
   </div>
 </div>
-<div class="status-bar">
+<div class="status-bar" data-tour="monitor-status">
   <div style="display:flex;align-items:center;gap:6px">
     <span class="status-dot idle" id="statusDot"></span><span id="statusText">Waiting...</span>
     <span style="margin-left:6px;border-left:1px solid var(--border);padding-left:8px;display:flex;align-items:center;gap:4px">
@@ -85,7 +85,7 @@
           <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
         </svg>
       </div>
-      <select class="log-level-select" id="logLevelSelect">
+      <select class="log-level-select" id="logLevelSelect" data-tour="monitor-log-level">
         <option value="critical">critical</option>
         <option value="error">error</option>
         <option value="warn">warn</option>
@@ -113,7 +113,7 @@
     </div>
 
     <!-- Module list (scrollable) -->
-    <div class="module-list-area" id="moduleListArea">
+    <div class="module-list-area" id="moduleListArea" data-tour="monitor-modules">
       <div class="no-modules" id="noModulesMsg">No custom modules found</div>
     </div>
     <div class="module-count" id="moduleCount" style="padding:4px 10px;border-top:1px solid var(--border);display:none"></div>
@@ -134,7 +134,7 @@
         <span class="fab-dot"></span> Highlight
       </button>
     </div>
-    <div class="log-container" id="logBox"></div>
+    <div class="log-container" id="logBox" data-tour="monitor-log-area"></div>
   </div>
 </div>
 
