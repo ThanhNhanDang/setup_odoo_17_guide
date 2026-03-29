@@ -517,6 +517,49 @@ export async function findVSCodeAsync(): Promise<{ path: string | null; version:
   return { path: null, version: '' };
 }
 
+/**
+ * Find wkhtmltopdf installation. Returns path to wkhtmltopdf.exe or null.
+ * Checks: Program Files paths, then PATH.
+ */
+export function findWkhtmltopdf(): string | null {
+  const candidates = [
+    'C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltopdf.exe',
+    'C:\\Program Files (x86)\\wkhtmltopdf\\bin\\wkhtmltopdf.exe',
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  // Check PATH
+  try {
+    const output = execFileSync('cmd.exe', ['/c', 'wkhtmltopdf --version'], {
+      timeout: 5000,
+      windowsHide: true,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    if (output.includes('wkhtmltopdf')) return 'wkhtmltopdf';
+  } catch { /* not in PATH */ }
+  return null;
+}
+
+/** Async findWkhtmltopdf */
+export async function findWkhtmltopdfAsync(): Promise<string | null> {
+  // Fast: check file paths
+  const candidates = [
+    'C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltopdf.exe',
+    'C:\\Program Files (x86)\\wkhtmltopdf\\bin\\wkhtmltopdf.exe',
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  // Slow: check PATH
+  try {
+    const output = await execAsync('wkhtmltopdf --version', { timeout: 2000 });
+    if (output.includes('wkhtmltopdf')) return 'wkhtmltopdf';
+  } catch { /* not in PATH */ }
+  return null;
+}
+
 /** Async findGit */
 export async function findGitAsync(): Promise<string | null> {
   // Fast: check common path

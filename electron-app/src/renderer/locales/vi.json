@@ -49,6 +49,7 @@
     "nginx": "Nginx", "nginxDesc": "Proxy HTTPS",
     "git": "Git", "gitDesc": "Quản lý phiên bản",
     "vscode": "VS Code", "vscodeDesc": "Trình soạn code",
+    "wkhtmltopdf": "wkhtmltopdf", "wkhtmltopdfDesc": "Chuyển HTML sang PDF (báo cáo)",
     "pythonDesc": "Runtime cho Odoo", "postgresDesc": "Máy chủ cơ sở dữ liệu",
     "cloneDesc": "Mã nguồn từ GitHub",
     "venv": "Môi trường ảo", "venvDesc": "Gói Python",

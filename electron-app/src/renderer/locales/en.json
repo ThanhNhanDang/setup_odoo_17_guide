@@ -49,6 +49,7 @@
     "nginx": "Nginx", "nginxDesc": "HTTPS proxy",
     "git": "Git", "gitDesc": "Version control",
     "vscode": "VS Code", "vscodeDesc": "Code editor",
+    "wkhtmltopdf": "wkhtmltopdf", "wkhtmltopdfDesc": "HTML to PDF (reports)",
     "pythonDesc": "Runtime for Odoo", "postgresDesc": "Database server",
     "cloneDesc": "Source from GitHub",
     "venv": "Virtual Env", "venvDesc": "Python packages",

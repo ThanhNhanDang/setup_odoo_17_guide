@@ -145,8 +145,17 @@
         </div>
         <div class="step-status" id="stepStatus-install_vscode"></div>
       </div>
+      <div class="step-card" id="step-install_wkhtmltopdf" onclick="runStep('install_wkhtmltopdf')">
+        <div class="step-icon" id="stepIcon-install_wkhtmltopdf">4</div>
+        <div class="step-info">
+          <div class="step-name" data-i18n="install.wkhtmltopdf">wkhtmltopdf</div>
+          <div class="step-desc" data-i18n="install.wkhtmltopdfDesc">HTML to PDF (reports)</div>
+          <div class="step-progress" id="stepProgress-install_wkhtmltopdf"></div>
+        </div>
+        <div class="step-status" id="stepStatus-install_wkhtmltopdf"></div>
+      </div>
       <div class="step-card" id="step-install_python" onclick="runStep('install_python')">
-        <div class="step-icon" id="stepIcon-install_python">4</div>
+        <div class="step-icon" id="stepIcon-install_python">5</div>
         <div class="step-info">
           <div class="step-name" id="stepName-install_python">Python 3.11</div>
           <div class="step-desc" data-i18n="install.pythonDesc">Runtime for Odoo</div>
@@ -155,7 +164,7 @@
         <div class="step-status" id="stepStatus-install_python"></div>
       </div>
       <div class="step-card" id="step-install_postgres" onclick="runStep('install_postgres')">
-        <div class="step-icon" id="stepIcon-install_postgres">5</div>
+        <div class="step-icon" id="stepIcon-install_postgres">6</div>
         <div class="step-info">
           <div class="step-name" id="stepName-install_postgres">PostgreSQL 16</div>
           <div class="step-desc" data-i18n="install.postgresDesc">Database server</div>
@@ -164,7 +173,7 @@
         <div class="step-status" id="stepStatus-install_postgres"></div>
       </div>
       <div class="step-card" id="step-clone_odoo" onclick="runStep('clone_odoo')">
-        <div class="step-icon" id="stepIcon-clone_odoo">6</div>
+        <div class="step-icon" id="stepIcon-clone_odoo">7</div>
         <div class="step-info">
           <div class="step-name" id="stepName-clone_odoo">Clone Odoo 17</div>
           <div class="step-desc" data-i18n="install.cloneDesc">Source from GitHub</div>
@@ -173,7 +182,7 @@
         <div class="step-status" id="stepStatus-clone_odoo"></div>
       </div>
       <div class="step-card" id="step-create_venv" onclick="runStep('create_venv')">
-        <div class="step-icon" id="stepIcon-create_venv">7</div>
+        <div class="step-icon" id="stepIcon-create_venv">8</div>
         <div class="step-info">
           <div class="step-name" data-i18n="install.venv">Virtual Env</div>
           <div class="step-desc" data-i18n="install.venvDesc">Python packages</div>
@@ -182,7 +191,7 @@
         <div class="step-status" id="stepStatus-create_venv"></div>
       </div>
       <div class="step-card" id="step-install_requirements" onclick="runStep('install_requirements')">
-        <div class="step-icon" id="stepIcon-install_requirements">8</div>
+        <div class="step-icon" id="stepIcon-install_requirements">9</div>
         <div class="step-info">
           <div class="step-name" data-i18n="install.pip">Pip Requirements</div>
           <div class="step-desc" data-i18n="install.pipDesc">Odoo dependencies</div>

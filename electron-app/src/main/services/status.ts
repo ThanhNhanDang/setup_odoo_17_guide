@@ -15,6 +15,7 @@ import {
   findDockerAsync,
   findDockerPostgresAsync,
   detectNativePostgresDetailsAsync,
+  findWkhtmltopdfAsync,
   DockerContainer,
   NativePostgresDetails,
 } from './detection';
@@ -77,6 +78,8 @@ export interface StatusResult {
   readonly git: boolean;
   readonly git_version: string;
   readonly nginx: boolean;
+  readonly wkhtmltopdf: boolean;
+  readonly wkhtmltopdf_path: string;
   readonly vscode: boolean;
   readonly vscode_version: string;
   readonly base_dir: string;
@@ -326,12 +329,13 @@ export async function detectStatus(baseDir: string, projectsDir: string, odooSou
     || findNginxAcrossBaseDirs(ALL_VERSIONS.map(v => getDefaultBaseDir(v))) !== null;
 
   // Slow: run ALL external process checks in parallel (including Docker postgres)
-  const [vsResult, gitVersion, dockerAvailable, nativePg, dockerPgResult] = await Promise.all([
+  const [vsResult, gitVersion, dockerAvailable, nativePg, dockerPgResult, wkhtmlPath] = await Promise.all([
     findVSCodeAsync(),
     findGitAsync(),
     findDockerAsync(),
     detectNativePostgresDetailsAsync(),
     findDockerPostgresAsync(),   // safe to run even if Docker is unavailable (returns [] on error)
+    findWkhtmltopdfAsync(),
   ]);
 
   const dockerPg = dockerAvailable ? dockerPgResult : [];
@@ -380,6 +384,8 @@ export async function detectStatus(baseDir: string, projectsDir: string, odooSou
     git: gitVersion !== null,
     git_version: gitVersion || '',
     nginx,
+    wkhtmltopdf: wkhtmlPath !== null,
+    wkhtmltopdf_path: wkhtmlPath || '',
     vscode: vsResult.path !== null,
     vscode_version: vsResult.version,
     base_dir: baseDir,

@@ -5,6 +5,7 @@ const STEP_MAP = {
   install_nginx: { label: 'Installing Nginx (HTTPS)...', check: s => s.nginx },
   install_git: { label: 'Installing Git...', check: s => s.git },
   install_vscode: { label: 'Installing VS Code...', check: s => s.vscode },
+  install_wkhtmltopdf: { label: 'Installing wkhtmltopdf...', check: s => s.wkhtmltopdf },
   install_python: { label: 'Installing Python 3.11...', check: s => s.python311 },
   install_postgres: { label: 'Installing PostgreSQL...', check: s => s.postgres },
   clone_odoo: { label: 'Cloning Odoo 17...', check: s => s.odoo_cloned },

@@ -49,6 +49,7 @@
     "nginx": "Nginx", "nginxDesc": "HTTPS 프록시",
     "git": "Git", "gitDesc": "버전 관리",
     "vscode": "VS Code", "vscodeDesc": "코드 편집기",
+    "wkhtmltopdf": "wkhtmltopdf", "wkhtmltopdfDesc": "HTML을 PDF로 변환 (보고서)",
     "pythonDesc": "Odoo 런타임", "postgresDesc": "데이터베이스 서버",
     "cloneDesc": "GitHub에서 소스",
     "venv": "가상 환경", "venvDesc": "Python 패키지",

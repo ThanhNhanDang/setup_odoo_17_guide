@@ -12,7 +12,7 @@ import {
 import { getVersionConfig, getEffectiveVersionConfig, getPythonCandidates, DEFAULT_ODOO_VERSION, ALL_VERSIONS } from './odoo-versions';
 
 export type UrlOverrides = Record<string, { pythonUrl?: string; postgresUrl?: string }>;
-import { findPython, findPythonViaLauncher, findPostgresBin, findDocker, findDockerPostgres, findVSCode, findGit } from './detection';
+import { findPython, findPythonViaLauncher, findPostgresBin, findDocker, findDockerPostgres, findVSCode, findGit, findWkhtmltopdf } from './detection';
 import { runCmd, runCmdStreaming } from '../utils/shell';
 import { downloadFile } from '../utils/download';
 import { installNginx, isNginxInstalled, findNginxAcrossBaseDirs } from '../utils/nginx';
@@ -117,6 +117,39 @@ export async function stepInstallVSCode(baseDir: string, logger: LoggerService):
       fs.existsSync(path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Microsoft VS Code', 'Code.exe'))) {
     logger.log('VS Code installed! (restart app to detect in PATH)');
     return { ok: true, msg: 'Installed (restart to detect in PATH)' };
+  }
+  return { ok: false, msg: 'Install may need admin rights.' };
+}
+
+const WKHTMLTOPDF_URL = 'https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6.1-3/wkhtmltox-0.12.6.1-3.msvc2015-win64.exe';
+
+export async function stepInstallWkhtmltopdf(baseDir: string, logger: LoggerService): Promise<StepResult> {
+  const existing = findWkhtmltopdf();
+  if (existing) {
+    logger.log(`wkhtmltopdf already installed (${existing}).`);
+    return { ok: true, msg: 'Already installed' };
+  }
+
+  logger.log('Downloading wkhtmltopdf...');
+  fs.mkdirSync(baseDir, { recursive: true });
+  const installer = path.join(baseDir, 'wkhtmltopdf-installer.exe');
+  try {
+    await downloadFile(WKHTMLTOPDF_URL, installer, logger, 'install_wkhtmltopdf');
+  } catch (e) {
+    return { ok: false, msg: `Download failed: ${e}` };
+  }
+
+  logger.log('Installing wkhtmltopdf (silent)...');
+  const { code, output } = await runCmd(`"${installer}" /S`);
+  logger.log(`  > Installer exit code: ${code}`);
+  if (output.trim()) logger.log(`  > Installer output: ${output.trim()}`);
+
+  await new Promise(resolve => setTimeout(resolve, 3000));
+
+  const installed = findWkhtmltopdf();
+  if (installed) {
+    logger.log('wkhtmltopdf installed!');
+    return { ok: true, msg: 'Installed' };
   }
   return { ok: false, msg: 'Install may need admin rights.' };
 }
@@ -779,6 +812,7 @@ export async function stepFullInstall(
   const pythonPromise = runNamedStep(`Installing ${vCfg.pythonVersion}...`, 'install_python', () => stepInstallPython(baseDir, logger, odooVersion, urlOverrides), logger, lock);
   const pgPromise = runNamedStep(`Installing PostgreSQL ${vCfg.postgresVersion}...`, 'install_postgres', () => stepInstallPostgres(baseDir, logger, pgSuperPassword, dbPort, dbUser, dbPassword, pgMode, odooVersion, urlOverrides), logger, lock);
   const nginxPromise = runNamedStep('Installing Nginx (HTTPS)...', 'install_nginx', () => stepInstallNginx(baseDir, logger), logger, lock);
+  const wkhtmlPromise = runNamedStep('Installing wkhtmltopdf...', 'install_wkhtmltopdf', () => stepInstallWkhtmltopdf(baseDir, logger), logger, lock);
 
   // ── Chain: Git done → Clone Odoo ──
   const clonePromise = gitPromise.then(gitResult => {
@@ -813,6 +847,8 @@ export async function stepFullInstall(
   results.push(vscodeResult);
   const nginxResult = await nginxPromise;
   results.push(nginxResult);
+  const wkhtmlResult = await wkhtmlPromise;
+  results.push(wkhtmlResult);
 
   // ── Wait for pip + DB user (parallel) ──
   const [pipResult, dbUserResult] = await Promise.all([pipPromise, dbUserPromise]);

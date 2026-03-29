@@ -5,9 +5,9 @@ import { DEFAULT_BASE_DIR, DEFAULT_PROJECTS_DIR, getDefaultBaseDir, getDefaultPr
 import { DEFAULT_ODOO_VERSION } from '../services/odoo-versions';
 import { detectStatus, invalidateStatusCache } from '../services/status';
 import {
-  stepInstallNginx, stepInstallGit, stepInstallVSCode, stepInstallPython,
-  stepInstallPostgres, stepCloneOdoo, stepCreateVenv, stepInstallRequirements,
-  stepFullInstall,
+  stepInstallNginx, stepInstallGit, stepInstallVSCode, stepInstallWkhtmltopdf,
+  stepInstallPython, stepInstallPostgres, stepCloneOdoo, stepCreateVenv,
+  stepInstallRequirements, stepFullInstall,
 } from '../services/installer';
 
 /** Wrap IPC handler with error catching */
@@ -71,6 +71,7 @@ export function registerInstallHandlers(ctx: IpcContext): void {
       install_nginx: () => stepInstallNginx(baseDir, ctx.logger),
       install_git: () => stepInstallGit(baseDir, ctx.logger),
       install_vscode: () => stepInstallVSCode(baseDir, ctx.logger),
+      install_wkhtmltopdf: () => stepInstallWkhtmltopdf(baseDir, ctx.logger),
       install_python: () => stepInstallPython(baseDir, ctx.logger, odooVersion, readUrlOverrides()),
       install_postgres: () => stepInstallPostgres(
         baseDir, ctx.logger,
