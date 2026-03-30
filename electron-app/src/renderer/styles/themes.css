@@ -74,6 +74,11 @@
   --scrollbar-hover: #8c959f;
 }
 
+/* --- Card contrast: brighter card in dark, white card in light --- */
+.kanban-card{background:#1c2129}
+[data-mode="light"] .kanban-card{background:#ffffff;box-shadow:0 1px 4px rgba(0,0,0,0.08),0 0 0 1px rgba(0,0,0,0.05)}
+[data-mode="light"] .kanban-card:hover{box-shadow:0 8px 24px rgba(0,0,0,0.12),0 0 0 1px rgba(0,0,0,0.08)}
+
 /* ============================================================
    PRESET: Auto&SI — Corporate minimal, purple brand, sharp edges
    ============================================================ */

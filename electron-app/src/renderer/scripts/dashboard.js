@@ -77,18 +77,18 @@ function renderKanbanCard(p, isDemo) {
   const logoSrc = p.logo || LOGO_PLACEHOLDER;
 
   return `
-    <div class="kanban-card${demoClass}">
+    <div class="kanban-card${demoClass}" data-running="${isDemo ? 'false' : p.is_running}">
       <div class="kanban-card-banner" data-tour="card-header">
         <img class="kanban-card-banner-img" src="${escAttr(logoSrc)}" alt="" onerror="this.src='${LOGO_PLACEHOLDER}'">
         <div class="kanban-card-banner-overlay">
           <span class="kanban-card-name">${escHtml(p.name)} ${demoLabel}</span>
+          <div class="kanban-card-url" ${onclick(`openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port || '8069')}')`)} title="Click to open">${escHtml(getProjectUrl(p.domain, p.http_port || '8069'))}</div>
         </div>
         <div class="kanban-card-banner-actions">
           <span class="kanban-card-port" ${onclick(`openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port || '8069')}')`)} title="Open in browser" style="cursor:pointer">:${escHtml(p.http_port || '8069')}</span>
           <button class="kanban-icon-btn" ${onclick(`duplicateProject('${escAttr(p.name)}','${escAttr(p.http_port)}')`)} title="${t('project.duplicate')}"${btnDisabled}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
         </div>
       </div>
-      <div class="kanban-card-url" ${onclick(`openProjectUrl('${escAttr(p.domain)}','${escAttr(p.http_port || '8069')}')`)} title="Click to open">${escHtml(getProjectUrl(p.domain, p.http_port || '8069'))}</div>
       <div class="kanban-card-body">
         <div class="kanban-card-tags" data-tour="card-tags">
           <span class="kanban-tag kanban-tag-version" style="background:${versionColor};color:#fff">v${escHtml(versionKey)}</span>
