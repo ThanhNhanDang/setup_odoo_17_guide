@@ -1,4 +1,8 @@
 import { ipcMain, shell, dialog, BrowserWindow } from 'electron';
+import { execFile, execFileSync } from 'child_process';
+import { writeFileSync, unlinkSync, existsSync } from 'fs';
+import { join, dirname } from 'path';
+import { tmpdir } from 'os';
 import { IpcContext } from './context';
 
 export function registerWindowHandlers(ctx: IpcContext): void {
@@ -30,14 +34,46 @@ export function registerWindowHandlers(ctx: IpcContext): void {
     if (!targetPath) return { ok: false, msg: 'No path provided' };
     try {
       const { findVSCode } = require('../services/detection');
-      const vscodePath = findVSCode();
+      let vscodePath: string = findVSCode();
       if (!vscodePath) return { ok: false, msg: 'VS Code not found' };
 
-      const { exec } = require('child_process');
-      // Shell.Application.ShellExecute launches via Explorer's token (non-elevated)
-      const psScript = `(New-Object -ComObject Shell.Application).ShellExecute('${vscodePath}', '"${targetPath}"', '', 'open', 1)`;
-      const encoded = Buffer.from(psScript, 'utf16le').toString('base64');
-      exec(`powershell -NoProfile -WindowStyle Hidden -EncodedCommand ${encoded}`, { windowsHide: true });
+      // When findVSCode returns 'code' (CLI alias), resolve to the actual
+      // Code.exe path. Shell.Application needs an executable, not a .cmd.
+      if (vscodePath === 'code') {
+        try {
+          const where = execFileSync('cmd.exe', ['/c', 'where code'], {
+            timeout: 5000, windowsHide: true, encoding: 'utf8',
+            stdio: ['pipe', 'pipe', 'pipe'],
+          });
+          // 'where code' may return Code.exe directly or bin\code / bin\code.cmd
+          const lines = where.trim().split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+          const exeLine = lines.find(l => l.toLowerCase().endsWith('code.exe'));
+          if (exeLine && existsSync(exeLine)) {
+            vscodePath = exeLine;
+          } else {
+            // Fallback: first line might be bin\code, navigate up to Code.exe
+            const first = lines[0];
+            if (first) {
+              const codeExe = join(dirname(first), '..', 'Code.exe');
+              if (existsSync(codeExe)) vscodePath = codeExe;
+            }
+          }
+        } catch { /* keep 'code' as fallback */ }
+      }
+
+      // Use a temp VBScript + wscript //B (completely silent, no console).
+      // Shell.Application.ShellExecute launches through Explorer's non-elevated token.
+      // VBScript quoting: double-quote inside string = ""
+      const vbsPath = join(tmpdir(), `open_vscode_${Date.now()}.vbs`);
+      const vbsLines = [
+        'Set objShell = CreateObject("Shell.Application")',
+        `objShell.ShellExecute "${vscodePath}", """${targetPath}""", "", "open", 1`,
+      ];
+      const vbsContent = vbsLines.join('\r\n') + '\r\n';
+      writeFileSync(vbsPath, vbsContent, 'utf-8');
+      execFile('wscript.exe', ['//B', '//Nologo', vbsPath], { windowsHide: true }, () => {
+        try { unlinkSync(vbsPath); } catch (_) { /* ignore */ }
+      });
       return { ok: true };
     } catch (e) {
       return { ok: false, msg: String(e) };
