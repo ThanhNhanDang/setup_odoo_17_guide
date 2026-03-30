@@ -133,6 +133,7 @@ html,body{background:#0d1117;margin:0;padding:0}
         <button onclick="selectAllModules()" id="btnSelectAll">Select All</button>
         <button onclick="deselectAllModules()" id="btnDeselectAll">Deselect All</button>
       </div>
+      <input type="text" id="moduleSearch" class="module-search" placeholder="Search modules..." oninput="filterModules(this.value)" style="display:none">
     </div>
 
     <!-- Module list (scrollable) -->

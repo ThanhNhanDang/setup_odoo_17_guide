@@ -456,26 +456,38 @@ function renderModuleList() {
   const noMsg = document.getElementById('noModulesMsg');
   const actions = document.getElementById('moduleActions');
   const countEl = document.getElementById('moduleCount');
+  const searchEl = document.getElementById('moduleSearch');
 
   if (customModules.length === 0) {
     noMsg.style.display = 'block';
     actions.style.display = 'none';
     countEl.style.display = 'none';
+    if (searchEl) searchEl.style.display = 'none';
     return;
   }
 
   noMsg.style.display = 'none';
   actions.style.display = 'flex';
+  if (searchEl) { searchEl.style.display = ''; searchEl.value = ''; }
   area.innerHTML = '';
 
   for (const mod of customModules) {
     const item = document.createElement('div');
     item.className = 'module-item';
+    item.setAttribute('data-module', mod.toLowerCase());
     item.innerHTML = `<input type="checkbox" id="mod_${mod}" value="${mod}"><label for="mod_${mod}">${mod}</label>`;
     item.querySelector('input').addEventListener('change', updateModuleCount);
     area.appendChild(item);
   }
   updateModuleCount();
+}
+
+function filterModules(query) {
+  const q = (query || '').toLowerCase();
+  document.querySelectorAll('#moduleListArea .module-item').forEach(item => {
+    const name = item.getAttribute('data-module') || '';
+    item.style.display = !q || name.includes(q) ? '' : 'none';
+  });
 }
 
 function updateModuleCount() {
