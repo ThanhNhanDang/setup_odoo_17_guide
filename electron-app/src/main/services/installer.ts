@@ -831,9 +831,11 @@ export async function stepCreateProject(
 
   // Auto-set dbfilter from project name (DB isolation without manual config)
   // e.g. project "test_db" → dbfilter "^test_db.*$"
-  // Uses project name (not domain) to preserve underscores in DB names
+  // Replace hyphens with [-_] so filter matches both hyphen and underscore variants
+  // (Monitor UI converts hyphens to underscores for DB name prefix)
   if (!cfg.dbfilter) {
-    cfg.dbfilter = `^${projectName}.*$`;
+    const filterName = projectName.replace(/-/g, '[-_]');
+    cfg.dbfilter = `^${filterName}.*$`;
   }
 
   // odoo.conf from template

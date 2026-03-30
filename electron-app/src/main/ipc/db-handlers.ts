@@ -152,12 +152,17 @@ export function registerDbHandlers(ctx: IpcContext): void {
       }).filter(db => db.name);
 
       // Filter databases by project's dbfilter (if set)
+      // Normalize: replace literal hyphens with [-_] so filter matches both variants
+      // (handles old projects with literal-hyphen dbfilter)
       let databases = allDatabases;
-      const dbfilter = dbConf.dbfilter;
+      let dbfilter = dbConf.dbfilter;
       if (dbfilter) {
         try {
-          const re = new RegExp(dbfilter);
+          // Auto-upgrade: ^name-with-hyphens → ^name[-_]with[-_]hyphens
+          const normalizedFilter = dbfilter.replace(/(?<!\[)-(?!_\])/g, '[-_]');
+          const re = new RegExp(normalizedFilter);
           databases = allDatabases.filter(db => re.test(db.name) || db.name === 'postgres');
+          dbfilter = normalizedFilter;
         } catch { /* invalid regex — show all */ }
       }
 

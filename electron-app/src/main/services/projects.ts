@@ -315,7 +315,8 @@ export async function duplicateProject(
           ini = iniSet(ini, 'options', 'gevent_port', String(lpPort + 3));
         }
         // Update dbfilter for new project
-        ini = iniSet(ini, 'options', 'dbfilter', `^${newName}.*$`);
+        const filterNewName = newName.replace(/-/g, '[-_]');
+        ini = iniSet(ini, 'options', 'dbfilter', `^${filterNewName}.*$`);
         let confStr = stringifyIni(ini);
         // Update domain as comment line (Odoo doesn't recognize project_domain as a key)
         const { projectToDomain } = require('../utils/hosts');
