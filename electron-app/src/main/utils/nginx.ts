@@ -224,6 +224,9 @@ http {
     proxy_request_buffering off;
     proxy_buffering off;
 
+    # Long domain names (e.g. project-name.odoo17.local) need larger bucket
+    server_names_hash_bucket_size 128;
+
     map $http_upgrade $connection_upgrade {
         default upgrade;
         '' close;
