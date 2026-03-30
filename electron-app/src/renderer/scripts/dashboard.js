@@ -436,9 +436,9 @@ async function addAddonPath() {
 
 async function saveDetailAndRestart(name) {
   try {
-    // Read current config
-    const data = getFormData();
-    const readRes = await api('read_config', { projects_dir: data.projects_dir, project_name: name });
+    // Read current config — use project's actual dir (handles cross-version "All" filter)
+    const projDir = _getProjectsDir(name);
+    const readRes = await api('read_config', { projects_dir: projDir, project_name: name });
     if (!readRes.ok) { showToastMessage(t('toast.readConfigFail', { msg: readRes.msg }), 'error'); return; }
 
     // Parse current config and update fields
@@ -487,7 +487,7 @@ async function saveDetailAndRestart(name) {
 
     // Save config
     showToastMessage(t('toast.configSaving'), 'info');
-    const saveRes = await api('save_config', { projects_dir: data.projects_dir, project_name: name, content });
+    const saveRes = await api('save_config', { projects_dir: projDir, project_name: name, content });
     if (!saveRes.ok) { showToastMessage(t('toast.saveFail', { msg: saveRes.msg }), 'error'); return; }
 
     // Stop Odoo if running, then always (re)start

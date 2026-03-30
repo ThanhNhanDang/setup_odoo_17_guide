@@ -121,15 +121,15 @@ export function registerProjectHandlers(ctx: IpcContext): void {
 
   // --- Duplicate Project ---
   ipcMain.handle('duplicate_project', async (_event, data: Record<string, string>) => {
-    const baseDir = data?.base_dir || DEFAULT_BASE_DIR;
-    const projectsDir = data?.projects_dir || DEFAULT_PROJECTS_DIR;
+    const odooVersion = data?.odoo_version || '17';
+    const baseDir = data?.base_dir || getDefaultBaseDir(odooVersion);
+    const projectsDir = data?.projects_dir || getDefaultProjectsDir(odooVersion);
     const projectName = data?.project_name || '';
     const newName = data?.new_name || '';
     const newHttpPort = data?.new_http_port || '8070';
     const onProgress = (step: string, done: boolean) => {
       ctx.mainWindow.webContents.send('duplicate-progress', { step, done });
     };
-    const odooVersion = data?.odoo_version || '17';
     const result = await duplicateProject(baseDir, projectsDir, projectName, newName, newHttpPort, onProgress, odooVersion);
     invalidateStatusCache();
     return result;

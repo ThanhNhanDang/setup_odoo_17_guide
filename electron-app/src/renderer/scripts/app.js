@@ -130,6 +130,22 @@ async function refreshAllProjectNames() {
   } catch { /* ignore */ }
 }
 
+/**
+ * Get the projects_dir for a specific project by looking up its path in _status.
+ * Falls back to Settings projects_dir if not found.
+ */
+function _getProjectsDir(projectName) {
+  if (_status && _status.projects) {
+    const p = _status.projects.find(x => x.name === projectName);
+    if (p && p.path) {
+      // p.path is the project folder, parent is the projects_dir
+      const sep = p.path.includes('/') ? '/' : '\\';
+      return p.path.substring(0, p.path.lastIndexOf(sep));
+    }
+  }
+  return $('projectsDir')?.value || '';
+}
+
 function getNextAvailablePort() {
   // Merge ports from current status + global cross-version cache
   const usedSet = new Set(_allUsedPorts);
@@ -989,8 +1005,13 @@ async function startOdoo(name) {
     const proj = _status?.projects?.find(p => p.name === name);
     const data = getFormData();
     data.project_name = name;
-    // Use project's own version, not the settings version
-    if (proj?.odoo_version) data.odoo_version = proj.odoo_version;
+    data.projects_dir = _getProjectsDir(name);
+    // Use project's own version + matching base_dir, not the settings values
+    if (proj?.odoo_version) {
+      data.odoo_version = proj.odoo_version;
+      // Clear base_dir so backend derives it from odoo_version via getDefaultBaseDir()
+      delete data.base_dir;
+    }
     showToastMessage(t('toast.odooStarting'), 'info');
     const res = await api('start_odoo', data);
     if (res.ok) {
@@ -1096,11 +1117,13 @@ async function withBtnPending(e, guardKey, label, asyncFn, cooldown) {
   }
 }
 async function openLogWindow(projectName, logPath, e, httpPort, domain) {
+  const proj = _status?.projects?.find(p => p.name === projectName);
+  const projVersion = proj?.odoo_version || $('odooVersion')?.value || '17';
   await withBtnPending(e, 'log-' + projectName, t('project.monitor'), () => api('open-log-window', {
     projectName, logPath,
-    odooVersion: $('odooVersion')?.value || '17',
+    odooVersion: projVersion,
     baseDir: $('baseDir')?.value || '',
-    projectsDir: $('projectsDir')?.value || '',
+    projectsDir: _getProjectsDir(projectName),
     httpPort: httpPort || '',
     domain: domain || '',
     odooSourceDir: $('odooSourceDir')?.value || 'odoo',
@@ -1144,18 +1167,18 @@ function showToastMessage(msg, type = 'info') {
 let _editingProject = '';
 async function editConfig(name) {
   _editingProject = name;
-  const data = getFormData();
-  const res = await api('read_config', { projects_dir: data.projects_dir, project_name: name });
-  if (!res.ok) { alert('\u274C ' + res.msg); return; }
+  const projDir = _getProjectsDir(name);
+  const res = await api('read_config', { projects_dir: projDir, project_name: name });
+  if (!res.ok) { alert('\u274C ' + tMsg(res.msg)); return; }
   $('modalConfigName').textContent = name;
   $('modalConfigContent').value = res.content;
   showModal('modalConfig');
 }
 
 async function saveConfig() {
-  const data = getFormData();
+  const projDir = _getProjectsDir(_editingProject);
   const res = await api('save_config', {
-    projects_dir: data.projects_dir,
+    projects_dir: projDir,
     project_name: _editingProject,
     content: $('modalConfigContent').value
   });
@@ -1197,7 +1220,7 @@ async function confirmDelete(e) {
   let res;
   try {
     res = await api('delete_project', {
-      projects_dir: data.projects_dir,
+      projects_dir: _getProjectsDir(_deletingProject),
       project_name: _deletingProject,
       drop_databases: dropDb,
     });
@@ -1345,10 +1368,10 @@ async function confirmDuplicate(e) {
 
   let res;
   try {
-    const data = getFormData();
+    const srcProj = _status?.projects?.find(p => p.name === _dupSource);
     res = await api('duplicate_project', {
-      base_dir: data.base_dir,
-      projects_dir: data.projects_dir,
+      odoo_version: srcProj?.odoo_version || $('odooVersion')?.value || '17',
+      projects_dir: _getProjectsDir(_dupSource),
       project_name: _dupSource,
       new_name: newName,
       new_http_port: $('dupNewPort').value
