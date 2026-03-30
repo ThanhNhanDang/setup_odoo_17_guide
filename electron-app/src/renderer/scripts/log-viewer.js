@@ -822,7 +822,7 @@ function hideDbModal(id) {
 }
 
 function _getDbPrefix() {
-  return currentProjectName ? currentProjectName.replace(/-/g, '_') : '';
+  return currentProjectName || '';
 }
 
 function showCreateDbModal() {
