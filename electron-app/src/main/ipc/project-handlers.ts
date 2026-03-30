@@ -348,6 +348,18 @@ export async function ensurePgAndStartOdoo(ctx: IpcContext, opts: {
   }
 
   const odooEnv = { ...process.env };
+  // Isolate PYTHONPATH — remove paths from other Odoo versions to prevent
+  // cross-version module loading (e.g. odoo_18_base addons loaded in v19 process)
+  if (odooEnv.PYTHONPATH) {
+    const baseDirNorm = baseDir.replace(/\\/g, '/').toLowerCase();
+    odooEnv.PYTHONPATH = odooEnv.PYTHONPATH.split(';')
+      .filter(p => {
+        const norm = p.replace(/\\/g, '/').toLowerCase();
+        // Keep paths that are: in current baseDir, or not in any odoo base dir
+        return norm.includes(baseDirNorm) || !norm.includes('odoo_') || !norm.includes('_base');
+      })
+      .join(';') || '';
+  }
   if (pgBin && !odooEnv.PATH?.includes(pgBin)) {
     odooEnv.PATH = `${pgBin};${odooEnv.PATH || ''}`;
   }
