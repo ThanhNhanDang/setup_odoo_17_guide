@@ -34,7 +34,7 @@ function renderDashboard(s) {
       <div class="dash-stat-label">${t('dashboard.python')}</div>
     </div>
     <div class="dash-stat">
-      <div class="dash-stat-value">${s.postgres ? _ok : _miss}</div>
+      <div class="dash-stat-value">${s.postgres ? (typeof _pgNeedsVector === 'function' && _pgNeedsVector() && !s.pgvector_available ? '<span style="color:#d29922">' + t('install.pgvectorMissing') + '</span>' : _ok) : _miss}</div>
       <div class="dash-stat-label">${t('dashboard.postgresql')}</div>
     </div>
     <div class="dash-stat">

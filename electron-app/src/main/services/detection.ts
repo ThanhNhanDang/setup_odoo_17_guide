@@ -607,6 +607,35 @@ export async function findDockerPostgresAsync(): Promise<readonly DockerContaine
   } catch { return []; }
 }
 
+/**
+ * Check if pgvector extension is available on a PostgreSQL instance.
+ * Checks: Docker image name, native PG vector.dll file, then DB query as fallback.
+ */
+export async function detectPgvectorAsync(
+  nativePgBinPath: string | null,
+  nativePgPort: string,
+  dockerContainers: readonly DockerContainer[],
+): Promise<boolean> {
+  // Check Docker containers — pgvector images have 'pgvector' in the image name
+  for (const c of dockerContainers) {
+    if (c.image.toLowerCase().includes('pgvector')) return true;
+  }
+
+  // Check native PG — fast file check first (vector.dll in lib/)
+  if (nativePgBinPath) {
+    const pgBase = path.resolve(nativePgBinPath, '..');
+    if (fs.existsSync(path.join(pgBase, 'lib', 'vector.dll'))) return true;
+  }
+
+  // Fallback: scan all installed PG versions for vector.dll
+  for (const ver of PG_SCAN_VERSIONS) {
+    const dllPath = `C:\\Program Files\\PostgreSQL\\${ver}\\lib\\vector.dll`;
+    if (fs.existsSync(dllPath)) return true;
+  }
+
+  return false;
+}
+
 /** Async detectNativePostgresDetails */
 export async function detectNativePostgresDetailsAsync(): Promise<NativePostgresDetails | null> {
   const pgBin = findPostgresBin();

@@ -219,6 +219,135 @@ export async function stepInstallPython(baseDir: string, logger: LoggerService, 
   return { ok: false, msg: `Failed to install ${vCfg.pythonVersion}. Check log for details.` };
 }
 
+/**
+ * Install pgvector extension on an existing native PostgreSQL installation.
+ * Downloads the pgvector Windows release zip, extracts DLL + SQL files into PG dirs,
+ * then runs CREATE EXTENSION.
+ */
+async function installPgvectorNative(
+  pgBinDir: string,
+  pgVer: string,
+  pgvectorUrl: string,
+  dbPort: string,
+  pgSuperPassword: string,
+  baseDir: string,
+  logger: LoggerService,
+): Promise<{ ok: boolean; msg: string }> {
+  const pgBase = path.resolve(pgBinDir, '..');
+  const pgLibDir = path.join(pgBase, 'lib');
+  const pgShareExtDir = path.join(pgBase, 'share', 'extension');
+
+  // Check if pgvector DLL already exists — no need to download again
+  if (fs.existsSync(path.join(pgLibDir, 'vector.dll'))) {
+    logger.log('  > pgvector already installed (vector.dll present).');
+    return { ok: true, msg: 'pgvector already installed' };
+  }
+
+  // Download pgvector zip
+  logger.log('  > Downloading pgvector extension...');
+  fs.mkdirSync(baseDir, { recursive: true });
+  const zipPath = path.join(baseDir, `pgvector-pg${pgVer}.zip`);
+  try {
+    await downloadFile(pgvectorUrl, zipPath, logger, 'install_pgvector');
+  } catch (e) {
+    return { ok: false, msg: `pgvector download failed: ${e}` };
+  }
+
+  // Extract to temp dir
+  const tempDir = path.join(baseDir, `pgvector-temp-${Date.now()}`);
+  fs.mkdirSync(tempDir, { recursive: true });
+  logger.log('  > Extracting pgvector...');
+  const { code: extractCode } = await runCmd(
+    `powershell -NoProfile -Command "Expand-Archive -Path '${zipPath}' -DestinationPath '${tempDir}' -Force"`,
+  );
+  if (extractCode !== 0) {
+    return { ok: false, msg: 'pgvector extraction failed' };
+  }
+
+  // Find extracted files — zip may contain a nested folder (e.g. pgvector-x86_64-.../lib/)
+  // Resolve the root: if tempDir has a single subfolder containing lib/, use that as root
+  let extractRoot = tempDir;
+  try {
+    const entries = fs.readdirSync(tempDir);
+    if (entries.length === 1) {
+      const candidate = path.join(tempDir, entries[0]);
+      if (fs.statSync(candidate).isDirectory() && fs.existsSync(path.join(candidate, 'lib'))) {
+        extractRoot = candidate;
+      }
+    }
+  } catch { /* use tempDir as root */ }
+
+  // Copy files using robocopy /B (backup mode — bypasses ACLs on Program Files)
+  // robocopy exit codes: 0=no files, 1=files copied, 2-7=extra/mismatch (all OK), >=8=error
+  const libSrc = path.join(extractRoot, 'lib');
+  const extSrc = path.join(extractRoot, 'share', 'extension');
+
+  if (fs.existsSync(libSrc)) {
+    const { code: libCode, output: libOut } = await runCmd(`robocopy "${libSrc}" "${pgLibDir}" *.* /IS /IT /B /NFL /NDL /NJH /NJS`);
+    if (libCode < 8) {
+      logger.log(`  > Copied pgvector DLL → ${pgLibDir}`);
+    } else {
+      return { ok: false, msg: `PGVECTOR_COPY_FAILED` };
+    }
+  } else {
+    logger.log(`  > Warning: lib/ directory not found in extracted pgvector archive`);
+  }
+
+  if (fs.existsSync(extSrc)) {
+    const { code: extCopyCode, output: extCopyOut } = await runCmd(`robocopy "${extSrc}" "${pgShareExtDir}" *.* /IS /IT /B /NFL /NDL /NJH /NJS`);
+    if (extCopyCode < 8) {
+      logger.log(`  > Copied pgvector extension files → ${pgShareExtDir}`);
+    } else {
+      return { ok: false, msg: `PGVECTOR_COPY_FAILED` };
+    }
+  } else {
+    logger.log(`  > Warning: share/extension/ directory not found in extracted pgvector archive`);
+  }
+
+  // Cleanup temp files
+  try {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+    fs.unlinkSync(zipPath);
+  } catch { /* ignore cleanup errors */ }
+
+  // Verify vector.dll was copied
+  if (!fs.existsSync(path.join(pgLibDir, 'vector.dll'))) {
+    return { ok: false, msg: 'PGVECTOR_COPY_FAILED' };
+  }
+
+  // Best-effort: CREATE EXTENSION on the PG instance's actual port
+  // Read real port from postgresql.conf (PG may not be on dbPort yet)
+  let actualPort = dbPort;
+  const pgConfFile = path.join(pgBase, 'data', 'postgresql.conf');
+  if (fs.existsSync(pgConfFile)) {
+    try {
+      const confContent = fs.readFileSync(pgConfFile, 'utf8');
+      for (const line of confContent.split('\n')) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('port') && trimmed.includes('=')) {
+          actualPort = trimmed.split('=')[1].trim().split('#')[0].trim();
+          break;
+        }
+      }
+    } catch { /* use dbPort as fallback */ }
+  }
+
+  const psql = path.join(pgBinDir, 'psql.exe');
+  const env = { ...process.env, PGPASSWORD: pgSuperPassword };
+  const { code: extCode } = await runCmd(
+    `"${psql}" -U postgres -p ${actualPort} --no-password -c "CREATE EXTENSION IF NOT EXISTS vector;"`,
+    undefined,
+    env,
+  );
+  if (extCode === 0) {
+    logger.log(`  > pgvector extension created (port ${actualPort}).`);
+  } else {
+    logger.log(`  > pgvector files installed. Extension will be available when databases are created.`);
+  }
+
+  return { ok: true, msg: 'pgvector installed' };
+}
+
 export async function stepInstallPostgres(
   baseDir: string,
   logger: LoggerService,
@@ -245,6 +374,15 @@ export async function stepInstallPostgres(
 
   if (hasRequiredVersion && pgMode !== 'docker') {
     logger.log(`PostgreSQL ${pgVer} already installed at ${requiredBinDir}.`);
+    // Install pgvector extension if this version needs it
+    if (vCfg.pgvector && vCfg.pgvectorUrl) {
+      logger.log(`  > ${vCfg.label} requires pgvector extension. Checking...`);
+      const pvResult = await installPgvectorNative(requiredBinDir, pgVer, vCfg.pgvectorUrl, dbPort, pgSuperPassword, baseDir, logger);
+      if (!pvResult.ok) {
+        return { ok: false, msg: pvResult.msg };
+      }
+      return { ok: true, msg: `Already installed (PG ${pgVer} + pgvector)` };
+    }
     return { ok: true, msg: `Already installed (PG ${pgVer})` };
   }
   if (pgOnPort && pgMode !== 'docker') {
@@ -253,10 +391,23 @@ export async function stepInstallPostgres(
       logger.log(`  > Using existing PG ${pgOnPort.version}. Odoo should still work, but upgrading is recommended.`);
     }
     logger.log(`PostgreSQL ${pgOnPort.version} is configured on port ${dbPort}. Using existing installation.`);
+    // Install pgvector on the PG instance if needed
+    if (vCfg.pgvector && vCfg.pgvectorUrl) {
+      logger.log(`  > ${vCfg.label} requires pgvector extension. Checking...`);
+      const pvResult = await installPgvectorNative(pgOnPort.binPath, pgOnPort.version, vCfg.pgvectorUrl, dbPort, pgSuperPassword, baseDir, logger);
+      if (!pvResult.ok) {
+        return { ok: false, msg: pvResult.msg };
+      }
+    }
     return { ok: true, msg: `Using PG ${pgOnPort.version} on port ${dbPort}` };
   }
   if (dockerOnPort && pgMode !== 'native') {
     logger.log(`PostgreSQL running in Docker on port ${dbPort}: ${dockerOnPort.name}`);
+    // For Docker, enable pgvector extension if the image supports it
+    if (vCfg.pgvector) {
+      logger.log(`  > Enabling pgvector extension on Docker container...`);
+      await runCmd(`docker exec ${dockerOnPort.name} psql -U ${dbUser} -c "CREATE EXTENSION IF NOT EXISTS vector;"`);
+    }
     return { ok: true, msg: `Already running (Docker: ${dockerOnPort.name})` };
   }
 
@@ -321,6 +472,15 @@ export async function stepInstallPostgres(
       await runCmd(`sc.exe config postgresql-x64-${pgVer} start=auto`);
       await new Promise(resolve => setTimeout(resolve, 3000));
       logger.log('  > PostgreSQL service started and set to auto-start.');
+      // Install pgvector extension if this version needs it
+      if (vCfg.pgvector && vCfg.pgvectorUrl) {
+        logger.log(`  > ${vCfg.label} requires pgvector. Installing extension...`);
+        const newBinDir = `C:\\Program Files\\PostgreSQL\\${pgVer}\\bin`;
+        const pvResult = await installPgvectorNative(newBinDir, pgVer, vCfg.pgvectorUrl, dbPort, pgSuperPassword, baseDir, logger);
+        if (!pvResult.ok) {
+          return { ok: false, msg: pvResult.msg };
+        }
+      }
       return { ok: true, msg: 'Installed (native)' };
     }
     return { ok: false, msg: 'Install failed. Run as Administrator.' };

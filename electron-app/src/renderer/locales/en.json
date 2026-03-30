@@ -1,6 +1,7 @@
 {
   "app": { "name": "Odoo Installer" },
   "nav": { "dashboard": "Dashboard", "fullInstall": "Full Install", "help": "Help", "settings": "Settings" },
+  "version": { "all": "All Versions" },
   "settings": {
     "title": "Settings", "desc": "Configure directories, database, themes, and more",
     "appearance": "Appearance", "themePreset": "Theme Preset",
@@ -56,7 +57,8 @@
     "pip": "Pip Requirements", "pipDesc": "Odoo dependencies",
     "complete": "Installation complete!", "allInstalled": "All components installed!",
     "partialFail": "Some steps failed. Check the log.",
-    "installedCount": "{installed}/{total} components installed"
+    "installedCount": "{installed}/{total} components installed",
+    "pgvectorMissing": "pgvector missing"
   },
   "project": {
     "start": "Start", "stop": "Stop", "starting": "Starting...", "stopping": "Stopping...",
@@ -145,9 +147,11 @@
     "noProjects": "No projects found.",
     "deleteLocked": "Cannot delete — files may be locked. Close VS Code and Odoo, then try again.",
     "invalidName": "Invalid project name. Use lowercase letters, numbers, underscores and hyphens. Must start with a letter or underscore.",
+    "projectNameTaken": "This project name is already used in another Odoo version.",
     "symlinkFailed": "Failed to create symlink. Run as Administrator.",
     "projectNotFound": "Project not found.",
     "configNotFound": "Config file not found.",
+    "pgvectorCopyFailed": "Failed to copy pgvector files to PostgreSQL directory. Run as Administrator.",
     "readConfigFail": "Failed to read config: {msg}",
     "saveFail": "Save failed: {msg}",
     "uploadIconFail": "Failed to upload icon: {msg}",

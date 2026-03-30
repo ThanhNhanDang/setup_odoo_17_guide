@@ -16,6 +16,7 @@ const _backendMsgMap = {
   'SYMLINK_FAILED': 'toast.symlinkFailed',
   'PROJECT_NOT_FOUND': 'toast.projectNotFound',
   'CONFIG_NOT_FOUND': 'toast.configNotFound',
+  'PGVECTOR_COPY_FAILED': 'toast.pgvectorCopyFailed',
 };
 function tMsg(msg) {
   const key = _backendMsgMap[msg];
@@ -98,13 +99,34 @@ function getVersionLabels(version) {
   return { python: v.pythonVersion, postgres: pgLabel, clone: `Clone ${v.label}` };
 }
 
+/** Build PostgreSQL detail string for status grid, including pgvector warning */
+function _pgStatusDetail(s) {
+  const ver = $('globalVersion')?.value || (_odooVersions ? _odooVersions.default : '17');
+  const vInfo = _odooVersions && _odooVersions.versions.find(x => x.key === ver);
+  let detail = s.postgres_path || '';
+  if (vInfo && vInfo.pgvector && s.postgres && !s.pgvector_available) {
+    detail += detail ? ' | ' : '';
+    detail += t('install.pgvectorMissing');
+  }
+  return detail;
+}
+
 let _allUsedPorts = new Set();
+let _allProjectNames = new Set();
 
 /** Fetch all used ports across ALL Odoo versions */
 async function refreshAllUsedPorts() {
   try {
     const ports = await api('all-used-ports');
     _allUsedPorts = new Set(Array.isArray(ports) ? ports : []);
+  } catch { /* ignore */ }
+}
+
+/** Fetch all project names across ALL Odoo versions */
+async function refreshAllProjectNames() {
+  try {
+    const names = await api('all-project-names');
+    _allProjectNames = new Set(Array.isArray(names) ? names : []);
   } catch { /* ignore */ }
 }
 
@@ -283,15 +305,25 @@ async function loadSettingsFromDisk() {
 // ---------------------------------------------------------------------------
 // Version change handlers
 // ---------------------------------------------------------------------------
+/** Get the best DB port for a version: use native PG's actual port if available, else default */
+function _detectDbPort(version) {
+  const vCfg = _odooVersions?.versions?.find(v => v.key === version);
+  const defaultPort = vCfg?.defaultDbPort || '5432';
+  // If native PG is running, use its actual port (all versions share the same PG install)
+  if (_status?.native_postgres?.is_ready && _status.native_postgres.port) {
+    return _status.native_postgres.port;
+  }
+  return defaultPort;
+}
+
 async function onVersionChange(version) {
   // Update directories + db port to match selected version
   try {
     const paths = await api('default-paths', { odoo_version: version });
     if ($('baseDir')) $('baseDir').value = paths.base_dir || '';
     if ($('projectsDir')) $('projectsDir').value = paths.projects_dir || '';
-    // Sync DB port from version registry
-    const vCfg = _odooVersions?.versions?.find(v => v.key === version);
-    if (vCfg?.defaultDbPort && $('dbPort')) $('dbPort').value = vCfg.defaultDbPort;
+    // Sync DB port: prefer native PG's actual port, fallback to version default
+    if ($('dbPort')) $('dbPort').value = _detectDbPort(version);
     saveSettingsToDisk();
   } catch { /* ignore */ }
   // Sync global + install selectors + labels
@@ -313,19 +345,20 @@ function getVersionColor(version) {
 
 /** Global version changed from topnav — sync everything */
 function onGlobalVersionChange(version) {
-  // Sync all version selectors
-  if ($('odooVersion')) $('odooVersion').value = version;
-  if ($('installVersion')) $('installVersion').value = version;
-  // Update install step labels
-  const labels = getVersionLabels(version);
-  if ($('stepName-install_python')) $('stepName-install_python').textContent = labels.python;
-  if ($('stepName-install_postgres')) $('stepName-install_postgres').textContent = labels.postgres;
-  if ($('stepName-clone_odoo')) $('stepName-clone_odoo').textContent = labels.clone;
-  // Update install version label badge
-  _syncInstallVersionLabel(version);
-  // Update paths + save, then refresh status to re-detect for new version
-  onVersionChange(version).then(() => refreshStatus());
-  // Re-filter dashboard
+  if (version) {
+    // Specific version: sync all selectors + update paths
+    if ($('odooVersion')) $('odooVersion').value = version;
+    if ($('installVersion')) $('installVersion').value = version;
+    const labels = getVersionLabels(version);
+    if ($('stepName-install_python')) $('stepName-install_python').textContent = labels.python;
+    if ($('stepName-install_postgres')) $('stepName-install_postgres').textContent = labels.postgres;
+    if ($('stepName-clone_odoo')) $('stepName-clone_odoo').textContent = labels.clone;
+    _syncInstallVersionLabel(version);
+    onVersionChange(version).then(() => refreshStatus());
+  } else {
+    // "All versions" selected — just refresh with all-version status
+    refreshStatus();
+  }
   filterDashboard();
 }
 
@@ -372,15 +405,22 @@ async function loadOdooVersions() {
     if (!el) continue;
     const savedVal = el.value; // preserve if already restored from settings
     el.innerHTML = '';
+    // Add "All" option to globalVersion only
+    if (id === 'globalVersion') {
+      const allOpt = document.createElement('option');
+      allOpt.value = '';
+      allOpt.textContent = t('version.all');
+      el.appendChild(allOpt);
+    }
     for (const v of _odooVersions.versions) {
       const opt = document.createElement('option');
       opt.value = v.key;
       opt.textContent = useSettingsLabel ? v.settingsLabel : v.label;
-      if (v.key === defaultVer) opt.selected = true;
+      if (v.key === defaultVer && id !== 'globalVersion') opt.selected = true;
       el.appendChild(opt);
     }
-    // Restore saved selection if valid
-    if (savedVal && _odooVersions.versions.some(v => v.key === savedVal)) {
+    // Restore saved selection if valid (including "" for "All")
+    if (savedVal !== undefined && (savedVal === '' || _odooVersions.versions.some(v => v.key === savedVal))) {
       el.value = savedVal;
     }
   }
@@ -480,15 +520,16 @@ async function refreshStatus() {
   if (_refreshInFlight) return;
   _refreshInFlight = true;
   try {
-  const data = getFormData();
-  const [s] = await Promise.all([api('status', data), refreshAllUsedPorts()]);
+  const globalVer = $('globalVersion')?.value || '';
+  const statusCall = globalVer ? api('status', getFormData()) : api('status-all');
+  const [s] = await Promise.all([statusCall, refreshAllUsedPorts(), refreshAllProjectNames()]);
   _status = s;
 
   // Build all HTML strings FIRST (no DOM access — pure computation)
   const items = [
     ['Git', s.git, s.git_version || ''],
     ['Python 3.11', s.python311, s.python311_path],
-    ['PostgreSQL', s.postgres, s.postgres_path],
+    ['PostgreSQL', s.postgres, _pgStatusDetail(s)],
     ['VS Code', s.vscode, s.vscode_version || ''],
     ['Nginx', s.nginx, s.nginx ? 'HTTPS proxy' : ''],
     ['Odoo Source', s.odoo_cloned, s.odoo_cloned ? s.odoo_source_dir : ''],
@@ -743,6 +784,9 @@ function validateProjectNameInput(input) {
   if (!isValidProjectName(val)) {
     hint.textContent = t('toast.invalidName');
     hint.style.display = 'block';
+  } else if (_allProjectNames.has(val)) {
+    hint.textContent = t('toast.projectNameTaken');
+    hint.style.display = 'block';
   } else {
     hint.textContent = '';
     hint.style.display = 'none';
@@ -811,8 +855,7 @@ function openNewProjectModal() {
   // Auto-fill port + db port from version
   const nextPort = getNextAvailablePort();
   if ($('newProjPort')) $('newProjPort').value = nextPort;
-  const vCfg = _odooVersions?.versions?.find(v => v.key === ver);
-  if (vCfg?.defaultDbPort && $('newProjDbPort')) $('newProjDbPort').value = vCfg.defaultDbPort;
+  if ($('newProjDbPort')) $('newProjDbPort').value = _detectDbPort(ver);
   showModal('modalNewProject');
 }
 
@@ -821,6 +864,7 @@ async function createProject(e) {
     const name = ($('newProjName')?.value || '').trim();
     if (!name) { alert(t('toast.enterName')); return; }
     if (!isValidProjectName(name)) { showToastMessage(t('toast.invalidName'), 'error'); return; }
+    if (_allProjectNames.has(name)) { showToastMessage(t('toast.projectNameTaken'), 'error'); return; }
 
     // Ensure default paths are loaded
     if (!$('baseDir')?.value || !$('projectsDir')?.value) {
@@ -1278,9 +1322,8 @@ async function confirmDuplicate(e) {
   if (!newName) { showToastMessage(t('toast.enterName'), 'error'); return; }
   if (!isValidProjectName(newName)) { showToastMessage(t('toast.invalidName'), 'error'); return; }
 
-  // Check name uniqueness
-  const nameExists = _status?.projects?.some(p => p.name === newName);
-  if (nameExists) { showToastMessage(t('toast.projectExists'), 'error'); return; }
+  // Check name uniqueness (across all Odoo versions)
+  if (_allProjectNames.has(newName)) { showToastMessage(t('toast.projectNameTaken'), 'error'); return; }
 
   // Check port uniqueness
   const port = parseInt($('dupNewPort')?.value);

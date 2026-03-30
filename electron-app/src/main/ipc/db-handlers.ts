@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { runCmd, runCmdStreaming } from '../utils/shell';
 import { IpcContext } from './context';
-import { DEFAULT_ODOO_VERSION } from '../services/odoo-versions';
+import { DEFAULT_ODOO_VERSION, getVersionConfig } from '../services/odoo-versions';
 import { getDefaultBaseDir, getDefaultProjectsDir } from '../services/config';
 
 export function registerDbHandlers(ctx: IpcContext): void {
@@ -26,6 +26,7 @@ export function registerDbHandlers(ctx: IpcContext): void {
       password: iniGet(ini, 'options', 'db_password', 'odoo'),
       adminPasswd: iniGet(ini, 'options', 'admin_passwd', 'odoo'),
       dataDir: iniGet(ini, 'options', 'data_dir', ''),
+      dbfilter: iniGet(ini, 'options', 'dbfilter', ''),
       confFile,
     };
   }
@@ -140,7 +141,7 @@ export function registerDbHandlers(ctx: IpcContext): void {
         undefined, pg.env
       );
 
-      const databases = output.trim().split('\n').filter(Boolean).map(line => {
+      const allDatabases = output.trim().split('\n').filter(Boolean).map(line => {
         const parts = line.split('|');
         return {
           name: (parts[0] || '').trim(),
@@ -150,7 +151,17 @@ export function registerDbHandlers(ctx: IpcContext): void {
         };
       }).filter(db => db.name);
 
-      return { ok: true, databases, connInfo };
+      // Filter databases by project's dbfilter (if set)
+      let databases = allDatabases;
+      const dbfilter = dbConf.dbfilter;
+      if (dbfilter) {
+        try {
+          const re = new RegExp(dbfilter);
+          databases = allDatabases.filter(db => re.test(db.name) || db.name === 'postgres');
+        } catch { /* invalid regex — show all */ }
+      }
+
+      return { ok: true, databases, connInfo, dbfilter: dbfilter || '' };
     } catch (e) {
       return { ok: false, msg: String(e) };
     }
@@ -212,6 +223,27 @@ export function registerDbHandlers(ctx: IpcContext): void {
           return;
         }
 
+        // Step 1b: Enable pgvector extension if this Odoo version needs it
+        const vCfg = getVersionConfig(odooVersion);
+        if (vCfg.pgvector) {
+          emit('init_schema', 20, 'Enabling pgvector extension...');
+          const psqlPgvec = path.join(pg.pgBin, 'psql.exe');
+          const superEnv = { ...process.env, PGPASSWORD: dbConf.password };
+          // Try with project user first, then fallback to postgres superuser
+          const { code: vecCode } = await runCmd(
+            `"${psqlPgvec}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -d "${dbName}" -c "CREATE EXTENSION IF NOT EXISTS vector;"`,
+            undefined, superEnv
+          );
+          if (vecCode !== 0) {
+            // Retry with postgres superuser
+            const superPgEnv = { ...process.env, PGPASSWORD: 'postgres' };
+            await runCmd(
+              `"${psqlPgvec}" -h ${dbConf.host} -p ${dbConf.port} -U postgres -d "${dbName}" -c "CREATE EXTENSION IF NOT EXISTS vector;"`,
+              undefined, superPgEnv
+            );
+          }
+        }
+
         // Step 2: Init Odoo schema with odoo-bin
         emit('init_schema', 30);
         const venvPy = path.join(baseDir, 'venv', 'Scripts', 'python.exe');
@@ -225,7 +257,7 @@ export function registerDbHandlers(ctx: IpcContext): void {
         }
 
         const lang = data.lang || 'en_US';
-        let initCmd = `"${venvPy}" "${odooBin}" -d "${dbName}" -c "${dbConf.confFile}" -i base --stop-after-init -l ${lang}`;
+        let initCmd = `"${venvPy}" "${odooBin}" -d "${dbName}" -c "${dbConf.confFile}" -i base --stop-after-init --load-language=${lang}`;
         if (!data.demoData) initCmd += ' --without-demo=all';
 
         const exitCode = await runCmdStreaming(initCmd, ctx.logger, {
@@ -487,6 +519,24 @@ export function registerDbHandlers(ctx: IpcContext): void {
           scheduleJobCleanup(jobKey);
           if (tempDir) try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
           return;
+        }
+
+        // Step 2b: Enable pgvector extension if this Odoo version needs it
+        const restoreVCfg = getVersionConfig(odooVersion);
+        if (restoreVCfg.pgvector) {
+          emit('restoring_data', 25, 'Enabling pgvector extension...');
+          const psqlPgvec = path.join(pg.pgBin, 'psql.exe');
+          const { code: vecCode } = await runCmd(
+            `"${psqlPgvec}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -d "${dbName}" -c "CREATE EXTENSION IF NOT EXISTS vector;"`,
+            undefined, pg.env
+          );
+          if (vecCode !== 0) {
+            const superPgEnv = { ...process.env, PGPASSWORD: 'postgres' };
+            await runCmd(
+              `"${psqlPgvec}" -h ${dbConf.host} -p ${dbConf.port} -U postgres -d "${dbName}" -c "CREATE EXTENSION IF NOT EXISTS vector;"`,
+              undefined, superPgEnv
+            );
+          }
         }
 
         // Step 3: Restore dump with streaming

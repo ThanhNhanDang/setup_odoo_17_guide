@@ -2,8 +2,8 @@ import { ipcMain } from 'electron';
 import { IpcContext } from './context';
 import { readUrlOverrides } from './settings-handlers';
 import { DEFAULT_BASE_DIR, DEFAULT_PROJECTS_DIR, getDefaultBaseDir, getDefaultProjectsDir } from '../services/config';
-import { DEFAULT_ODOO_VERSION } from '../services/odoo-versions';
-import { detectStatus, invalidateStatusCache } from '../services/status';
+import { DEFAULT_ODOO_VERSION, ALL_VERSIONS } from '../services/odoo-versions';
+import { detectStatus, invalidateStatusCache, StatusResult, ProjectInfo } from '../services/status';
 import {
   stepInstallNginx, stepInstallGit, stepInstallVSCode, stepInstallWkhtmltopdf,
   stepInstallPython, stepInstallPostgres, stepCloneOdoo, stepCreateVenv,
@@ -22,6 +22,30 @@ export function registerInstallHandlers(ctx: IpcContext): void {
     const projectsDir = data?.projects_dir || DEFAULT_PROJECTS_DIR;
     const odooSourceDir = data?.odoo_source_dir || 'odoo';
     return safe(() => detectStatus(baseDir, projectsDir, odooSourceDir));
+  });
+
+  // --- Status All Versions (for "All" filter) ---
+  ipcMain.handle('status-all', async () => {
+    return safe(async () => {
+      const allProjects: ProjectInfo[] = [];
+      let baseResult: StatusResult | null = null;
+
+      for (const ver of ALL_VERSIONS) {
+        const baseDir = getDefaultBaseDir(ver);
+        const projectsDir = getDefaultProjectsDir(ver);
+        try {
+          const s = await detectStatus(baseDir, projectsDir);
+          if (!baseResult) baseResult = s;
+          allProjects.push(...s.projects);
+        } catch { /* skip unavailable version */ }
+      }
+
+      if (!baseResult) {
+        return detectStatus(DEFAULT_BASE_DIR, DEFAULT_PROJECTS_DIR);
+      }
+      // Return base status with merged projects from all versions
+      return { ...baseResult, projects: allProjects };
+    });
   });
 
   // --- Log ---

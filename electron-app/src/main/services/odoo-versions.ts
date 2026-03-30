@@ -17,6 +17,7 @@ export interface OdooVersionConfig {
   readonly postgresUrl: string;
   readonly postgresDockerImage: string;
   readonly pgvector: boolean;                // Odoo 19 needs pgvector for AI modules
+  readonly pgvectorUrl: string;              // pgvector Windows release zip (empty if pgvector=false)
   readonly baseDirSuffix: string;            // e.g. 'odoo_15_base'
   readonly defaultProjectsSubdir: string;    // e.g. 'odoo15'
   readonly domainSuffix: string;              // e.g. 'odoo17.local' for *.odoo17.local domains
@@ -44,6 +45,7 @@ export const ODOO_VERSIONS: Readonly<Record<OdooVersionKey, OdooVersionConfig>> 
     postgresUrl: 'https://get.enterprisedb.com/postgresql/postgresql-14.15-1-windows-x64.exe',
     postgresDockerImage: 'postgres:14',
     pgvector: false,
+    pgvectorUrl: '',
     baseDirSuffix: 'odoo_15_base',
     defaultProjectsSubdir: 'odoo15',
     domainSuffix: 'odoo15.local',
@@ -64,6 +66,7 @@ export const ODOO_VERSIONS: Readonly<Record<OdooVersionKey, OdooVersionConfig>> 
     postgresUrl: 'https://get.enterprisedb.com/postgresql/postgresql-16.6-1-windows-x64.exe',
     postgresDockerImage: 'postgres:16',
     pgvector: false,
+    pgvectorUrl: '',
     baseDirSuffix: 'odoo_17_base',
     defaultProjectsSubdir: 'odoo17',
     domainSuffix: 'odoo17.local',
@@ -84,6 +87,7 @@ export const ODOO_VERSIONS: Readonly<Record<OdooVersionKey, OdooVersionConfig>> 
     postgresUrl: 'https://get.enterprisedb.com/postgresql/postgresql-16.6-1-windows-x64.exe',
     postgresDockerImage: 'postgres:16',
     pgvector: false,
+    pgvectorUrl: '',
     baseDirSuffix: 'odoo_18_base',
     defaultProjectsSubdir: 'odoo18',
     domainSuffix: 'odoo18.local',
@@ -104,6 +108,7 @@ export const ODOO_VERSIONS: Readonly<Record<OdooVersionKey, OdooVersionConfig>> 
     postgresUrl: 'https://get.enterprisedb.com/postgresql/postgresql-16.6-1-windows-x64.exe',
     postgresDockerImage: 'pgvector/pgvector:pg16',  // pgvector image for AI modules
     pgvector: true,
+    pgvectorUrl: 'https://github.com/portalcorp/pgvector_compiled/releases/download/v0.16.105/pgvector-x86_64-pc-windows-msvc-pg16.zip',
     baseDirSuffix: 'odoo_19_base',
     defaultProjectsSubdir: 'odoo19',
     domainSuffix: 'odoo19.local',

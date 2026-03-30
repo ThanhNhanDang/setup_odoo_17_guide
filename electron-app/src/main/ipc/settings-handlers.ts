@@ -64,6 +64,21 @@ export function registerSettingsHandlers(ctx: IpcContext): void {
     return [...ports].sort((a, b) => a - b);
   });
 
+  ipcMain.handle('all-project-names', async () => {
+    const names = new Set<string>();
+    for (const ver of ALL_VERSIONS) {
+      const projDir = getDefaultProjectsDir(ver);
+      if (!fs.existsSync(projDir)) continue;
+      try {
+        for (const entry of fs.readdirSync(projDir)) {
+          const confFile = path.join(projDir, entry, 'odoo.conf');
+          if (fs.existsSync(confFile)) names.add(entry);
+        }
+      } catch { /* skip unreadable dir */ }
+    }
+    return [...names].sort();
+  });
+
   ipcMain.handle('default-paths', (_event, data?: Record<string, string>) => {
     const version = data?.odoo_version || DEFAULT_ODOO_VERSION;
     return {

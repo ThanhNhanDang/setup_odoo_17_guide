@@ -729,6 +729,13 @@ async function loadDatabases(silent) {
     document.getElementById('dbUser').textContent = dbRes.connInfo.user || '-';
     if (dbRes.connInfo.adminPasswd) _adminPasswd = dbRes.connInfo.adminPasswd;
   }
+  // Show dbfilter if set
+  const filterTag = document.getElementById('dbFilterTag');
+  const filterEl = document.getElementById('dbFilter');
+  if (filterTag && filterEl && dbRes.dbfilter) {
+    filterEl.textContent = dbRes.dbfilter;
+    filterTag.style.display = '';
+  }
 
   // Merge active jobs into _inlineJobs
   if (jobRes?.ok && jobRes.jobs) {

@@ -1,6 +1,7 @@
 {
   "app": { "name": "Odoo Installer" },
   "nav": { "dashboard": "Trang chủ", "fullInstall": "Cài đặt", "help": "Trợ giúp", "settings": "Thiết lập" },
+  "version": { "all": "Tất cả phiên bản" },
   "settings": {
     "title": "Cài đặt", "desc": "Cấu hình thư mục, cơ sở dữ liệu, giao diện và nhiều hơn nữa",
     "appearance": "Giao diện", "themePreset": "Giao diện mẫu",
@@ -56,7 +57,8 @@
     "pip": "Pip Requirements", "pipDesc": "Thư viện Odoo",
     "complete": "Cài đặt hoàn tất!", "allInstalled": "Đã cài tất cả thành phần!",
     "partialFail": "Một số bước bị lỗi. Kiểm tra log.",
-    "installedCount": "{installed}/{total} thành phần đã cài"
+    "installedCount": "{installed}/{total} thành phần đã cài",
+    "pgvectorMissing": "Thiếu pgvector"
   },
   "project": {
     "start": "Khởi động", "stop": "Dừng", "starting": "Đang khởi động...", "stopping": "Đang dừng...",
@@ -144,9 +146,11 @@
     "noProjects": "Không tìm thấy dự án.",
     "deleteLocked": "Không thể xoá — file đang bị khoá. Đóng VS Code và Odoo rồi thử lại.",
     "invalidName": "Tên dự án không hợp lệ. Chỉ dùng chữ thường, số, gạch dưới và gạch ngang. Phải bắt đầu bằng chữ cái hoặc gạch dưới.",
+    "projectNameTaken": "Tên dự án đã được sử dụng ở phiên bản Odoo khác.",
     "symlinkFailed": "Tạo liên kết thất bại. Chạy với quyền Administrator.",
     "projectNotFound": "Không tìm thấy dự án.",
     "configNotFound": "Không tìm thấy file cấu hình.",
+    "pgvectorCopyFailed": "Không thể sao chép pgvector vào thư mục PostgreSQL. Chạy với quyền Administrator.",
     "readConfigFail": "Không đọc được cấu hình: {msg}",
     "saveFail": "Lưu thất bại: {msg}",
     "uploadIconFail": "Không tải được icon: {msg}",

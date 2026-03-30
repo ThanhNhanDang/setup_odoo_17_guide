@@ -4,13 +4,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Request-response: renderer calls, main process handles
   invoke: (channel: string, data: unknown): Promise<unknown> => {
     const validChannels = [
-      'status', 'log', 'full_install', 'run_step',
+      'status', 'status-all', 'log', 'full_install', 'run_step',
       'create_project', 'read_config', 'save_config',
       'delete_project', 'duplicate_project', 'reset_templates',
       'start_odoo', 'stop_odoo', 'open_vscode', 'open_explorer', 'open_browser', 'pick-folder',
       'window-minimize', 'window-maximize', 'window-close', 'window-is-maximized',
       'update-check', 'update-download', 'update-install', 'update-info', 'update-reset-interval',
-      'app-version', 'default-paths', 'odoo-versions', 'all-used-ports', 'pick-icon', 'get-icon', 'reset-icon',
+      'app-version', 'default-paths', 'odoo-versions', 'all-used-ports', 'all-project-names', 'pick-icon', 'get-icon', 'reset-icon',
       'watch-log', 'unwatch-log', 'load-settings', 'save-settings',
       'open-log-window', 'log-window-pin', 'log-window-minimize', 'log-window-maximize',
       'log-viewer-info', 'log-viewer-restart', 'log-viewer-projects', 'log-viewer-server-status',

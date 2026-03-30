@@ -15,6 +15,7 @@ import {
   findDockerAsync,
   findDockerPostgresAsync,
   detectNativePostgresDetailsAsync,
+  detectPgvectorAsync,
   findWkhtmltopdfAsync,
   DockerContainer,
   NativePostgresDetails,
@@ -78,6 +79,7 @@ export interface StatusResult {
   readonly git: boolean;
   readonly git_version: string;
   readonly nginx: boolean;
+  readonly pgvector_available: boolean;
   readonly wkhtmltopdf: boolean;
   readonly wkhtmltopdf_path: string;
   readonly vscode: boolean;
@@ -341,6 +343,11 @@ export async function detectStatus(baseDir: string, projectsDir: string, odooSou
   const dockerPg = dockerAvailable ? dockerPgResult : [];
   const pgOk = pgBin !== null || dockerPg.length > 0;
 
+  // Detect pgvector availability (for Odoo 19 AI modules)
+  const pgvectorAvailable = pgOk
+    ? await detectPgvectorAsync(pgBin, nativePg?.port || '5432', dockerPg)
+    : false;
+
   let pgDetail = '';
   if (dockerPg.length > 0) {
     pgDetail = 'Docker: ' + dockerPg.map(c => `${c.name}(${c.image} port:${c.port})`).join(', ');
@@ -384,6 +391,7 @@ export async function detectStatus(baseDir: string, projectsDir: string, odooSou
     git: gitVersion !== null,
     git_version: gitVersion || '',
     nginx,
+    pgvector_available: pgvectorAvailable,
     wkhtmltopdf: wkhtmlPath !== null,
     wkhtmltopdf_path: wkhtmlPath || '',
     vscode: vsResult.path !== null,

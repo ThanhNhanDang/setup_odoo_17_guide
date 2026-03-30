@@ -7,7 +7,17 @@ const STEP_MAP = {
   install_vscode: { label: 'Installing VS Code...', check: s => s.vscode },
   install_wkhtmltopdf: { label: 'Installing wkhtmltopdf...', check: s => s.wkhtmltopdf },
   install_python: { label: 'Installing Python 3.11...', check: s => s.python311 },
-  install_postgres: { label: 'Installing PostgreSQL...', check: s => s.postgres },
+  install_postgres: {
+    label: 'Installing PostgreSQL...',
+    check: s => {
+      if (!s.postgres) return false;
+      // If selected version needs pgvector, check that too
+      const ver = $('globalVersion')?.value || (_odooVersions ? _odooVersions.default : '17');
+      const vInfo = _odooVersions && _odooVersions.versions.find(x => x.key === ver);
+      if (vInfo && vInfo.pgvector && !s.pgvector_available) return false;
+      return true;
+    },
+  },
   clone_odoo: { label: 'Cloning Odoo 17...', check: s => s.odoo_cloned },
   create_venv: { label: 'Creating virtual environment...', check: s => s.venv_created },
   install_requirements: { label: 'Installing requirements...', check: s => s.requirements_installed },
@@ -44,6 +54,12 @@ function updateStepCard(stepId, state, statusText) {
   }
 }
 
+function _pgNeedsVector() {
+  const ver = $('globalVersion')?.value || (_odooVersions ? _odooVersions.default : '17');
+  const vInfo = _odooVersions && _odooVersions.versions.find(x => x.key === ver);
+  return vInfo && vInfo.pgvector;
+}
+
 function refreshInstallStatus() {
   if (!_status) return;
   for (const [stepId, info] of Object.entries(STEP_MAP)) {
@@ -54,6 +70,10 @@ function refreshInstallStatus() {
     if (info.check && info.check(_status)) {
       _stepStates.set(stepId, { state: 'done', source: 'status' });
       updateStepCard(stepId, 'done', 'Installed');
+    } else if (stepId === 'install_postgres' && _status.postgres && _pgNeedsVector() && !_status.pgvector_available) {
+      // PG installed but pgvector missing — show warning state
+      _stepStates.set(stepId, { state: 'idle', source: 'status' });
+      updateStepCard(stepId, 'error', t('install.pgvectorMissing'));
     } else {
       _stepStates.set(stepId, { state: 'idle', source: 'status' });
       updateStepCard(stepId, '', '');
@@ -91,6 +111,8 @@ async function checkInstallStatus() {
     await new Promise(r => setTimeout(r, 300));
     if (info.check && info.check(_status)) {
       updateStepCard(stepId, 'done', 'Installed');
+    } else if (stepId === 'install_postgres' && _status.postgres && _pgNeedsVector() && !_status.pgvector_available) {
+      updateStepCard(stepId, 'error', t('install.pgvectorMissing'));
     } else {
       updateStepCard(stepId, 'error', 'Not found');
     }
