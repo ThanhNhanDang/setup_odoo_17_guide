@@ -1119,10 +1119,10 @@ async function withBtnPending(e, guardKey, label, asyncFn, cooldown) {
 async function openLogWindow(projectName, logPath, e, httpPort, domain) {
   const proj = _status?.projects?.find(p => p.name === projectName);
   const projVersion = proj?.odoo_version || $('odooVersion')?.value || '17';
+  // Don't pass baseDir — let backend derive from odooVersion to avoid cross-version mismatch
   await withBtnPending(e, 'log-' + projectName, t('project.monitor'), () => api('open-log-window', {
     projectName, logPath,
     odooVersion: projVersion,
-    baseDir: $('baseDir')?.value || '',
     projectsDir: _getProjectsDir(projectName),
     httpPort: httpPort || '',
     domain: domain || '',
