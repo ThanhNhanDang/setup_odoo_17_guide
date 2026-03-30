@@ -878,6 +878,14 @@ export async function stepCreateProject(
     logger.log(`  > Could not add domain to hosts: ${hostsResult.msg}`);
   }
 
+  // Pre-generate and trust SSL cert so browser doesn't cache "untrusted" state
+  try {
+    const { generateSslCertForDomain } = require('../utils/nginx');
+    if (typeof generateSslCertForDomain === 'function') {
+      await generateSslCertForDomain(baseDir, projectDomain, logger);
+    }
+  } catch { /* non-critical — cert will be created on first start */ }
+
   await emit('setup_domain', true);
 
   logger.log(`Project '${projectName}' ready at ${proj}`);

@@ -134,6 +134,11 @@ extendedKeyUsage = serverAuth
   return true;
 }
 
+/** Public wrapper: generate + trust SSL cert for a domain (called during project creation) */
+export async function generateSslCertForDomain(baseDir: string, domain: string, logger: LoggerService): Promise<boolean> {
+  return generateSslCert(baseDir, domain, logger);
+}
+
 // ---------------------------------------------------------------------------
 // Install Nginx
 // ---------------------------------------------------------------------------
