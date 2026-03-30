@@ -1043,9 +1043,10 @@ async function stopOdoo(name) {
   if (_pendingProjects.has(name)) return;
   setProjectPending(name, 'stopping');
   try {
-    const port = _status?.projects?.find(p => p.name === name)?.http_port || '8069';
+    const proj = _status?.projects?.find(p => p.name === name);
+    const port = proj?.http_port || '8069';
     showToastMessage(t('toast.odooStopping'), 'info');
-    const res = await api('stop_odoo', { http_port: port });
+    const res = await api('stop_odoo', { http_port: port, longpolling_port: proj?.longpolling_port || '' });
     if (res.ok) {
       showToastMessage(t('toast.odooStopped'), 'success');
       // Optimistic: immutable state update

@@ -214,21 +214,29 @@ export function registerProjectHandlers(ctx: IpcContext): void {
   // --- Stop Odoo ---
   ipcMain.handle('stop_odoo', async (_event, data: Record<string, string>) => {
     const port = data?.http_port || '8069';
+    const geventPort = data?.longpolling_port || '';
     if (!/^\d{1,5}$/.test(port)) return { ok: false, msg: 'Invalid port' };
     try {
-      const { output } = await runCmd(`netstat -ano | findstr ":${port}.*LISTENING"`);
-      const lines = output.trim().split('\n').filter(Boolean);
+      // Kill main Odoo + gevent worker processes
+      const portsToKill = [port];
+      if (geventPort && /^\d{1,5}$/.test(geventPort)) portsToKill.push(geventPort);
+
       const pids = new Set<string>();
-      for (const line of lines) {
-        const parts = line.trim().split(/\s+/);
-        const pid = parts[parts.length - 1];
-        if (pid && pid !== '0') pids.add(pid);
+      for (const p of portsToKill) {
+        try {
+          const { output } = await runCmd(`netstat -ano | findstr ":${p}.*LISTENING"`);
+          for (const line of output.trim().split('\n').filter(Boolean)) {
+            const parts = line.trim().split(/\s+/);
+            const pid = parts[parts.length - 1];
+            if (pid && pid !== '0') pids.add(pid);
+          }
+        } catch { /* port not listening */ }
       }
       if (pids.size === 0) return { ok: true, msg: 'Not running' };
       for (const pid of pids) {
         await runCmd(`taskkill /F /PID ${pid}`);
       }
-      ctx.logger.log(`Odoo stopped (killed PID: ${[...pids].join(', ')})`);
+      ctx.logger.log(`Odoo stopped (killed PID: ${[...pids].join(', ')}) [ports: ${portsToKill.join(', ')}]`);
       invalidateStatusCache();
       return { ok: true, msg: 'Stopped' };
     } catch (e) {
@@ -383,6 +391,36 @@ export async function ensurePgAndStartOdoo(ctx: IpcContext, opts: {
   odooProc.on('exit', (code: number | null) => {
     if (code !== null && code !== 0) ctx.logger.log(`[odoo] Process exited with code ${code}`);
   });
+
+  // Start gevent worker for longpolling/websocket on Windows
+  // (PreforkServer only works on Linux, Windows needs a separate gevent process)
+  try {
+    const { parseIniFile, iniGet } = require('../services/ini-parser');
+    const iniConf = parseIniFile(confFile);
+    const workers = parseInt(iniGet(iniConf, 'options', 'workers', '0'), 10);
+    const geventPort = iniGet(iniConf, 'options', 'gevent_port', '');
+    if (workers > 0 && geventPort && process.platform === 'win32') {
+      const venvPy2 = path.join(baseDir, 'venv', 'Scripts', 'python.exe');
+      const odooBin2 = path.join(baseDir, odooSourceDir, 'odoo-bin');
+      const geventCmd = `"${venvPy2}" "${odooBin2}" gevent -c "${confFile}"`;
+      ctx.logger.log(`Starting gevent worker on port ${geventPort}: ${geventCmd}`);
+      const geventProc = execChild(geventCmd, {
+        cwd: projectPath, windowsHide: true, maxBuffer: 10 * 1024 * 1024, env: odooEnv,
+      });
+      geventProc.stdout?.on('data', (d: string) => {
+        for (const line of d.toString().split('\n').filter(Boolean)) ctx.logger.log(`[gevent] ${line.trim()}`);
+      });
+      geventProc.stderr?.on('data', (d: string) => {
+        for (const line of d.toString().split('\n').filter(Boolean)) ctx.logger.log(`[gevent:err] ${line.trim()}`);
+      });
+      geventProc.on('exit', (code2: number | null) => {
+        if (code2 !== null && code2 !== 0) ctx.logger.log(`[gevent] Process exited with code ${code2}`);
+      });
+      ctx.logger.log(`  > Gevent longpolling/websocket worker started on port ${geventPort}`);
+    }
+  } catch (e) {
+    ctx.logger.log(`  > Gevent worker start failed: ${e}`);
+  }
 
   invalidateStatusCache();
   return { ok: true, msg: 'Started' };

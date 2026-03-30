@@ -413,22 +413,34 @@ export function registerLogHandlers(ctx: IpcContext): void {
         }
       }
 
-      // Stop Odoo on the port (if running)
+      // Stop Odoo + gevent worker on their ports (if running)
       const port = data.httpPort;
       if (port && /^\d{1,5}$/.test(port)) {
-        const { output } = await runCmd(`netstat -ano | findstr ":${port}.*LISTENING"`);
-        const lines = output.trim().split('\n').filter(Boolean);
+        // Also find gevent port from odoo.conf
+        const portsToKill = [port];
+        try {
+          const { parseIniFile: pif, iniGet: ig } = require('../services/ini-parser');
+          const ini2 = pif(confFile);
+          const gp = ig(ini2, 'options', 'gevent_port', '');
+          if (gp && /^\d{1,5}$/.test(gp)) portsToKill.push(gp);
+        } catch { /* ignore */ }
+
         const pids = new Set<string>();
-        for (const line of lines) {
-          const parts = line.trim().split(/\s+/);
-          const pid = parts[parts.length - 1];
-          if (pid && pid !== '0') pids.add(pid);
+        for (const p of portsToKill) {
+          try {
+            const { output } = await runCmd(`netstat -ano | findstr ":${p}.*LISTENING"`);
+            for (const line of output.trim().split('\n').filter(Boolean)) {
+              const parts = line.trim().split(/\s+/);
+              const pid = parts[parts.length - 1];
+              if (pid && pid !== '0') pids.add(pid);
+            }
+          } catch { /* port not listening */ }
         }
         for (const pid of pids) {
           await runCmd(`taskkill /F /PID ${pid}`);
         }
         if (pids.size > 0) {
-          ctx.logger.log(`  > Odoo stopped (PID: ${[...pids].join(', ')})`);
+          ctx.logger.log(`  > Odoo stopped (PID: ${[...pids].join(', ')}) [ports: ${portsToKill.join(', ')}]`);
           await new Promise(resolve => setTimeout(resolve, 1500));
         }
       }

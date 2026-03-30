@@ -491,11 +491,11 @@ async function saveDetailAndRestart(name) {
     if (!saveRes.ok) { showToastMessage(t('toast.saveFail', { msg: saveRes.msg }), 'error'); return; }
 
     // Stop Odoo if running, then always (re)start
-    const port = _status?.projects?.find(p => p.name === name)?.http_port || '8069';
     const proj = _status?.projects?.find(p => p.name === name);
+    const port = proj?.http_port || '8069';
     if (proj?.is_running) {
       showToastMessage(t('toast.restarting'), 'info');
-      await api('stop_odoo', { http_port: port });
+      await api('stop_odoo', { http_port: port, longpolling_port: proj?.longpolling_port || '' });
       await new Promise(r => setTimeout(r, 2000));
     } else {
       showToastMessage(t('toast.starting'), 'info');
