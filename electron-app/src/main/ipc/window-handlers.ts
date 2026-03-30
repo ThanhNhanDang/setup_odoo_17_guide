@@ -22,6 +22,9 @@ export function registerWindowHandlers(ctx: IpcContext): void {
   });
 
   // --- Open VS Code ---
+  // Launch VS Code as non-elevated user via Shell.Application COM object.
+  // Without this, VS Code inherits admin elevation from our process,
+  // which breaks IME software (e.g. Unikey for Vietnamese input).
   ipcMain.handle('open_vscode', async (_event, data: Record<string, string>) => {
     const targetPath = data?.path;
     if (!targetPath) return { ok: false, msg: 'No path provided' };
@@ -31,11 +34,10 @@ export function registerWindowHandlers(ctx: IpcContext): void {
       if (!vscodePath) return { ok: false, msg: 'VS Code not found' };
 
       const { exec } = require('child_process');
-      if (vscodePath === 'code') {
-        exec(`code "${targetPath}"`, { windowsHide: true });
-      } else {
-        exec(`"${vscodePath}" "${targetPath}"`, { windowsHide: true });
-      }
+      // Shell.Application.ShellExecute launches via Explorer's token (non-elevated)
+      const psScript = `(New-Object -ComObject Shell.Application).ShellExecute('${vscodePath}', '"${targetPath}"', '', 'open', 1)`;
+      const encoded = Buffer.from(psScript, 'utf16le').toString('base64');
+      exec(`powershell -NoProfile -WindowStyle Hidden -EncodedCommand ${encoded}`, { windowsHide: true });
       return { ok: true };
     } catch (e) {
       return { ok: false, msg: String(e) };
