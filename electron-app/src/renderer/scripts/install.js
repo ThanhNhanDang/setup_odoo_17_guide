@@ -136,6 +136,7 @@ function appendInstallLog(line) {
   if (!logEl || !wrap) return;
   wrap.style.display = 'block';
   logEl.insertAdjacentHTML('beforeend', `<div class="line">${escHtml(line)}</div>`);
+  while (logEl.childElementCount > 300) logEl.removeChild(logEl.firstChild);
   logEl.scrollTop = logEl.scrollHeight;
 }
 

@@ -652,11 +652,16 @@ export async function stepInstallRequirements(baseDir: string, logger: LoggerSer
   if (!fs.existsSync(reqFile)) {
     return { ok: false, msg: 'requirements.txt not found.' };
   }
-  // Quick check: if key packages already exist, skip full pip install
+  // Quick check: if key packages + extra packages already exist, skip
   const sitePackages = path.join(baseDir, 'venv', 'Lib', 'site-packages');
   const checkPkgs = ['lxml', 'psycopg2', 'werkzeug', 'Babel'];
-  const allInstalled = checkPkgs.every(p => fs.existsSync(path.join(sitePackages, p)));
-  if (allInstalled) {
+  const baseInstalled = checkPkgs.every(p => fs.existsSync(path.join(sitePackages, p)));
+  // Also check a sample extra package if any are configured
+  const extraPkgsSample = vCfg.extraPipPackages.length > 0
+    ? [vCfg.extraPipPackages[vCfg.extraPipPackages.length - 1].replace(/[>=<].*/g, '').replace(/-/g, '_')]
+    : [];
+  const extrasInstalled = extraPkgsSample.every(p => fs.existsSync(path.join(sitePackages, p)));
+  if (baseInstalled && extrasInstalled) {
     logger.log('Requirements already installed.');
     return { ok: true, msg: 'Already installed' };
   }
@@ -703,8 +708,12 @@ export async function stepInstallRequirements(baseDir: string, logger: LoggerSer
     const pkgList = extraPkgs.join(' ');
     let extraSuccess = false;
 
+    // Use --no-deps to avoid pulling in transitive dependencies that conflict
+    // with Odoo's pinned packages (e.g. google-auth wants cryptography>=38 but
+    // Odoo 17 pins cryptography==3.4.8 for pyopenssl==21 compatibility).
+    // This mirrors the Dockerfile approach used in production Docker images.
     const extraCode = await runCmdStreaming(
-      `"${pipExe}" install ${pkgList}`,
+      `"${pipExe}" install --no-deps ${pkgList}`,
       logger,
       {
         onData: (line) => {

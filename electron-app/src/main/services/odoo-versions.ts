@@ -31,6 +31,60 @@ export interface OdooVersionConfig {
 // TODO: re-enable after validating against each Odoo version's venv.
 const COMMON_EXTRA_PACKAGES: readonly string[] = [];
 
+// Extra packages commonly needed by custom Odoo 17 modules.
+// Installed with `pip install --no-deps` after requirements.txt to avoid
+// upgrading/downgrading Odoo's pinned packages (e.g. cryptography==3.4.8).
+//
+// IMPORTANT: Because --no-deps is used, transitive dependencies that aren't
+// already in Odoo's requirements.txt must be listed explicitly here.
+// google-auth is pinned to 2.14.x because >=2.15 requires cryptography>=38
+// which conflicts with Odoo 17's pyopenssl==21 + cryptography==3.4.8.
+const ODOO17_EXTRA_PACKAGES: readonly string[] = [
+  // --- Google API (pinned to avoid cryptography conflict) ---
+  'google-auth>=2.14,<2.15',
+  'google-auth-httplib2',
+  'google-api-core',
+  'google-api-python-client',
+  'googleapis-common-protos',
+  'proto-plus',
+  'protobuf',
+  'httplib2',
+  'uritemplate',
+  'cachetools',
+  'rsa',
+  'pyasn1',
+  'pyasn1-modules',
+  // --- Data & document processing ---
+  'numpy',
+  'pandas',
+  'tzdata',
+  'openpyxl',
+  'et-xmlfile',
+  'python-docx',
+  'python-pptx',
+  // --- Reporting & PDF ---
+  'PyPDF2>=3.0',
+  'pdf2image',
+  'reportlab_qrcode',
+  'python-barcode',
+  'genshi',
+  'py3o.template',
+  'pyjon.utils',
+  // --- Network & messaging ---
+  'paho-mqtt',
+  'python-socketio',
+  'python-engineio',
+  'bidict',
+  'websockets',
+  // --- Utilities ---
+  'httpagentparser',
+  'debugpy',
+  'sqlparse',
+  'typing_extensions',
+  'unoconv',
+  'pyodbc',
+];
+
 export const ODOO_VERSIONS: Readonly<Record<OdooVersionKey, OdooVersionConfig>> = {
   '15': {
     key: '15',
@@ -72,7 +126,7 @@ export const ODOO_VERSIONS: Readonly<Record<OdooVersionKey, OdooVersionConfig>> 
     domainSuffix: 'odoo17.local',
     defaultDbPort: '5434',
     color: '#f0883e',   // orange (current accent)
-    extraPipPackages: [...COMMON_EXTRA_PACKAGES, 'PyPDF2>=3.0'],
+    extraPipPackages: [...COMMON_EXTRA_PACKAGES, ...ODOO17_EXTRA_PACKAGES],
   },
   '18': {
     key: '18',

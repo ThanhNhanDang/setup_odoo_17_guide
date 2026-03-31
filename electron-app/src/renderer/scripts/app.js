@@ -708,10 +708,11 @@ function stopLogPoll() {
 // Listen for real-time log push from main process (replaces polling)
 if (window.electronAPI) {
   window.electronAPI.onLogMessage((line) => {
-    // Log tab
+    // Log tab — cap at 500 DOM nodes to prevent memory bloat
     const el = $('log');
     if (el) {
       el.insertAdjacentHTML('beforeend', `<div class="line">${escHtml(line)}</div>`);
+      while (el.childElementCount > 500) el.removeChild(el.firstChild);
       el.scrollTop = el.scrollHeight;
     }
     // Install inline log
