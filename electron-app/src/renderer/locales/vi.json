@@ -203,6 +203,8 @@
     "noLogYet": "Chưa có file log. Khởi động Odoo để tạo log.",
     "alwaysOnTop": "Luôn trên cùng",
     "pinnedOnTop": "Đã ghim — luôn trên cùng",
+    "compactMode": "Thu gọn",
+    "expandMode": "Mở rộng toàn màn hình",
     "minimize": "Thu nhỏ",
     "maximize": "Phóng to",
     "toggleSidebar": "Bật/tắt thanh bên",

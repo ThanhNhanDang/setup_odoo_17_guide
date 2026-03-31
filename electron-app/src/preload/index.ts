@@ -12,7 +12,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'update-check', 'update-download', 'update-install', 'update-info', 'update-reset-interval',
       'app-version', 'default-paths', 'odoo-versions', 'all-used-ports', 'all-project-names', 'pick-icon', 'get-icon', 'reset-icon',
       'watch-log', 'unwatch-log', 'load-settings', 'save-settings',
-      'open-log-window', 'log-window-pin', 'log-window-minimize', 'log-window-maximize',
+      'open-log-window', 'log-window-pin', 'log-window-minimize', 'log-window-maximize', 'log-window-compact', 'log-window-compact-expand', 'log-window-restore-bounds',
       'log-viewer-info', 'log-viewer-restart', 'log-viewer-projects', 'log-viewer-server-status',
       'pick-file', 'pick-logo', 'save-logo', 'broadcast-theme',
       'monitor-list-databases', 'monitor-create-database', 'monitor-drop-database', 'monitor-restore-database',
@@ -42,7 +42,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const validPushChannels = [
       'log-message', 'task-progress', 'download-progress',
       'update-status', 'project-log', 'duplicate-progress',
-      'create-progress', 'delete-progress', 'db-job-progress', 'language-changed', 'theme-changed',
+      'create-progress', 'delete-progress', 'db-job-progress', 'language-changed', 'theme-changed', 'compact-saved-bounds',
     ];
     if (validPushChannels.includes(eventName)) {
       ipcRenderer.on(eventName, (_event, ...args) => callback(...args));

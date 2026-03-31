@@ -283,6 +283,50 @@ export function registerLogHandlers(ctx: IpcContext): void {
     }
   });
 
+  // Compact mode: shrink to small square widget, pin on top
+  ipcMain.handle('log-window-compact', async (event, data: { compact: boolean }) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return { ok: false };
+    if (data.compact) {
+      const bounds = win.getBounds();
+      win.webContents.send('compact-saved-bounds', bounds);
+      // Start with modules panel expanded (default)
+      win.setResizable(true);
+      win.setMinimumSize(340, 200);
+      win.setSize(340, 380);
+      win.setAlwaysOnTop(true, 'screen-saver');
+    } else {
+      win.setMinimumSize(500, 300);
+      win.setResizable(true);
+      win.setAlwaysOnTop(false);
+    }
+    return { ok: true };
+  });
+
+  // Compact mode: expand/shrink for modules panel
+  ipcMain.handle('log-window-compact-expand', async (event, data: { expanded: boolean }) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return { ok: false };
+    const [w] = win.getSize();
+    if (data.expanded) {
+      win.setResizable(true);
+      win.setMinimumSize(340, 200);
+      win.setSize(w, 380);
+    } else {
+      win.setResizable(false);
+      win.setMinimumSize(340, 130);
+      win.setSize(w, 130);
+    }
+    return { ok: true };
+  });
+
+  // Restore window bounds after leaving compact mode
+  ipcMain.handle('log-window-restore-bounds', async (event, data: { x: number; y: number; width: number; height: number }) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) win.setBounds(data);
+    return { ok: true };
+  });
+
   // =========================================================================
   // Log Viewer: server status, project list, info, restart
   // =========================================================================

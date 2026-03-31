@@ -38,6 +38,9 @@ html,body{background:#0d1117;margin:0;padding:0}
     </select>
   </span>
   <div class="titlebar-controls">
+    <button onclick="toggleCompact()" id="btnCompact" class="compact-btn" title="Compact mode">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+    </button>
     <button onclick="togglePin()" id="btnPin" class="pin-btn" data-tour="monitor-pin" title="Always on top">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 2h6l-1.5 5.5L17 11H7l3.5-3.5z"/></svg>
     </button>
@@ -60,6 +63,48 @@ html,body{background:#0d1117;margin:0;padding:0}
   <div style="display:flex;align-items:center;gap:8px;min-width:0">
     <div id="logPath" style="opacity:0.6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
     <span class="line-count" id="lineCount">0 lines</span>
+  </div>
+</div>
+
+<!-- Compact mode widget (shown when compact) -->
+<div class="compact-widget" id="compactWidget">
+  <div class="compact-status">
+    <div class="compact-row">
+      <span class="status-dot idle" id="compactStatusDot"></span>
+      <span class="compact-project" id="compactProject"></span>
+    </div>
+    <div class="compact-row">
+      <span class="status-dot idle" id="compactServerDot"></span>
+      <span id="compactServerStatus">-</span>
+    </div>
+  </div>
+  <div class="compact-actions">
+    <button class="compact-action-btn" onclick="saveAndRestart()" id="compactBtnRestart" title="Save & Restart">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+    </button>
+    <button class="compact-action-btn" onclick="openBrowserFromMonitor()" id="compactBtnBrowser" title="Open in browser">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+    </button>
+    <button class="compact-action-btn" onclick="showCompactModules()" id="compactBtnModules" title="Upgrade Modules">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- Compact modules panel (inline, expands window) -->
+<div class="compact-modules-panel" id="compactModulesPanel">
+  <div class="compact-modules-header">
+    <span id="compactModulesTitle">Upgrade Modules</span>
+    <div style="display:flex;gap:4px;align-items:center">
+      <button class="compact-modules-action" onclick="compactSelectAll()">All</button>
+      <button class="compact-modules-action" onclick="compactDeselectAll()">None</button>
+      <button class="compact-modules-close" onclick="hideCompactModules()">&times;</button>
+    </div>
+  </div>
+  <input type="text" class="compact-modules-search" id="compactModuleSearch" placeholder="Filter modules..." oninput="filterCompactModules(this.value)">
+  <div class="compact-modules-list" id="compactModulesList"></div>
+  <div class="compact-modules-footer" id="compactModulesFooter">
+    <span class="compact-modules-count" id="compactModulesCount"></span>
   </div>
 </div>
 
@@ -208,10 +253,10 @@ html,body{background:#0d1117;margin:0;padding:0}
     <div class="db-msg" id="createDbMsg"></div>
     <div id="createDbForm">
       <label id="createDbPasswdLabel">Master Password</label>
-      <div style="display:flex;gap:6px;margin-bottom:10px">
+      <div style="display:flex;gap:6px;margin-bottom:6px">
         <input type="text" id="createDbPasswd" readonly style="margin-bottom:0;flex:1;opacity:0.7">
-        <button class="db-toolbar-btn" onclick="navigator.clipboard.writeText(document.getElementById('createDbPasswd').value)" style="flex-shrink:0;padding:5px 8px" title="Copy">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        <button class="db-toolbar-btn" onclick="navigator.clipboard.writeText(document.getElementById('createDbPasswd').value)" style="flex-shrink:0;padding:4px 7px" title="Copy">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
         </button>
       </div>
       <label id="createDbNameLabel">Database Name</label>
@@ -225,10 +270,10 @@ html,body{background:#0d1117;margin:0;padding:0}
       <input type="text" id="createDbPassword" placeholder="admin" autocomplete="off" value="admin">
       <label id="createDbPhoneLabel">Phone Number</label>
       <input type="tel" id="createDbPhone" placeholder="+84..." autocomplete="off">
-      <div style="display:flex;gap:8px;margin-bottom:10px">
+      <div style="display:flex;gap:6px;margin-bottom:6px">
         <div style="flex:1">
           <label id="createDbLangLabel">Language</label>
-          <select id="createDbLang" style="width:100%;padding:7px 10px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:0.75rem">
+          <select id="createDbLang" style="width:100%;padding:5px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:0.72rem">
             <option value="sq_AL">Albanian / Shqip</option>
             <option value="am_ET">Amharic / አምሃርኛ</option>
             <option value="ar_SY">Arabic (Syria) / الْعَرَبيّة</option>
@@ -324,7 +369,7 @@ html,body{background:#0d1117;margin:0;padding:0}
         </div>
         <div style="flex:1">
           <label id="createDbCountryLabel">Country</label>
-          <select id="createDbCountry" style="width:100%;padding:7px 10px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:0.75rem">
+          <select id="createDbCountry" style="width:100%;padding:5px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:0.72rem">
             <option value=""></option>
             <option value="af">Afghanistan</option><option value="al">Albania</option><option value="dz">Algeria</option>
             <option value="as">American Samoa</option><option value="ad">Andorra</option><option value="ao">Angola</option>
@@ -391,11 +436,11 @@ html,body{background:#0d1117;margin:0;padding:0}
           </select>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
         <input type="checkbox" id="createDbDemo" style="width:auto;margin:0;accent-color:var(--header-bg)">
         <label for="createDbDemo" id="createDbDemoLabel" style="margin:0;cursor:pointer">Demo Data</label>
       </div>
-      <div style="font-size:0.68rem;color:var(--text-dim);margin-bottom:8px;line-height:1.4" id="createDbHint">Creates database and initializes Odoo schema. Takes 2-5 minutes.</div>
+      <div style="font-size:0.65rem;color:var(--text-dim);margin-bottom:4px;line-height:1.3" id="createDbHint">Creates database and initializes Odoo schema. Takes 2-5 minutes.</div>
     </div>
     <div class="db-modal-actions" id="createDbActions">
       <button class="db-toolbar-btn" onclick="hideDbModal('modalCreateDb')" id="createDbCancelBtn">Cancel</button>

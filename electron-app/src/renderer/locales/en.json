@@ -204,6 +204,8 @@
     "noLogYet": "No log file yet. Start Odoo to generate logs.",
     "alwaysOnTop": "Always on top",
     "pinnedOnTop": "Pinned — always on top",
+    "compactMode": "Compact mode",
+    "expandMode": "Expand to full view",
     "minimize": "Minimize",
     "maximize": "Maximize",
     "toggleSidebar": "Toggle sidebar",

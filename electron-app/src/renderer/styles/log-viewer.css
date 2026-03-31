@@ -252,20 +252,111 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 }
 .empty-state svg{width:32px;height:32px;opacity:0.4}
 
-/* Pin button — SVG pushpin with clear pinned/unpinned states */
-.pin-btn{position:relative;transition:all 0.2s}
-.pin-btn svg{width:16px;height:16px;transition:transform 0.3s ease,opacity 0.2s}
-/* Unpinned: rotated, dim */
-.pin-btn:not(.pinned) svg{transform:rotate(45deg);opacity:0.35;stroke:currentColor}
-.pin-btn:not(.pinned):hover svg{opacity:0.7}
-/* Pinned: upright, bright accent glow */
-.pin-btn.pinned{background:rgba(0,0,0,0.5)!important}
-.pin-btn.pinned svg{transform:rotate(0deg);opacity:1;stroke:var(--header-bg);filter:drop-shadow(0 0 4px var(--header-bg))}
-/* Animation */
+/* Pin & Compact — highlighted feature buttons */
+.pin-btn,.compact-btn{
+  position:relative;transition:all 0.2s;
+  width:46px!important;
+  background:rgba(255,255,255,0.12)!important;
+  border-left:1px solid rgba(255,255,255,0.15);
+}
+.pin-btn svg,.compact-btn svg{width:18px;height:18px;transition:all 0.3s ease}
+.pin-btn:hover,.compact-btn:hover{background:rgba(255,255,255,0.25)!important}
+
+/* Pin — unpinned state */
+.pin-btn:not(.pinned) svg{transform:rotate(45deg);opacity:0.7;stroke:#fff}
+.pin-btn:not(.pinned):hover svg{opacity:1;transform:rotate(45deg) scale(1.1)}
+/* Pin — pinned state */
+.pin-btn.pinned{background:rgba(255,255,255,0.25)!important;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.5)}
+.pin-btn.pinned svg{transform:rotate(0deg);opacity:1;stroke:#fff;filter:drop-shadow(0 0 5px #fff)}
 @keyframes pinBounce{0%{transform:rotate(0deg) scale(1)}40%{transform:rotate(0deg) scale(1.3)}100%{transform:rotate(0deg) scale(1)}}
 @keyframes unpinDrop{0%{transform:rotate(0deg)}100%{transform:rotate(45deg)}}
 .pin-btn.animate-in svg{animation:pinBounce 0.35s ease forwards}
 .pin-btn.animate-out svg{animation:unpinDrop 0.3s ease forwards}
+
+/* Compact — inactive */
+.compact-btn:not(.active) svg{opacity:0.7;stroke:#fff}
+.compact-btn:not(.active):hover svg{opacity:1;transform:scale(1.1)}
+/* Compact — active */
+.compact-btn.active{background:rgba(255,255,255,0.25)!important;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.5)}
+.compact-btn.active svg{opacity:1;stroke:#fff;filter:drop-shadow(0 0 5px #fff)}
+
+/* Compact mode widget */
+.compact-widget{
+  display:none;flex-direction:row;align-items:center;justify-content:space-between;
+  padding:8px 10px;background:var(--bg-surface);
+  overflow:hidden;gap:10px;flex-shrink:0;
+}
+.compact-status{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+.compact-row{display:flex;align-items:center;gap:6px;white-space:nowrap;font-size:0.82rem}
+.compact-project{font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;font-size:0.88rem}
+.compact-actions{display:flex;gap:5px;flex-shrink:0}
+.compact-action-btn{
+  width:36px;height:36px;border-radius:7px;border:1px solid var(--border);
+  background:var(--bg);color:var(--text-dim);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all 0.15s;
+  padding:0;position:relative;
+}
+.compact-action-btn svg{width:22px;height:22px}
+.compact-action-btn:hover{background:var(--header-bg);color:#fff;border-color:var(--header-bg)}
+.compact-action-btn.restarting{opacity:0.6;pointer-events:none}
+.compact-action-btn .compact-spinner{
+  width:18px;height:18px;border:2px solid var(--border);
+  border-top-color:var(--header-bg);border-radius:50%;animation:spin 0.6s linear infinite;
+}
+
+/* Compact modules — inline panel (expands window downward) */
+.compact-modules-panel{
+  display:none;flex-direction:column;border-top:1px solid var(--border);
+  background:var(--bg-surface);flex:1;min-height:0;overflow:hidden;
+}
+.compact-modules-panel.show{display:flex}
+.compact-modules-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:6px 10px;border-bottom:1px solid var(--border);flex-shrink:0;
+  font-size:0.75rem;font-weight:600;color:var(--text);
+}
+.compact-modules-action{
+  background:none;border:1px solid var(--border);color:var(--text-dim);
+  font-size:0.65rem;padding:2px 6px;border-radius:3px;cursor:pointer;
+}
+.compact-modules-action:hover{background:var(--border);color:var(--text)}
+.compact-modules-close{
+  background:none;border:none;color:var(--text-dim);font-size:1.1rem;
+  cursor:pointer;padding:0 4px;line-height:1;
+}
+.compact-modules-close:hover{color:var(--text)}
+.compact-modules-search{
+  margin:6px 8px;padding:5px 8px;border-radius:4px;border:1px solid var(--border);
+  background:var(--bg);color:var(--text);font-size:0.72rem;outline:none;flex-shrink:0;
+}
+.compact-modules-search:focus{border-color:var(--header-bg)}
+.compact-modules-list{
+  flex:1;overflow-y:auto;padding:2px 8px;min-height:0;
+}
+.compact-modules-list label{
+  display:flex;align-items:center;gap:6px;padding:3px 4px;
+  font-size:0.72rem;color:var(--text);cursor:pointer;border-radius:3px;
+}
+.compact-modules-list label:hover{background:rgba(255,255,255,0.05)}
+.compact-modules-list input[type="checkbox"]{accent-color:var(--header-bg);margin:0}
+.compact-modules-footer{
+  padding:4px 10px;border-top:1px solid var(--border);flex-shrink:0;
+  font-size:0.65rem;color:var(--text-dim);display:none;
+}
+.compact-modules-footer.has-count{display:block}
+/* Highlight modules button when panel open */
+.compact-action-btn.active{background:var(--header-bg)!important;color:#fff;border-color:var(--header-bg)}
+
+/* When compact mode is active */
+body.compact-mode .status-bar,
+body.compact-mode .tab-bar,
+body.compact-mode .tab-content{display:none!important}
+body.compact-mode .compact-widget{display:flex}
+body.compact-mode .compact-modules-panel{display:flex}
+/* Hide pin/min/max — keep compact + close only */
+body.compact-mode .pin-btn,
+body.compact-mode .titlebar-controls button[onclick="minimizeWindow()"],
+body.compact-mode .titlebar-controls button[onclick="maximizeWindow()"]{display:none}
 
 /* Line count in status bar */
 .line-count{font-size:0.68rem;color:var(--text-dim);white-space:nowrap;flex-shrink:0}
@@ -374,22 +465,23 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .db-modal-overlay.show{display:flex}
 .db-modal{
   background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;
-  padding:20px;min-width:320px;max-width:420px;width:90%;
+  padding:14px 16px;min-width:300px;max-width:400px;width:90%;
+  max-height:85vh;overflow-y:auto;
 }
-.db-modal h3{font-size:0.85rem;margin-bottom:12px;color:var(--text)}
-.db-modal label{font-size:0.72rem;color:var(--text-dim);display:block;margin-bottom:4px}
+.db-modal h3{font-size:0.8rem;margin-bottom:8px;color:var(--text)}
+.db-modal label{font-size:0.68rem;color:var(--text-dim);display:block;margin-bottom:2px}
 .db-modal input,.db-modal select{
-  width:100%;padding:7px 10px;border-radius:5px;border:1px solid var(--border);
-  background:var(--bg);color:var(--text);font-size:0.75rem;margin-bottom:10px;outline:none;
+  width:100%;padding:5px 8px;border-radius:5px;border:1px solid var(--border);
+  background:var(--bg);color:var(--text);font-size:0.72rem;margin-bottom:6px;outline:none;
 }
 .db-modal input:focus{border-color:var(--header-bg)}
 .db-name-input-wrap{
   display:flex;align-items:center;border-radius:5px;border:1px solid var(--border);
-  background:var(--bg);margin-bottom:10px;overflow:hidden;
+  background:var(--bg);margin-bottom:6px;overflow:hidden;
 }
 .db-name-input-wrap:focus-within{border-color:var(--header-bg)}
 .db-name-prefix{
-  padding:7px 0 7px 10px;font-size:0.75rem;color:var(--header-bg);font-weight:600;
+  padding:5px 0 5px 8px;font-size:0.72rem;color:var(--header-bg);font-weight:600;
   white-space:nowrap;user-select:none;flex-shrink:0;
 }
 .db-name-input-wrap input{

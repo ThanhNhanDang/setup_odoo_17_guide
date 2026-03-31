@@ -152,6 +152,8 @@ async function checkServerStatus() {
       text.textContent = `Stopped :${httpPort}`;
       text.style.color = '';
     }
+    // Sync compact widget
+    if (compactMode) syncCompactWidget();
   } catch {}
 }
 // checkServerStatus() called inside loadI18n().then() to avoid running before UI is ready
@@ -164,6 +166,8 @@ let highlightOn = true;
 let sidebarOpen = true;
 let customModules = [];
 let isRestarting = false;
+let compactMode = false;
+let _savedBounds = null;
 
 // Simple i18n for log viewer (fetches from main app's locale files)
 let _i18n = {};
@@ -412,6 +416,142 @@ function togglePin() {
   btn.title = pinned ? ti('logViewer.pinnedOnTop') : ti('logViewer.alwaysOnTop');
 }
 
+// --- Compact mode ---
+function toggleCompact() {
+  compactMode = !compactMode;
+  document.body.classList.toggle('compact-mode', compactMode);
+  const btn = document.getElementById('btnCompact');
+  btn.classList.toggle('active', compactMode);
+  btn.title = compactMode ? ti('logViewer.expandMode') : ti('logViewer.compactMode');
+  if (!compactMode) {
+    // Leaving compact — close modules panel
+    document.getElementById('compactModulesPanel').classList.remove('show');
+    _compactModulesOpen = false;
+    document.getElementById('compactBtnModules').classList.remove('active');
+  }
+  if (window.electronAPI) {
+    window.electronAPI.invoke('log-window-compact', { compact: compactMode });
+    if (!compactMode && _savedBounds) {
+      window.electronAPI.invoke('log-window-restore-bounds', _savedBounds);
+      _savedBounds = null;
+      window.electronAPI.invoke('log-window-pin', { pinned });
+    }
+  }
+  if (compactMode) {
+    syncCompactWidget();
+    // Auto-expand modules panel by default (window already sized by compact handler)
+    _skipNextExpand = true;
+    showCompactModules();
+  }
+}
+
+function syncCompactWidget() {
+  const dot = document.getElementById('compactStatusDot');
+  const srcDot = document.getElementById('statusDot');
+  if (dot && srcDot) dot.className = srcDot.className;
+  document.getElementById('compactProject').textContent = currentProjectName;
+  // Server status
+  const sDot = document.getElementById('compactServerDot');
+  const srcSDot = document.getElementById('serverDot');
+  if (sDot && srcSDot) sDot.className = srcSDot.className;
+  const sText = document.getElementById('compactServerStatus');
+  const srcSText = document.getElementById('serverStatus');
+  if (sText && srcSText) sText.textContent = srcSText.textContent;
+}
+
+// --- Compact modules panel ---
+let _compactModulesOpen = false;
+let _skipNextExpand = false;
+
+function showCompactModules() {
+  if (_compactModulesOpen) { hideCompactModules(); return; }
+  const panel = document.getElementById('compactModulesPanel');
+  const list = document.getElementById('compactModulesList');
+  const search = document.getElementById('compactModuleSearch');
+  list.innerHTML = '';
+  if (search) search.value = '';
+  if (customModules.length === 0) {
+    list.innerHTML = '<div style="padding:8px;color:var(--text-dim);font-size:0.72rem">' + ti('logViewer.noCustomModules') + '</div>';
+  } else {
+    for (const mod of customModules) {
+      const lbl = document.createElement('label');
+      lbl.setAttribute('data-module', mod.toLowerCase());
+      const sidebarCb = document.getElementById('mod_' + mod);
+      const checked = sidebarCb ? sidebarCb.checked : false;
+      lbl.innerHTML = `<input type="checkbox" value="${mod}" ${checked ? 'checked' : ''} onchange="syncModuleCheck(this)"> ${mod}`;
+      list.appendChild(lbl);
+    }
+  }
+  updateCompactModuleCount();
+  panel.classList.add('show');
+  _compactModulesOpen = true;
+  document.getElementById('compactBtnModules').classList.add('active');
+  // Expand window to show modules (skip if window already expanded from toggleCompact)
+  if (window.electronAPI && !_skipNextExpand) {
+    window.electronAPI.invoke('log-window-compact-expand', { expanded: true });
+  }
+  _skipNextExpand = false;
+}
+
+function hideCompactModules() {
+  document.getElementById('compactModulesPanel').classList.remove('show');
+  _compactModulesOpen = false;
+  document.getElementById('compactBtnModules').classList.remove('active');
+  // Shrink window back to compact size
+  if (window.electronAPI) {
+    window.electronAPI.invoke('log-window-compact-expand', { expanded: false });
+  }
+}
+
+function filterCompactModules(query) {
+  const q = (query || '').toLowerCase();
+  document.querySelectorAll('#compactModulesList label').forEach(lbl => {
+    const name = lbl.getAttribute('data-module') || '';
+    lbl.style.display = !q || name.includes(q) ? '' : 'none';
+  });
+}
+
+function syncModuleCheck(cb) {
+  // Sync compact checkbox → sidebar checkbox
+  const sidebarCb = document.getElementById('mod_' + cb.value);
+  if (sidebarCb) sidebarCb.checked = cb.checked;
+  updateModuleCount();
+  updateCompactModuleCount();
+}
+
+function compactSelectAll() {
+  document.querySelectorAll('#compactModulesList input[type="checkbox"]').forEach(cb => {
+    cb.checked = true;
+    syncModuleCheck(cb);
+  });
+}
+
+function compactDeselectAll() {
+  document.querySelectorAll('#compactModulesList input[type="checkbox"]').forEach(cb => {
+    cb.checked = false;
+    syncModuleCheck(cb);
+  });
+}
+
+function updateCompactModuleCount() {
+  const checked = document.querySelectorAll('#compactModulesList input[type="checkbox"]:checked');
+  const footer = document.getElementById('compactModulesFooter');
+  const count = document.getElementById('compactModulesCount');
+  if (checked.length > 0) {
+    footer.classList.add('has-count');
+    count.textContent = ti('logViewer.modulesSelected', { count: checked.length });
+  } else {
+    footer.classList.remove('has-count');
+  }
+}
+
+// Listen for saved bounds from main process
+if (window.electronAPI) {
+  window.electronAPI.onEvent('compact-saved-bounds', (bounds) => {
+    _savedBounds = bounds;
+  });
+}
+
 function toggleSidebar() {
   sidebarOpen = !sidebarOpen;
   document.getElementById('sidebar').classList.toggle('collapsed', !sidebarOpen);
@@ -533,6 +673,16 @@ async function saveAndRestart() {
   spinner.className = 'restart-spinner';
   btn.insertBefore(spinner, label);
 
+  // Compact restart button pending state
+  const compactBtn = document.getElementById('compactBtnRestart');
+  if (compactBtn) {
+    compactBtn.classList.add('restarting');
+    compactBtn.querySelector('svg').style.display = 'none';
+    const cSpinner = document.createElement('span');
+    cSpinner.className = 'compact-spinner';
+    compactBtn.appendChild(cSpinner);
+  }
+
   try {
     const logLevel = document.getElementById('logLevelSelect').value;
     const selectedModules = [];
@@ -562,6 +712,14 @@ async function saveAndRestart() {
       spinner.remove();
       btn.querySelector('svg').style.display = '';
       label.innerHTML = ti('logViewer.saveRestart');
+      // Reset compact restart button
+      const cBtn = document.getElementById('compactBtnRestart');
+      if (cBtn) {
+        cBtn.classList.remove('restarting');
+        const cSpin = cBtn.querySelector('.compact-spinner');
+        if (cSpin) cSpin.remove();
+        cBtn.querySelector('svg').style.display = '';
+      }
     }, 2000);
   }
 }

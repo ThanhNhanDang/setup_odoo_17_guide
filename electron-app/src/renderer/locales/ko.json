@@ -203,6 +203,8 @@
     "noLogYet": "아직 로그 파일이 없습니다. Odoo를 시작하여 로그를 생성하세요.",
     "alwaysOnTop": "항상 위에",
     "pinnedOnTop": "고정됨 — 항상 위에",
+    "compactMode": "컴팩트 모드",
+    "expandMode": "전체 보기로 확장",
     "minimize": "최소화",
     "maximize": "최대화",
     "toggleSidebar": "사이드바 전환",
