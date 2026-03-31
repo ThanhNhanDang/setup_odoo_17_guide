@@ -80,6 +80,8 @@ const ODOO17_EXTRA_PACKAGES: readonly string[] = [
   // Odoo requirements.txt excludes gevent on Windows (sys_platform != 'win32')
   // but we need it for the separate gevent worker process
   'greenlet',
+  'zope.interface',
+  'zope.event',
   'gevent',
   // --- Utilities ---
   'httpagentparser',
