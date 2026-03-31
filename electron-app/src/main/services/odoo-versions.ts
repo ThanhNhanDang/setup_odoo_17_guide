@@ -76,6 +76,11 @@ const ODOO17_EXTRA_PACKAGES: readonly string[] = [
   'python-engineio',
   'bidict',
   'websockets',
+  // --- Gevent (longpolling/websocket on Windows) ---
+  // Odoo requirements.txt excludes gevent on Windows (sys_platform != 'win32')
+  // but we need it for the separate gevent worker process
+  'greenlet',
+  'gevent',
   // --- Utilities ---
   'httpagentparser',
   'debugpy',
