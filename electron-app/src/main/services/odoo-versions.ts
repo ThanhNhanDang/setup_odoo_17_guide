@@ -31,6 +31,17 @@ export interface OdooVersionConfig {
 // TODO: re-enable after validating against each Odoo version's venv.
 const COMMON_EXTRA_PACKAGES: readonly string[] = [];
 
+// Gevent stack for longpolling/websocket on Windows.
+// Odoo requirements.txt excludes gevent on Windows (sys_platform != 'win32')
+// but we need it for the separate gevent worker process.
+// Shared across all versions that need gevent (17, 18, 19).
+const GEVENT_PACKAGES: readonly string[] = [
+  'greenlet',
+  'zope.interface',
+  'zope.event',
+  'gevent',
+];
+
 // Extra packages commonly needed by custom Odoo 17 modules.
 // Installed with `pip install --no-deps` after requirements.txt to avoid
 // upgrading/downgrading Odoo's pinned packages (e.g. cryptography==3.4.8).
@@ -76,13 +87,6 @@ const ODOO17_EXTRA_PACKAGES: readonly string[] = [
   'python-engineio',
   'bidict',
   'websockets',
-  // --- Gevent (longpolling/websocket on Windows) ---
-  // Odoo requirements.txt excludes gevent on Windows (sys_platform != 'win32')
-  // but we need it for the separate gevent worker process
-  'greenlet',
-  'zope.interface',
-  'zope.event',
-  'gevent',
   // --- Utilities ---
   'httpagentparser',
   'debugpy',
@@ -133,7 +137,7 @@ export const ODOO_VERSIONS: Readonly<Record<OdooVersionKey, OdooVersionConfig>> 
     domainSuffix: 'odoo17.local',
     defaultDbPort: '5434',
     color: '#f0883e',   // orange (current accent)
-    extraPipPackages: [...COMMON_EXTRA_PACKAGES, ...ODOO17_EXTRA_PACKAGES],
+    extraPipPackages: [...COMMON_EXTRA_PACKAGES, ...GEVENT_PACKAGES, ...ODOO17_EXTRA_PACKAGES],
   },
   '18': {
     key: '18',
@@ -154,7 +158,7 @@ export const ODOO_VERSIONS: Readonly<Record<OdooVersionKey, OdooVersionConfig>> 
     domainSuffix: 'odoo18.local',
     defaultDbPort: '5418',
     color: '#a855f7',   // purple
-    extraPipPackages: [...COMMON_EXTRA_PACKAGES],
+    extraPipPackages: [...COMMON_EXTRA_PACKAGES, ...GEVENT_PACKAGES],
   },
   '19': {
     key: '19',
@@ -175,7 +179,7 @@ export const ODOO_VERSIONS: Readonly<Record<OdooVersionKey, OdooVersionConfig>> 
     domainSuffix: 'odoo19.local',
     defaultDbPort: '5419',
     color: '#22c55e',   // green
-    extraPipPackages: [...COMMON_EXTRA_PACKAGES],
+    extraPipPackages: [...COMMON_EXTRA_PACKAGES, ...GEVENT_PACKAGES],
   },
 };
 
