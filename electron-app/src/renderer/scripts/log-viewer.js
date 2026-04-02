@@ -483,6 +483,15 @@ function showCompactModules() {
     }
   }
   updateCompactModuleCount();
+  // Sync compact DB dropdown from sidebar
+  const sidebarDbSel = document.getElementById('upgradeDbSelect');
+  const compactDbSel = document.getElementById('compactDbSelect');
+  const compactDbField = document.getElementById('compactDbField');
+  if (sidebarDbSel && compactDbSel && compactDbField) {
+    compactDbSel.innerHTML = sidebarDbSel.innerHTML;
+    compactDbSel.value = sidebarDbSel.value;
+    compactDbField.style.display = sidebarDbSel.options.length > 1 ? '' : 'none';
+  }
   panel.classList.add('show');
   _compactModulesOpen = true;
   document.getElementById('compactBtnModules').classList.add('active');
@@ -517,6 +526,12 @@ function syncModuleCheck(cb) {
   if (sidebarCb) sidebarCb.checked = cb.checked;
   updateModuleCount();
   updateCompactModuleCount();
+}
+
+function syncCompactDbSelect(sel) {
+  // Sync compact DB dropdown → sidebar DB dropdown
+  const sidebarSel = document.getElementById('upgradeDbSelect');
+  if (sidebarSel) sidebarSel.value = sel.value;
 }
 
 function compactSelectAll() {
@@ -586,8 +601,47 @@ async function loadProjectInfo() {
     // Populate modules
     customModules = res.customModules || [];
     renderModuleList();
+
+    // Populate upgrade DB dropdown
+    populateUpgradeDbSelect(res.dbNames || []);
   } catch (e) {
     console.error('loadProjectInfo:', e);
+  }
+}
+
+function populateUpgradeDbSelect(dbNames) {
+  const sel = document.getElementById('upgradeDbSelect');
+  const field = document.getElementById('upgradeDbField');
+  if (!sel || !field) return;
+
+  // Keep current selection if still valid
+  const prev = sel.value;
+  sel.innerHTML = '';
+
+  if (dbNames.length === 0) {
+    field.style.display = 'none';
+    return;
+  }
+
+  field.style.display = '';
+  // Add placeholder option
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = `-- ${ti('logViewer.selectDb')} --`;
+  sel.appendChild(placeholder);
+
+  for (const name of dbNames) {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    sel.appendChild(opt);
+  }
+
+  // Auto-select: restore previous or pick first if only one DB
+  if (prev && dbNames.includes(prev)) {
+    sel.value = prev;
+  } else if (dbNames.length === 1) {
+    sel.value = dbNames[0];
   }
 }
 
@@ -690,9 +744,10 @@ async function saveAndRestart() {
       selectedModules.push(cb.value);
     });
 
+    const upgradeDb = document.getElementById('upgradeDbSelect')?.value || '';
     const res = await window.electronAPI.invoke('log-viewer-restart', {
       projectName: currentProjectName, projectsDir, baseDir, odooVersion,
-      httpPort, logLevel, upgradeModules: selectedModules, odooSourceDir,
+      httpPort, logLevel, upgradeModules: selectedModules, upgradeDb, odooSourceDir,
     });
 
     if (res?.ok) {

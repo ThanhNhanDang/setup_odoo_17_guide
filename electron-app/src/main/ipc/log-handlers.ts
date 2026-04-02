@@ -410,7 +410,35 @@ export function registerLogHandlers(ctx: IpcContext): void {
         }
       }
 
-      return { ok: true, logLevel, customModules: customModules.sort() };
+      // Lightweight DB name list (no pg_database_size — that's what makes monitor-list-databases slow)
+      let dbNames: string[] = [];
+      try {
+        const { parseIniFile: pif, iniGet: ig } = require('../services/ini-parser');
+        const ini2 = pif(confFile);
+        const dbHost = ig(ini2, 'options', 'db_host', 'localhost');
+        const dbPort = ig(ini2, 'options', 'db_port', '5432');
+        const dbUser = ig(ini2, 'options', 'db_user', 'odoo');
+        const dbPassword = ig(ini2, 'options', 'db_password', 'odoo');
+        const dbfilter = ig(ini2, 'options', 'dbfilter', '');
+
+        const { findPostgresBin } = require('../services/detection');
+        const pgBin = findPostgresBin();
+        if (pgBin) {
+          const psql = path.join(pgBin, 'psql.exe');
+          const { output } = await runCmd(
+            `"${psql}" -h ${dbHost} -p ${dbPort} -U ${dbUser} -d postgres -tAc "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname"`,
+            undefined, { ...process.env, PGPASSWORD: dbPassword }
+          );
+          const allNames = output.trim().split('\n').map(s => s.trim()).filter(Boolean);
+          // Filter by dbfilter (if set), always exclude 'postgres'
+          const filtered = dbfilter
+            ? (() => { try { const re = new RegExp(dbfilter.replace(/(?<!\[)-(?!_\])/g, '[-_]')); return allNames.filter(n => n !== 'postgres' && re.test(n)); } catch { return allNames.filter(n => n !== 'postgres'); } })()
+            : allNames.filter(n => n !== 'postgres');
+          dbNames = filtered;
+        }
+      } catch { /* DB list is best-effort */ }
+
+      return { ok: true, logLevel, customModules: customModules.sort(), dbNames };
     } catch (e) {
       return { ok: false, msg: String(e) };
     }
@@ -420,7 +448,7 @@ export function registerLogHandlers(ctx: IpcContext): void {
   ipcMain.handle('log-viewer-restart', async (_event, data: {
     projectName: string; projectsDir?: string; baseDir?: string;
     odooVersion?: string; httpPort: string; logLevel?: string;
-    upgradeModules?: string[]; odooSourceDir?: string;
+    upgradeModules?: string[]; upgradeDb?: string; odooSourceDir?: string;
   }) => {
     try {
       const odooVersion = data.odooVersion || DEFAULT_ODOO_VERSION;
@@ -497,11 +525,15 @@ export function registerLogHandlers(ctx: IpcContext): void {
       let cmd = `"${venvPy}" "${odooBin}" -c "${confFile}" --logfile "${logFile}"`;
 
       if (data.upgradeModules && data.upgradeModules.length > 0) {
-        const safeModName = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+        const safeModName = /^[a-zA-Z_][a-zA-Z0-9_\-]*$/;
         const safeModules = data.upgradeModules.filter(m => safeModName.test(m));
-        if (safeModules.length > 0) {
-          cmd += ` -u ${safeModules.join(',')}`;
-          ctx.logger.log(`  > Upgrading modules: ${safeModules.join(', ')}`);
+        const safeDbName = /^[a-zA-Z_][a-zA-Z0-9_\-]*$/;
+        const upgradeDb = data.upgradeDb && safeDbName.test(data.upgradeDb) ? data.upgradeDb : '';
+        if (safeModules.length > 0 && upgradeDb) {
+          cmd += ` -d ${upgradeDb} -u ${safeModules.join(',')}`;
+          ctx.logger.log(`  > Upgrading modules on DB '${upgradeDb}': ${safeModules.join(', ')}`);
+        } else if (safeModules.length > 0) {
+          ctx.logger.log(`  > Warning: modules selected but no target database specified — skipping -u flag`);
         }
       }
 

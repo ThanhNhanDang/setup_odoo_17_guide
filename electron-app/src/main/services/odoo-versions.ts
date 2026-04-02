@@ -160,7 +160,7 @@ export const ODOO_VERSIONS: Readonly<Record<OdooVersionKey, OdooVersionConfig>> 
     key: '19',
     label: 'Odoo 19',
     settingsLabel: 'Odoo 19 (Python 3.12, PG 16 + pgvector)',
-    branch: 'master',   // Update to '19.0' when branch is created
+    branch: '19.0',
     pythonVersion: 'Python 3.12',
     pythonUrl: 'https://www.python.org/ftp/python/3.12.7/python-3.12.7-amd64.exe',
     pythonVersionPrefix: '3.12',

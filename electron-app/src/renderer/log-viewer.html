@@ -101,6 +101,11 @@ html,body{background:#0d1117;margin:0;padding:0}
       <button class="compact-modules-close" onclick="hideCompactModules()">&times;</button>
     </div>
   </div>
+  <div class="compact-modules-db" id="compactDbField" style="display:none;padding:4px 8px">
+    <select id="compactDbSelect" class="log-level-select" style="width:100%;font-size:0.7rem" onchange="syncCompactDbSelect(this)">
+      <option value="">-- select database --</option>
+    </select>
+  </div>
   <input type="text" class="compact-modules-search" id="compactModuleSearch" placeholder="Filter modules..." oninput="filterCompactModules(this.value)">
   <div class="compact-modules-list" id="compactModulesList"></div>
   <div class="compact-modules-footer" id="compactModulesFooter">
@@ -173,6 +178,13 @@ html,body{background:#0d1117;margin:0;padding:0}
              onmouseenter="showTooltip(event,'helpUpgrade')" onmouseleave="hideTooltip()">
           <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
         </svg>
+      </div>
+      <!-- Target database for upgrade -->
+      <div class="sidebar-field" id="upgradeDbField" style="display:none">
+        <label id="upgradeDbLabel" for="upgradeDbSelect" data-i18n="logViewer.targetDb" style="font-size:0.7rem;opacity:0.7">Target Database</label>
+        <select id="upgradeDbSelect" class="log-level-select" style="margin-top:2px">
+          <option value="">-- select database --</option>
+        </select>
       </div>
       <div class="module-actions" id="moduleActions" style="display:none">
         <button onclick="selectAllModules()" id="btnSelectAll">Select All</button>
