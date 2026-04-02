@@ -872,6 +872,21 @@ function renderProgressRow(job) {
   </tr>`;
 }
 
+// --- Listen for db-sizes-update → fill in size cells lazily ---
+if (window.electronAPI) {
+  window.electronAPI.onEvent('db-sizes-update', (data) => {
+    if (!data || !data.sizes) return;
+    const rows = document.querySelectorAll('tr[data-db]');
+    for (const row of rows) {
+      const dbName = row.getAttribute('data-db');
+      if (dbName && data.sizes[dbName] !== undefined) {
+        const sizeCell = row.querySelector('.db-size');
+        if (sizeCell) sizeCell.textContent = data.sizes[dbName];
+      }
+    }
+  });
+}
+
 // --- Listen for db-job-progress events → update inline rows ---
 if (window.electronAPI) {
   window.electronAPI.onEvent('db-job-progress', (data) => {
@@ -1005,9 +1020,9 @@ async function loadDatabases(silent) {
       const j = [..._inlineJobs.values()].find(j => j.type === 'drop' && j.dbName === db.name);
       if (j) { html += renderProgressRow(j); continue; }
     }
-    html += `<tr>
+    html += `<tr data-db="${esc(db.name)}">
       <td><strong>${esc(db.name)}</strong></td>
-      <td class="db-size">${esc(db.size)}</td>
+      <td class="db-size">${db.size ? esc(db.size) : '<span class="size-loading">...</span>'}</td>
       <td>${esc(db.owner)}</td>
       <td>${esc(db.encoding)}</td>
       <td class="db-actions">${

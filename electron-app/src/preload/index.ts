@@ -42,7 +42,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const validPushChannels = [
       'log-message', 'task-progress', 'download-progress',
       'update-status', 'project-log', 'duplicate-progress',
-      'create-progress', 'delete-progress', 'db-job-progress', 'language-changed', 'theme-changed', 'compact-saved-bounds',
+      'create-progress', 'delete-progress', 'db-job-progress', 'db-sizes-update', 'language-changed', 'theme-changed', 'compact-saved-bounds',
     ];
     if (validPushChannels.includes(eventName)) {
       ipcRenderer.on(eventName, (_event, ...args) => callback(...args));

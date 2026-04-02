@@ -5,6 +5,8 @@ import { runCmd, runCmdStreaming } from '../utils/shell';
 import { IpcContext } from './context';
 import { DEFAULT_ODOO_VERSION, getVersionConfig } from '../services/odoo-versions';
 import { getDefaultBaseDir, getDefaultProjectsDir } from '../services/config';
+import { parseIniFile, iniGet } from '../services/ini-parser';
+import { findPostgresBin } from '../services/detection';
 
 export function registerDbHandlers(ctx: IpcContext): void {
 
@@ -12,12 +14,14 @@ export function registerDbHandlers(ctx: IpcContext): void {
   // Project Monitor: Database Tab
   // =========================================================================
 
+  /** Cache for findPostgresBin() — PG bin path doesn't change during a session */
+  let cachedPgBin: string | null | undefined;
+
   /** Read DB connection config + admin_passwd + data_dir from project's odoo.conf */
   function readDbConfig(projectName: string, projectsDir: string) {
     if (!projectName || !/^[a-z_][a-z0-9_\-]*$/.test(projectName)) return null;
     const confFile = path.join(projectsDir, projectName, 'odoo.conf');
     if (!fs.existsSync(confFile)) return null;
-    const { parseIniFile, iniGet } = require('../services/ini-parser');
     const ini = parseIniFile(confFile);
     return {
       host: iniGet(ini, 'options', 'db_host', 'localhost'),
@@ -31,12 +35,13 @@ export function registerDbHandlers(ctx: IpcContext): void {
     };
   }
 
-  /** Find psql bin dir, return { pgBin, env } or null */
+  /** Find psql bin dir, return { pgBin, env } or null. Caches pgBin path. */
   function getPgTools(dbPassword: string) {
-    const { findPostgresBin } = require('../services/detection');
-    const pgBin = findPostgresBin();
-    if (!pgBin) return null;
-    return { pgBin, env: { ...process.env, PGPASSWORD: dbPassword } as NodeJS.ProcessEnv };
+    if (cachedPgBin === undefined) {
+      cachedPgBin = findPostgresBin();
+    }
+    if (!cachedPgBin) return null;
+    return { pgBin: cachedPgBin, env: { ...process.env, PGPASSWORD: dbPassword } as NodeJS.ProcessEnv };
   }
 
   /** Check prerequisites: PG running, venv exists, odoo-bin exists */
@@ -47,6 +52,35 @@ export function registerDbHandlers(ctx: IpcContext): void {
     if (!fs.existsSync(odooBin)) return { ok: false, msg: 'ODOO_NOT_FOUND' };
     // PG readiness is checked at runtime by the handlers
     return { ok: true };
+  }
+
+  /** Fetch database sizes in background and push results via IPC */
+  function fetchDbSizesAsync(
+    psql: string,
+    conn: { host: string; port: string; user: string },
+    env: NodeJS.ProcessEnv,
+    dbNames: string[],
+    projectName: string,
+  ) {
+    if (dbNames.length === 0) return;
+    const sizeQuery = `SELECT d.datname, pg_size_pretty(pg_database_size(d.datname)) as size FROM pg_database d WHERE d.datistemplate = false ORDER BY d.datname`;
+    runCmd(
+      `"${psql}" -h ${conn.host} -p ${conn.port} -U ${conn.user} -d postgres -tAF "|" -c "${sizeQuery.replace(/"/g, '\\"')}"`,
+      undefined, env
+    ).then(({ output }) => {
+      const sizes: Record<string, string> = {};
+      for (const line of output.trim().split('\n')) {
+        if (!line) continue;
+        const parts = line.split('|');
+        const name = (parts[0] || '').trim();
+        const size = (parts[1] || '').trim();
+        if (name) sizes[name] = size;
+      }
+      const win = ctx.logWindows.get(projectName);
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('db-sizes-update', { sizes });
+      }
+    }).catch(() => { /* sizes are non-critical, silently ignore */ });
   }
 
   /** Send progress event to all log windows for a project */
@@ -135,9 +169,11 @@ export function registerDbHandlers(ctx: IpcContext): void {
       if (!pg) return { ok: false, msg: 'PG_NOT_FOUND', connInfo };
 
       const psql = path.join(pg.pgBin, 'psql.exe');
-      const query = `SELECT d.datname, pg_size_pretty(pg_database_size(d.datname)) as size, r.rolname as owner, d.encoding, pg_encoding_to_char(d.encoding) as enc_name FROM pg_database d JOIN pg_roles r ON d.datdba = r.oid WHERE d.datistemplate = false ORDER BY d.datname`;
+
+      // Fast query: no pg_database_size() — returns instantly
+      const fastQuery = `SELECT d.datname, r.rolname as owner, pg_encoding_to_char(d.encoding) as enc_name FROM pg_database d JOIN pg_roles r ON d.datdba = r.oid WHERE d.datistemplate = false ORDER BY d.datname`;
       const { output } = await runCmd(
-        `"${psql}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -d postgres -tAF "|" -c "${query.replace(/"/g, '\\"')}"`,
+        `"${psql}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -d postgres -tAF "|" -c "${fastQuery.replace(/"/g, '\\"')}"`,
         undefined, pg.env
       );
 
@@ -145,9 +181,9 @@ export function registerDbHandlers(ctx: IpcContext): void {
         const parts = line.split('|');
         return {
           name: (parts[0] || '').trim(),
-          size: (parts[1] || '').trim(),
-          owner: (parts[2] || '').trim(),
-          encoding: (parts[4] || parts[3] || '').trim(),
+          size: '',
+          owner: (parts[1] || '').trim(),
+          encoding: (parts[2] || '').trim(),
         };
       }).filter(db => db.name);
 
@@ -165,6 +201,11 @@ export function registerDbHandlers(ctx: IpcContext): void {
           dbfilter = normalizedFilter;
         } catch { /* invalid regex — show all */ }
       }
+
+      // Fetch sizes in background and push via IPC event
+      const dbNames = databases.map(db => db.name);
+      const sizeConf = { host: dbConf.host, port: dbConf.port, user: dbConf.user };
+      fetchDbSizesAsync(psql, sizeConf, pg.env, dbNames, data.projectName);
 
       return { ok: true, databases, connInfo, dbfilter: dbfilter || '' };
     } catch (e) {
