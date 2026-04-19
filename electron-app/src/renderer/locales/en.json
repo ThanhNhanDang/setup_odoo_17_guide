@@ -194,6 +194,10 @@
     "restarting": "Restarting...",
     "restartSuccess": "Odoo restarted!",
     "restartFail": "Restart failed",
+    "error": {
+      "NO_UPGRADE_DB": "Please select a target database to upgrade modules",
+      "INVALID_UPGRADE_DB": "Target database name contains invalid characters"
+    },
     "selectAll": "Select All",
     "deselectAll": "Deselect All",
     "helpLogLevel": "Changes the log_level in odoo.conf. Takes effect after restart.",

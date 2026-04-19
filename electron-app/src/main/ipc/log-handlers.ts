@@ -608,9 +608,11 @@ export function registerLogHandlers(ctx: IpcContext): void {
           ctx.logger.log(`  > Restart command: ${cmd}`);
         } else if (safeModules.length > 0) {
           if (!rawDb) {
-            ctx.logger.log(`  > Warning: modules selected but no target database specified — skipping -u flag`);
+            ctx.logger.log(`  > Error: modules selected but no target database specified — aborting restart`);
+            return { ok: false, msg: 'NO_UPGRADE_DB' };
           } else {
-            ctx.logger.log(`  > Warning: target database '${rawDb}' contains unsupported characters — skipping -u flag`);
+            ctx.logger.log(`  > Error: target database '${rawDb}' contains unsupported characters — aborting restart`);
+            return { ok: false, msg: 'INVALID_UPGRADE_DB' };
           }
         }
       }

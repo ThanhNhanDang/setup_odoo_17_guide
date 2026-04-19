@@ -755,7 +755,10 @@ async function saveAndRestart() {
       // Refresh server status after restart
       setTimeout(checkServerStatus, 2000);
     } else {
-      label.innerHTML = ti('logViewer.restartFail') + (res?.msg ? `: ${res.msg}` : '');
+      const errorKey = res?.msg ? `logViewer.error.${res.msg}` : '';
+      const localizedMsg = errorKey ? ti(errorKey) : '';
+      const displayMsg = localizedMsg && localizedMsg !== errorKey ? localizedMsg : (res?.msg || '');
+      label.innerHTML = ti('logViewer.restartFail') + (displayMsg ? `: ${displayMsg}` : '');
     }
   } catch (e) {
     console.error('[log-viewer] restart error:', e);

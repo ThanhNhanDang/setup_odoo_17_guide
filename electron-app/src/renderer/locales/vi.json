@@ -193,6 +193,10 @@
     "restarting": "Đang khởi động lại...",
     "restartSuccess": "Odoo đã khởi động lại!",
     "restartFail": "Khởi động lại thất bại",
+    "error": {
+      "NO_UPGRADE_DB": "Vui lòng chọn database đích để nâng cấp module",
+      "INVALID_UPGRADE_DB": "Tên database đích chứa ký tự không hợp lệ"
+    },
     "selectAll": "Chọn tất cả",
     "deselectAll": "Bỏ chọn tất cả",
     "helpLogLevel": "Thay đổi log_level trong odoo.conf. Có hiệu lực sau khi khởi động lại.",
