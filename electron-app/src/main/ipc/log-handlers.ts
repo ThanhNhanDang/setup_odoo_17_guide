@@ -211,6 +211,7 @@ export function registerLogHandlers(ctx: IpcContext): void {
       titleBarStyle: 'hidden',
       title: `${projectName} — Monitor`,
       backgroundColor: bgColor,
+      opacity: 0,
       alwaysOnTop: false,
       webPreferences: {
         contextIsolation: true,
@@ -221,7 +222,11 @@ export function registerLogHandlers(ctx: IpcContext): void {
       },
     });
 
-    logWin.once('ready-to-show', () => logWin.show());
+    // Show after all resources (CSS, JS, fonts) are fully loaded — prevents black flash
+    logWin.webContents.once('did-finish-load', () => {
+      logWin.show();
+      setTimeout(() => logWin.setOpacity(1), 50);
+    });
     logWin.loadFile(logViewerPath, { search: queryParams });
 
     ctx.logWindows.set(windowKey, logWin);
@@ -256,6 +261,11 @@ export function registerLogHandlers(ctx: IpcContext): void {
         win.setBackgroundColor(newBg);
         win.webContents.send('theme-changed', data);
       }
+    }
+    // Also broadcast to admin dashboard window
+    if (ctx.adminWindow && !ctx.adminWindow.isDestroyed()) {
+      ctx.adminWindow.setBackgroundColor(newBg);
+      ctx.adminWindow.webContents.send('theme-changed', data);
     }
     return { ok: true };
   });

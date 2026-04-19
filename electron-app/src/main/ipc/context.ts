@@ -17,4 +17,5 @@ export interface IpcContext {
   logWatchers: Map<string, LogWatcherEntry>;
   logWindows: Map<string, BrowserWindow>;
   logColorIndex: number;
+  adminWindow: BrowserWindow | null;
 }

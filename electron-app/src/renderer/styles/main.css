@@ -78,12 +78,13 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .panel{display:none}.panel.active{display:block}
 
 /* ===== Status Grid ===== */
-.content h2{font-size:1.2rem;color:var(--text-primary);margin-bottom:4px;font-weight:600}
-.content .desc{color:var(--text-secondary);font-size:0.85rem;margin-bottom:20px}
+.content h2{font-size:1.3rem;color:var(--text-primary);margin-bottom:6px;font-weight:700}
+.content .desc{color:var(--text-secondary);font-size:0.95rem;margin-bottom:24px}
 .status-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:20px}
 .status-card{
   background:var(--bg-surface);border:1px solid var(--border-default);border-radius:8px;
-  padding:14px;display:flex;align-items:center;gap:12px;transition:border 0.2s;
+  padding:16px;display:flex;align-items:center;gap:16px;transition:border 0.2s, box-shadow 0.2s;
+  box-shadow:var(--card-shadow, none);
 }
 .status-card:hover{border-color:var(--border-muted)}
 .status-icon{
@@ -98,11 +99,13 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 /* ===== Forms ===== */
 .form-section{
   background:var(--bg-surface);border:1px solid var(--border-default);border-radius:8px;
-  padding:18px;margin-bottom:14px;
+  padding:20px;margin-bottom:16px;
+  box-shadow:var(--card-shadow, none);
 }
 .form-section h3{
-  font-size:0.95rem;color:var(--text-primary);margin-bottom:14px;cursor:pointer;
+  font-size:1.05rem;color:var(--text-primary);margin-bottom:16px;cursor:pointer;
   display:flex;align-items:center;gap:8px;font-weight:600;
+  border-bottom:1px solid var(--border-muted);padding-bottom:10px;
 }
 .form-section h3 .arrow{transition:transform 0.2s;font-size:0.7rem}
 .form-section h3 .arrow.open{transform:rotate(90deg)}
@@ -135,7 +138,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   background:var(--bg-inset);color:var(--text-primary);font-size:0.9rem;outline:none;
   transition:border 0.2s;caret-color:var(--accent);
 }
-.form-group input:focus,.form-group select:focus{border-color:var(--accent)}
+.form-group input:focus,.form-group select:focus{border-color:var(--accent);box-shadow:var(--input-focus-shadow, 0 0 0 2px var(--accent))}
 .version-url-input{font-size:0.8rem;font-family:monospace}
 .version-url-locked{opacity:0.6;cursor:not-allowed;background:var(--bg-surface)}
 .kanban-card-demo{opacity:0.55;pointer-events:none;border-style:dashed}
@@ -143,7 +146,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 
 /* ===== Buttons ===== */
 .btn{
-  padding:10px 20px;border-radius:6px;border:none;font-size:0.85rem;
+  padding:10px 20px;border-radius:6px;border:none;font-size:0.9rem;
   font-weight:600;cursor:pointer;transition:all 0.15s;
   display:inline-flex;align-items:center;gap:6px;
 }
@@ -161,11 +164,13 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .install-steps{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:16px}
 .step-card{
   background:var(--bg-surface);border:1px solid var(--border-default);border-radius:10px;
-  padding:12px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;
-  transition:all 0.2s;position:relative;overflow:hidden;text-align:center;
-  min-height:110px;
+  padding:14px;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;
+  transition:border-color 0.2s,box-shadow 0.2s,transform 0.2s;position:relative;overflow:hidden;text-align:center;
+  min-height:120px;
+  box-shadow:var(--card-shadow, none);
+  will-change:transform;
 }
-.step-card:hover{border-color:var(--accent);transform:translateY(-1px)}
+.step-card:hover{border-color:var(--accent);transform:translateY(-2px)}
 .step-card.running{border-color:var(--accent);animation:stepPulse 1.5s ease-in-out infinite}
 .step-card.done{border-color:var(--success)}
 .step-card.error{border-color:var(--danger)}
@@ -183,8 +188,8 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .step-card.done .step-icon{background:var(--success);color:#fff}
 .step-card.error .step-icon{background:var(--danger);color:#fff}
 .step-info{min-width:0;text-align:center}
-.step-name{font-size:0.8rem;color:var(--text-primary);font-weight:600;white-space:nowrap}
-.step-desc{font-size:0.65rem;color:var(--text-tertiary);margin-top:1px}
+.step-name{font-size:0.85rem;color:var(--text-primary);font-weight:600;white-space:nowrap}
+.step-desc{font-size:0.75rem;color:var(--text-secondary);margin-top:2px}
 .step-progress{font-size:0.6rem;color:var(--accent);margin-top:3px;min-height:0.8em;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;
   transition:opacity 0.2s;opacity:0}
@@ -221,9 +226,11 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 /* ===== Project Cards ===== */
 .project-card{
   background:var(--bg-surface);border:1px solid var(--border-default);border-radius:8px;
-  padding:18px;margin-bottom:12px;transition:border 0.2s;
+  padding:20px;margin-bottom:16px;transition:border-color 0.2s,box-shadow 0.2s,transform 0.2s;
+  box-shadow:var(--card-shadow, none);
+  will-change:transform;
 }
-.project-card:hover{border-color:var(--accent)}
+.project-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.15)}
 .project-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .project-header .name{font-weight:700;color:var(--text-primary);font-size:1.05rem}
 .project-url{
@@ -284,14 +291,14 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   font-size:0.82rem;color:var(--text-primary);resize:vertical;outline:none;
   caret-color:var(--accent);
 }
-.modal textarea:focus{border-color:var(--accent)}
+.modal textarea:focus{border-color:var(--accent);box-shadow:var(--input-focus-shadow, 0 0 0 2px var(--accent))}
 .modal .btn-row{justify-content:flex-end}
 .modal input{
   padding:9px 12px;border-radius:6px;border:1px solid var(--border-muted);
   background:var(--bg-canvas);color:var(--text-primary);font-size:0.9rem;outline:none;
   width:100%;margin-bottom:8px;caret-color:var(--accent);
 }
-.modal input:focus{border-color:var(--accent)}
+.modal input:focus{border-color:var(--accent);box-shadow:var(--input-focus-shadow, 0 0 0 2px var(--accent))}
 .empty{text-align:center;padding:40px 20px;color:var(--text-tertiary)}
 
 /* ===== Native PG ===== */
@@ -302,6 +309,114 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .collapsible{display:none}.collapsible.show{display:block}
 
 /* ===== Dashboard ===== */
+/* ===== Admin Dashboard Button ===== */
+.dash-admin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 24px;
+  border-radius: 12px;
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.95rem;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden; /* This correctly clips the rainbow background */
+  background: #000;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  z-index: 10;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+  animation: float-admin 3s ease-in-out infinite;
+}
+
+@keyframes float-admin {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* Rainbow Spinning Border */
+.dash-admin-btn::before {
+  content: '';
+  position: absolute;
+  top: -50%; left: -50%; width: 200%; height: 200%;
+  z-index: 0;
+  background: conic-gradient(
+    from 0deg,
+    #ff0000, #ff8000, #ffff00, #00ff00, #00ffff, #0000ff, #8000ff, #ff0080, #ff0000
+  );
+  animation: spin-rainbow 2s linear infinite;
+  opacity: 0.85;
+}
+
+/* Inner Background */
+.dash-admin-btn::after {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px; right: 2px; bottom: 2px;
+  background: linear-gradient(135deg, #111, #2a2a2a, #111);
+  background-size: 200% 200%;
+  border-radius: 10px;
+  z-index: 1;
+  animation: pulse-bg 3s ease infinite;
+}
+
+@keyframes pulse-bg {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes spin-rainbow {
+  100% { transform: rotate(360deg); }
+}
+
+.dash-admin-btn .btn-content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 2; /* Sits above inner background */
+}
+
+/* Flashing Text Glow */
+.dash-admin-btn .btn-content span {
+  text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #0ff, 0 0 30px #0ff;
+  animation: text-flicker 1.5s infinite alternate;
+}
+
+@keyframes text-flicker {
+  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 1; text-shadow: 0 0 5px #fff, 0 0 10px #0ff; }
+  20%, 24%, 55% { opacity: 0.5; text-shadow: none; }
+}
+
+/* Lightning SVG */
+.dash-admin-btn svg {
+  width: 22px;
+  height: 22px;
+  color: #fff;
+  filter: drop-shadow(0 0 5px #fff) drop-shadow(0 0 15px #f0f);
+  animation: lightning-zoom 0.5s infinite alternate;
+}
+
+@keyframes lightning-zoom {
+  0% { transform: scale(1) rotate(0deg); filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 5px #f0f); }
+  100% { transform: scale(1.2) rotate(15deg); filter: drop-shadow(0 0 10px #fff) drop-shadow(0 0 25px #0ff); }
+}
+
+.dash-admin-btn:hover {
+  transform: scale(1.1) translateY(-2px);
+  box-shadow: 0 10px 40px rgba(0, 255, 255, 0.5), 0 0 30px rgba(255, 0, 255, 0.5);
+  letter-spacing: 3px;
+}
+
+.dash-admin-btn:hover::before {
+  animation: spin-rainbow 0.4s linear infinite;
+  filter: blur(6px);
+  opacity: 1;
+}
 .settings-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;gap:16px;flex-wrap:wrap}
 .settings-header .save-status{font-size:0.75rem;color:var(--success);opacity:0;transition:opacity 0.3s;align-self:center}
 .settings-header .save-status.visible{opacity:1}
@@ -326,8 +441,10 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .dash-stats{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
 .dash-stat{
   background:var(--bg-surface);border:1px solid var(--border-default);border-radius:8px;
-  padding:14px 20px;min-width:140px;flex:1;
+  padding:16px 22px;min-width:140px;flex:1;
+  box-shadow:var(--card-shadow, none);transition:transform 0.2s,box-shadow 0.2s;
 }
+.dash-stat:hover{transform:translateY(-1px)}
 .dash-stat-value{font-size:1.4rem;font-weight:700;color:var(--text-primary)}
 .dash-stat-label{font-size:0.75rem;color:var(--text-secondary);margin-top:2px;text-transform:uppercase;letter-spacing:0.5px}
 .dash-stat.accent .dash-stat-value{color:var(--accent)}
@@ -339,8 +456,9 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 }
 .kanban-card{
   background:var(--bg-surface);border:1px solid var(--border-default);border-radius:10px;
-  padding:0;overflow:hidden;transition:all 0.2s;cursor:default;
+  padding:0;overflow:hidden;transition:border-color 0.2s,box-shadow 0.2s,transform 0.2s;cursor:default;
   box-shadow:0 1px 3px var(--shadow),0 0 0 1px var(--border-default);
+  will-change:transform;
 }
 .kanban-card:hover{border-color:var(--border-muted);transform:translateY(-2px);box-shadow:0 8px 24px var(--shadow),0 0 0 1px var(--border-muted)}
 .kanban-card-header{
@@ -385,11 +503,11 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
   width:32px;height:32px;border-radius:6px;
   border:2px solid transparent;background:transparent;color:var(--text-secondary);cursor:pointer;
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
-  transition:all 0.2s;position:relative;
+  transition:color 0.2s,transform 0.2s,filter 0.3s;position:relative;
   background-image:linear-gradient(var(--bg-surface),var(--bg-surface)),linear-gradient(135deg,#ff0080,#ff8c00,#40e0d0,#7b68ee,#ff0080);
   background-origin:border-box;background-clip:padding-box,border-box;
-  animation:rainbow-border 3s linear infinite;
 }
+.kanban-log-btn:hover{animation:rainbow-border 3s linear infinite}
 @keyframes rainbow-border{0%{filter:hue-rotate(0deg)}100%{filter:hue-rotate(360deg)}}
 .kanban-log-btn:hover{color:#fff;background-image:linear-gradient(rgba(0,0,0,0.3),rgba(0,0,0,0.3)),linear-gradient(135deg,#ff0080,#ff8c00,#40e0d0,#7b68ee,#ff0080);transform:scale(1.1)}
 
@@ -417,19 +535,19 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--
 .kanban-icon-btn.btn-delete-icon:hover{background:#c62828;border-color:#c62828}
 .kanban-card-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
 .kanban-meta-item{display:flex;flex-direction:column;gap:2px}
-.kanban-meta-label{font-size:0.65rem;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px}
-.kanban-meta-value{font-size:0.8rem;color:var(--text-primary);font-family:'Cascadia Code',Consolas,monospace}
+.kanban-meta-label{font-size:0.75rem;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px}
+.kanban-meta-value{font-size:0.85rem;color:var(--text-primary);font-family:'Cascadia Code',Consolas,monospace}
 .kanban-card-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
-.kanban-tag{padding:3px 10px;border-radius:20px;font-size:0.7rem;font-weight:600}
+.kanban-tag{padding:4px 12px;border-radius:20px;font-size:0.75rem;font-weight:600}
 .kanban-tag-modules{background:var(--accent-bg);color:var(--accent)}
 .kanban-tag-ready{background:var(--success-bg);color:var(--success);border:1px solid var(--success)}
 .kanban-tag-running{background:var(--success-bg);color:var(--success);border:1px solid var(--success)}
 .kanban-tag-stopped{background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger)}
 .kanban-tag-pending{background:var(--bg-surface);color:var(--text-secondary);display:inline-flex;align-items:center;gap:4px}
-.kanban-tag-version{border-radius:4px;font-size:0.65rem;letter-spacing:0.5px}
+.kanban-tag-version{border-radius:6px;font-size:0.75rem;letter-spacing:0.5px}
 /* Left-edge running indicator */
-.kanban-card[data-running="true"]{border-left:3px solid var(--success)}
-.kanban-card[data-running="false"]{border-left:3px solid var(--danger)}
+.kanban-card[data-running="true"]{border-left:4px solid var(--success)}
+.kanban-card[data-running="false"]{border-left:4px solid var(--danger)}
 .kanban-card-actions{
   display:flex;align-items:center;justify-content:space-between;gap:6px;padding:10px 18px;border-top:1px solid var(--border-muted);
   background:var(--bg-inset,var(--bg-canvas));

@@ -7,13 +7,23 @@ import { IpcContext } from './context';
 
 export function registerWindowHandlers(ctx: IpcContext): void {
   // --- Window Controls (frameless) ---
-  ipcMain.handle('window-minimize', () => { ctx.mainWindow.minimize(); });
-  ipcMain.handle('window-maximize', () => {
-    if (ctx.mainWindow.isMaximized()) ctx.mainWindow.unmaximize();
-    else ctx.mainWindow.maximize();
+  ipcMain.handle('window-minimize', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender) || ctx.mainWindow;
+    win.minimize();
   });
-  ipcMain.handle('window-close', () => { ctx.mainWindow.close(); });
-  ipcMain.handle('window-is-maximized', () => ctx.mainWindow.isMaximized());
+  ipcMain.handle('window-maximize', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender) || ctx.mainWindow;
+    if (win.isMaximized()) win.unmaximize();
+    else win.maximize();
+  });
+  ipcMain.handle('window-close', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender) || ctx.mainWindow;
+    win.close();
+  });
+  ipcMain.handle('window-is-maximized', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender) || ctx.mainWindow;
+    return win.isMaximized();
+  });
 
   // --- Pick Folder (dialog) ---
   ipcMain.handle('pick-folder', async () => {

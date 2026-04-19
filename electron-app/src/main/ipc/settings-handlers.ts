@@ -5,6 +5,7 @@ import { IpcContext } from './context';
 import { DEFAULT_ODOO_VERSION, ALL_VERSIONS, ODOO_VERSIONS, getEffectiveVersionConfig } from '../services/odoo-versions';
 import { getDefaultBaseDir, getDefaultProjectsDir } from '../services/config';
 import { runCmd } from '../utils/shell';
+import { trackEvent } from '../services/telemetry';
 
 /** Read user URL overrides from settings file */
 function readUrlOverrides(): Record<string, { pythonUrl?: string; postgresUrl?: string }> {
@@ -143,6 +144,7 @@ export function registerSettingsHandlers(ctx: IpcContext): void {
         }
       }
 
+      trackEvent('SETTINGS_SAVED', { keys_changed: Object.keys(data) }).catch(() => {});
       return { ok: true };
     } catch (e) {
       return { ok: false, msg: String(e) };

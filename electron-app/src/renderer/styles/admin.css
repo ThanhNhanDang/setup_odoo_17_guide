@@ -1,0 +1,147 @@
+/* ============================================================
+   Admin Dashboard — Entry Button & Password Gate Styles
+   (Dashboard UI is now in admin-dashboard.css for the separate window)
+   ============================================================ */
+
+/* --- Admin Entry Button (in Settings panel) --- */
+.admin-entry-section {
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-muted);
+}
+
+.btn-admin-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, rgba(var(--accent-rgb, 240,136,62), 0.1), rgba(var(--accent-rgb, 240,136,62), 0.05));
+  border: 1px solid var(--border-muted);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.btn-admin-entry:hover {
+  background: linear-gradient(135deg, rgba(var(--accent-rgb, 240,136,62), 0.2), rgba(var(--accent-rgb, 240,136,62), 0.1));
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.btn-admin-entry svg {
+  width: 18px;
+  height: 18px;
+  opacity: 0.7;
+}
+
+/* --- Password Modal --- */
+.admin-password-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: adminFadeIn 0.3s ease;
+}
+.admin-password-overlay.active {
+  display: flex;
+}
+
+@keyframes adminFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.admin-password-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-muted);
+  border-radius: 16px;
+  padding: 32px;
+  width: 380px;
+  max-width: 90vw;
+  text-align: center;
+  box-shadow: 0 24px 48px rgba(0,0,0,0.3);
+  animation: adminSlideUp 0.3s ease;
+}
+
+@keyframes adminSlideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.admin-password-card .admin-lock-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #000));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.admin-password-card .admin-lock-icon svg {
+  width: 28px;
+  height: 28px;
+  stroke: #fff;
+}
+
+.admin-password-card h3 {
+  margin: 0 0 6px;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+.admin-password-card p {
+  margin: 0 0 20px;
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+}
+
+.admin-password-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--border-muted);
+  border-radius: 10px;
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  text-align: center;
+  letter-spacing: 2px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.admin-password-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 240,136,62), 0.15);
+}
+.admin-password-input.error {
+  border-color: #f85149;
+  animation: adminShake 0.4s ease;
+}
+
+@keyframes adminShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-8px); }
+  75% { transform: translateX(8px); }
+}
+
+.admin-password-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+.admin-password-actions .btn {
+  flex: 1;
+}
+
+.admin-password-error {
+  color: #f85149;
+  font-size: 0.75rem;
+  margin-top: 8px;
+  min-height: 18px;
+}

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en" data-mode="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin Dashboard</title>
+<script>
+// Set theme attributes BEFORE any CSS loads to prevent background flash
+(function(){
+  var p=new URLSearchParams(window.location.search);
+  var preset=p.get('themePreset')||'default';
+  var mode=p.get('themeMode')||'dark';
+  var r=document.documentElement;
+  if(preset&&preset!=='default')r.setAttribute('data-preset',preset);
+  if(mode==='light')r.setAttribute('data-mode','light');
+  else r.removeAttribute('data-mode');
+})();
+</script>
+<style>
+/* Inline critical bg to prevent flash on open/resize */
+html,body{background:#0d1117;margin:0;padding:0}
+[data-mode="light"]{background:#fff}
+[data-preset="autonsi"]{background:#08080c}
+[data-preset="autonsi"][data-mode="light"]{background:#fafaff}
+[data-preset="cyberpunk"]{background:#05050a}
+[data-preset="cyberpunk"][data-mode="light"]{background:#eef4f8}
+[data-preset="luxury"]{background:#14101a}
+[data-preset="luxury"][data-mode="light"]{background:#faf5f8}
+</style>
+<link rel="stylesheet" href="styles/themes.css">
+<link rel="stylesheet" href="styles/admin-dashboard.css">
+</head>
+<body>
+<!-- Titlebar -->
+<div class="titlebar">
+  <span class="titlebar-title">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+    </svg>
+    Admin Dashboard
+    <span class="admin-badge">ADMIN</span>
+  </span>
+  <div class="titlebar-controls">
+    <button onclick="api('window-minimize')" title="Minimize">&#x2014;</button>
+    <button onclick="api('window-maximize')" title="Maximize">&#9744;</button>
+    <button class="close" onclick="api('window-close')" title="Close">&#10005;</button>
+  </div>
+</div>
+
+<!-- Controls Bar -->
+<div class="controls-bar">
+  <div class="time-filters">
+    <button class="time-btn active" data-range="hour" onclick="setTimeRange('hour',this)">
+      <!-- Clock icon for Hour -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+      Hour
+    </button>
+    <button class="time-btn" data-range="day" onclick="setTimeRange('day',this)">
+      <!-- Sun icon for Day -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      Day
+    </button>
+    <button class="time-btn" data-range="week" onclick="setTimeRange('week',this)">
+      <!-- Layers/stack icon for Week (7 days stacked) -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polygon points="12,2 2,7 12,12 22,7"/><polyline points="2,17 12,22 22,17"/><polyline points="2,12 12,17 22,12"/></svg>
+      Week
+    </button>
+    <button class="time-btn" data-range="month" onclick="setTimeRange('month',this)">
+      <!-- Calendar icon for Month -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Month
+    </button>
+    <button class="time-btn" data-range="year" onclick="setTimeRange('year',this)">
+      <!-- Globe/world icon for Year -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      Year
+    </button>
+  </div>
+  <div class="controls-right">
+    <span class="refresh-indicator" id="refreshIndicator" title="Auto-refreshing every 30s">
+      <svg class="refresh-ring" viewBox="0 0 36 36" width="22" height="22">
+        <circle class="ring-bg" cx="18" cy="18" r="15.9" fill="none" stroke-width="2.5"/>
+        <circle class="ring-progress" id="ringProgress" cx="18" cy="18" r="15.9" fill="none" stroke-width="2.5"
+                stroke-dasharray="100 100" stroke-dashoffset="0" stroke-linecap="round"/>
+      </svg>
+      <span id="refreshCountdown">30s</span>
+    </span>
+    <button class="btn-refresh" onclick="manualRefresh()" title="Refresh now">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23,4 23,10 17,10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+      Refresh
+    </button>
+  </div>
+</div>
+
+<!-- Dashboard Content -->
+<div class="dashboard-content" id="dashContent">
+  <div class="loading-state">
+    <div class="spinner"></div>
+    <span>Loading analytics data...</span>
+  </div>
+</div>
+
+<script src="scripts/lib/chart.min.js"></script>
+<script src="scripts/admin-dashboard.js"></script>
+</body>
+</html>

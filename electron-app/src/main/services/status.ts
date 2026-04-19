@@ -106,6 +106,10 @@ function checkPort(port: number, host: string = 'localhost', timeout: number = 3
   });
 }
 
+// MP-2: Cache logo base64 data URLs to avoid re-encoding unchanged files every refresh
+const _logoCache = new Map<string, { mtime: number; dataUrl: string }>();
+
+
 // ---------------------------------------------------------------------------
 // Parse project config (odoo.conf)
 // ---------------------------------------------------------------------------
@@ -257,12 +261,21 @@ export async function parseProjectConfig(projectPath: string, baseDir: string = 
     if (domainMatch) info.domain = domainMatch[1].trim();
   } catch { /* ignore */ }
 
-  // Read project logo (logo.png in project dir)
+  // Read project logo (logo.png in project dir) — with mtime cache to avoid re-encoding
   const logoPath = path.join(projectPath, 'logo.png');
   if (fs.existsSync(logoPath)) {
     try {
-      const buf = fs.readFileSync(logoPath);
-      info.logo = `data:image/png;base64,${buf.toString('base64')}`;
+      const stat = fs.statSync(logoPath);
+      const mtime = stat.mtimeMs;
+      const cached = _logoCache.get(logoPath);
+      if (cached && cached.mtime === mtime) {
+        info.logo = cached.dataUrl;
+      } else {
+        const buf = fs.readFileSync(logoPath);
+        const dataUrl = `data:image/png;base64,${buf.toString('base64')}`;
+        _logoCache.set(logoPath, { mtime, dataUrl });
+        info.logo = dataUrl;
+      }
     } catch { /* ignore */ }
   }
 

@@ -523,7 +523,7 @@ async function saveDetailAndRestart(name) {
     const port = proj?.http_port || '8069';
     if (proj?.is_running) {
       showToastMessage(t('toast.restarting'), 'info');
-      await api('stop_odoo', { http_port: port, longpolling_port: proj?.longpolling_port || '' });
+      await api('stop_odoo', { http_port: port, longpolling_port: proj?.longpolling_port || '', project_name: name, odoo_version: proj?.odoo_version || '' });
       await new Promise(r => setTimeout(r, 2000));
     } else {
       showToastMessage(t('toast.starting'), 'info');

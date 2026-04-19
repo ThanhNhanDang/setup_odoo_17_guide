@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron';
 import { IpcContext } from './context';
 import { readUrlOverrides } from './settings-handlers';
+import { trackEvent } from '../services/telemetry';
 import { DEFAULT_BASE_DIR, DEFAULT_PROJECTS_DIR, getDefaultBaseDir, getDefaultProjectsDir } from '../services/config';
 import { DEFAULT_ODOO_VERSION, ALL_VERSIONS } from '../services/odoo-versions';
 import { detectStatus, invalidateStatusCache, StatusResult, ProjectInfo } from '../services/status';
@@ -72,10 +73,14 @@ export function registerInstallHandlers(ctx: IpcContext): void {
 
     ctx.logger.updateTask({ status: 'running', step: 'Starting...', progress: 0 });
 
+    const installStart = Date.now();
+    trackEvent('FULL_INSTALL_STARTED', { version: odooVersion }).catch(() => {});
+
     stepFullInstall(baseDir, projectsDir, projectName, ctx.logger, opts, ctx.stepLock, odooVersion, readUrlOverrides())
       .then(results => {
         invalidateStatusCache();
         ctx.logger.updateTask({ status: 'done', step: 'Complete!', progress: 100, results });
+        trackEvent('FULL_INSTALL_COMPLETED', { version: odooVersion, duration_ms: Date.now() - installStart }).catch(() => {});
       })
       .catch(e => {
         ctx.logger.updateTask({ status: 'error', step: String(e), progress: 0 });
@@ -121,6 +126,7 @@ export function registerInstallHandlers(ctx: IpcContext): void {
     try {
       const result = await promise;
       invalidateStatusCache();
+      trackEvent('STEP_RUN', { step, version: odooVersion }).catch(() => {});
       return result;
     } finally {
       ctx.stepLock.release(step);

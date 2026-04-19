@@ -8,6 +8,7 @@ import { DEFAULT_ODOO_VERSION } from '../services/odoo-versions';
 import { invalidateStatusCache } from '../services/status';
 import { stepCreateProject } from '../services/installer';
 import { readProjectConfig, saveProjectConfig, deleteProject, duplicateProject } from '../services/projects';
+import { trackEvent } from '../services/telemetry';
 
 export function registerProjectHandlers(ctx: IpcContext): void {
   // --- Create Project ---
@@ -27,6 +28,7 @@ export function registerProjectHandlers(ctx: IpcContext): void {
     };
     const result = await stepCreateProject(baseDir, projectsDir, projectName, ctx.logger, opts, odooVersion, onProgress);
     invalidateStatusCache();
+    if (result.ok) trackEvent('PROJECT_CREATED', { name: projectName, version: odooVersion }).catch(() => {});
     return result;
   });
 
@@ -50,6 +52,7 @@ export function registerProjectHandlers(ctx: IpcContext): void {
     const projectsDir = data?.projects_dir || DEFAULT_PROJECTS_DIR;
     const projectName = data?.project_name || '';
     const dropDatabases = data?.drop_databases === 'true';
+    const odooVersion = data?.odoo_version || DEFAULT_ODOO_VERSION;
 
     // Close any log watchers for this project's files before deleting
     const projPath = path.join(projectsDir, projectName);
@@ -72,6 +75,7 @@ export function registerProjectHandlers(ctx: IpcContext): void {
     };
     const result = await deleteProject(projectsDir, projectName, dropDatabases, onProgress);
     invalidateStatusCache();
+    if (result.ok) trackEvent('PROJECT_DELETED', { name: projectName, version: odooVersion }).catch(() => {});
     return result;
   });
 
@@ -132,6 +136,7 @@ export function registerProjectHandlers(ctx: IpcContext): void {
     };
     const result = await duplicateProject(baseDir, projectsDir, projectName, newName, newHttpPort, onProgress, odooVersion);
     invalidateStatusCache();
+    if (result.ok) trackEvent('PROJECT_DUPLICATED', { source: projectName, target: newName, version: odooVersion }).catch(() => {});
     return result;
   });
 
@@ -205,6 +210,7 @@ export function registerProjectHandlers(ctx: IpcContext): void {
       }
 
       invalidateStatusCache();
+      trackEvent('ODOO_STARTED', { project: data?.project_name, port: data?.http_port, version: odooVersion }).catch(() => {});
       return { ok: true, command: cmd };
     } catch (e) {
       return { ok: false, msg: String(e) };
@@ -215,6 +221,8 @@ export function registerProjectHandlers(ctx: IpcContext): void {
   ipcMain.handle('stop_odoo', async (_event, data: Record<string, string>) => {
     const port = data?.http_port || '8069';
     const geventPort = data?.longpolling_port || '';
+    const projectName = data?.project_name || '';
+    const odooVersion = data?.odoo_version || DEFAULT_ODOO_VERSION;
     if (!/^\d{1,5}$/.test(port)) return { ok: false, msg: 'Invalid port' };
     try {
       // Kill main Odoo + gevent worker processes
@@ -238,6 +246,7 @@ export function registerProjectHandlers(ctx: IpcContext): void {
       }
       ctx.logger.log(`Odoo stopped (killed PID: ${[...pids].join(', ')}) [ports: ${portsToKill.join(', ')}]`);
       invalidateStatusCache();
+      trackEvent('ODOO_STOPPED', { project: projectName, port, version: odooVersion }).catch(() => {});
       return { ok: true, msg: 'Stopped' };
     } catch (e) {
       return { ok: false, msg: String(e) };

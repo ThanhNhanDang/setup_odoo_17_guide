@@ -552,7 +552,15 @@ async function loadSettingsRaw() {
 // Status
 // ---------------------------------------------------------------------------
 let _refreshInFlight = false;
-async function refreshStatus() {
+let _lastVersionUrlRender = '';
+
+/**
+ * refreshStatus(opts)
+ * @param {object} [opts]
+ * @param {boolean} [opts.lightweight] - If true, only fetch status & update _status
+ *   without full DOM rebuild. Used during start/stop polling to avoid jank.
+ */
+async function refreshStatus(opts) {
   if (_refreshInFlight) return;
   _refreshInFlight = true;
   try {
@@ -560,6 +568,9 @@ async function refreshStatus() {
   const statusCall = globalVer ? api('status', getFormData()) : api('status-all');
   const [s] = await Promise.all([statusCall, refreshAllUsedPorts(), refreshAllProjectNames()]);
   _status = s;
+
+  // Lightweight mode: skip full DOM rebuild — only update _status for caller to check
+  if (opts && opts.lightweight) return;
 
   // Build all HTML strings FIRST (no DOM access — pure computation)
   const items = [
@@ -632,7 +643,13 @@ async function refreshStatus() {
     renderProjects(s);
     renderDashboard(s);
     refreshInstallStatus();
-    renderVersionUrlFields();
+
+    // Only re-render version URL fields when project list changes (avoids losing unsaved input)
+    const versionUrlKey = (s.projects || []).map(p => p.odoo_version).sort().join(',');
+    if (versionUrlKey !== _lastVersionUrlRender) {
+      _lastVersionUrlRender = versionUrlKey;
+      renderVersionUrlFields();
+    }
 
     const nextPort = getNextAvailablePort();
     if ($('newProjPort')) $('newProjPort').value = nextPort;
@@ -1037,11 +1054,11 @@ async function startOdoo(name) {
     const res = await api('start_odoo', data);
     if (res.ok) {
       showToastMessage(t('toast.odooWaiting'), 'info');
-      // Poll until running or timeout (30s)
+      // Poll until running or timeout (30s) — lightweight mode avoids full DOM rebuild
       let running = false;
       for (let i = 0; i < 15; i++) {
         await new Promise(r => setTimeout(r, 2000));
-        await refreshStatus();
+        await refreshStatus({ lightweight: true });
         const proj = _status?.projects?.find(p => p.name === name);
         if (proj?.is_running) { running = true; break; }
       }
@@ -1055,8 +1072,7 @@ async function startOdoo(name) {
     }
   } finally {
     clearProjectPending(name);
-    if (_status) { renderProjects(_status); renderDashboard(_status); }
-    await refreshStatus();
+    await refreshStatus(); // single full rebuild at end
   }
 }
 
@@ -1067,7 +1083,7 @@ async function stopOdoo(name) {
     const proj = _status?.projects?.find(p => p.name === name);
     const port = proj?.http_port || '8069';
     showToastMessage(t('toast.odooStopping'), 'info');
-    const res = await api('stop_odoo', { http_port: port, longpolling_port: proj?.longpolling_port || '' });
+    const res = await api('stop_odoo', { http_port: port, longpolling_port: proj?.longpolling_port || '', project_name: name, odoo_version: proj?.odoo_version || '' });
     if (res.ok) {
       showToastMessage(t('toast.odooStopped'), 'success');
       // Optimistic: immutable state update
@@ -1081,14 +1097,14 @@ async function stopOdoo(name) {
     }
   } finally {
     clearProjectPending(name);
-    if (_status) { renderProjects(_status); renderDashboard(_status); }
-    // Poll until port is released or timeout (10s)
+    // Poll until port is released or timeout (10s) — lightweight mode avoids full DOM rebuild
     for (let i = 0; i < 5; i++) {
       await new Promise(r => setTimeout(r, 2000));
-      await refreshStatus();
+      await refreshStatus({ lightweight: true });
       const proj = _status?.projects?.find(p => p.name === name);
       if (!proj?.is_running) break;
     }
+    await refreshStatus(); // single full rebuild at end
   }
 }
 
@@ -1243,10 +1259,12 @@ async function confirmDelete(e) {
 
   let res;
   try {
+    const delProj = _status?.projects?.find(p => p.name === _deletingProject);
     res = await api('delete_project', {
       projects_dir: _getProjectsDir(_deletingProject),
       project_name: _deletingProject,
       drop_databases: dropDb,
+      odoo_version: delProj?.odoo_version || '',
     });
   } catch (e) {
     res = { ok: false, msg: String(e) };

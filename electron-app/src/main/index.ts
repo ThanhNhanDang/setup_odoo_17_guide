@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import { execSync } from 'child_process';
 import { registerIpcHandlers } from './ipc-handlers';
 import { UpdaterService } from './services/updater';
+import { initTelemetry, trackEvent, stopTelemetry } from './services/telemetry';
 
 // Self-elevate to Admin if not already (Windows only)
 // In dev mode (--dev flag or VS Code F5), skip elevation so the app still launches.
@@ -35,6 +36,7 @@ app.commandLine.appendSwitch('disable-features', 'WidgetLayering');
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let isQuitting = false;
+let nginxCheckInterval: ReturnType<typeof setInterval> | null = null;
 
 function getIconPath(): string {
   // Check for user-custom icon first
@@ -125,8 +127,12 @@ function createWindow(): void {
     // Auto-start Nginx if installed but not running, then check every 60s
     setTimeout(() => {
       autoStartNginx();
-      setInterval(() => autoStartNginx(), 60_000);
+      nginxCheckInterval = setInterval(() => autoStartNginx(), 60_000);
     }, 5000);
+
+    // Initialize telemetry & track app launch
+    initTelemetry().catch(() => {});
+    trackEvent('APP_LAUNCHED', { app_version: app.getVersion() }).catch(() => {});
   });
 
   // Minimize to tray instead of closing
@@ -139,6 +145,7 @@ function createWindow(): void {
 
   mainWindow.on('closed', () => {
     updater.stopPeriodicCheck();
+    if (nginxCheckInterval) { clearInterval(nginxCheckInterval); nginxCheckInterval = null; }
     mainWindow = null;
   });
 }
@@ -285,6 +292,7 @@ if (!gotTheLock) {
   // Cleanup partial downloads on quit
   app.on('before-quit', () => {
     isQuitting = true;
+    stopTelemetry();
     const { DEFAULT_BASE_DIR } = require('./services/config');
     const partialFiles = [
       'vscode-installer.exe', 'git-installer.exe',
