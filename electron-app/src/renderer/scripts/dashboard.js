@@ -1,6 +1,34 @@
 // Dashboard
 // ---------------------------------------------------------------------------
 const LOGO_PLACEHOLDER = 'images/placeholder.png';
+
+/**
+ * Return markup (icon + title) for the "Open in IDE" button based on user's
+ * preferred IDE. VS Code uses the bundled PNG; Antigravity uses an inline SVG
+ * sparkle (Gemini-style 4-pointed star with orbiting accent dot) in the
+ * theme accent color, so no external asset is required.
+ */
+function _ideButtonContent() {
+  const ide = (typeof getPreferredIDE === 'function') ? getPreferredIDE() : 'vscode';
+  if (ide === 'antigravity') {
+    const title = (typeof t === 'function' && t('project.antigravity')) || 'Antigravity';
+    const svg = `
+<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+  <defs>
+    <linearGradient id="agGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4285F4"/>
+      <stop offset="50%" stop-color="#9B72F7"/>
+      <stop offset="100%" stop-color="#F6B76F"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#agGrad)" d="M12 2.2 13.9 9.2 20.9 11.1 13.9 13 12 20 10.1 13 3.1 11.1 10.1 9.2z"/>
+  <circle cx="18.4" cy="5.6" r="1.6" fill="url(#agGrad)"/>
+</svg>`.trim();
+    return { icon: svg, title };
+  }
+  const title = (typeof t === 'function' && t('project.vsCode')) || 'VS Code';
+  return { icon: '<img src="images/vscode.png" width="18" height="18" style="border-radius:2px">', title };
+}
 function refreshDashboard() {
   refreshStatus();
 }
@@ -31,7 +59,7 @@ function renderDashboard(s) {
     </div>
     <div class="dash-stat">
       <div class="dash-stat-value">${s.python311 ? _ok : _miss}</div>
-      <div class="dash-stat-label">${t('dashboard.python')}</div>
+      <div class="dash-stat-label">${escHtml(s.python_version || t('dashboard.python'))}</div>
     </div>
     <div class="dash-stat">
       <div class="dash-stat-value">${s.postgres ? (typeof _pgNeedsVector === 'function' && _pgNeedsVector() && !s.pgvector_available ? '<span style="color:#d29922">' + t('install.pgvectorMissing') + '</span>' : _ok) : _miss}</div>
@@ -102,7 +130,7 @@ function renderKanbanCard(p, isDemo) {
       <div class="kanban-card-actions" data-tour="card-actions">
         ${actionBtn}
         <div class="kanban-actions-center">
-          <button class="kanban-icon-btn kanban-action-btn btn-vscode" ${onclick(`openVSCode('${escAttr(p.path)}',event)`)} title="${t('project.vsCode')}"${btnDisabled}><img src="images/vscode.png" width="18" height="18" style="border-radius:2px"></button>
+          <button class="kanban-icon-btn kanban-action-btn btn-vscode" ${onclick(`openVSCode('${escAttr(p.path)}',event)`)} title="${_ideButtonContent().title}"${btnDisabled}>${_ideButtonContent().icon}</button>
           <button class="kanban-icon-btn kanban-action-btn" ${onclick(`openExplorer('${escAttr(p.path)}',event)`)} title="${t('project.explorer')}"${btnDisabled}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></button>
           <button class="kanban-icon-btn kanban-action-btn" ${onclick(`showProjectDetail('${escAttr(p.name)}')`)} title="${t('project.detail')}"${btnDisabled}><svg viewBox="0 0 32 32" fill="currentColor" width="16" height="16"><path d="M 2 6 L 2 26 L 7 26 L 7 31.09375 L 8.625 29.78125 L 13.34375 26 L 30 26 L 30 6 Z M 4 8 L 28 8 L 28 24 L 12.65625 24 L 12.375 24.21875 L 9 26.90625 L 9 24 L 4 24 Z M 15 10 L 15 12 L 17 12 L 17 10 Z M 15 14 L 15 22 L 17 22 L 17 14 Z"/></svg></button>
         </div>
@@ -278,7 +306,7 @@ function showProjectDetail(name) {
     <div class="btn-row" style="flex:1;justify-content:space-between">
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         ${renderActionBtn(p, 'btn-sm', "hideModal('modalDetail')")}
-        <button class="btn btn-vscode btn-sm" onclick="openVSCode('${escAttr(p.path)}',event)">${t('project.vsCode')}</button>
+        <button class="btn btn-vscode btn-sm" onclick="openVSCode('${escAttr(p.path)}',event)">${_ideButtonContent().title}</button>
         <button class="btn btn-outline btn-sm" onclick="openExplorer('${escAttr(p.path)}',event)">${t('project.explorer')}</button>
         <button class="btn btn-outline btn-sm" onclick="hideModal('modalDetail');editConfig('${escAttr(p.name)}')">${t('project.editConfig')}</button>
         <button class="btn btn-outline btn-sm" onclick="resetTemplates('${escAttr(p.name)}','${escAttr(p.odoo_version || '17')}')">${t('project.resetTemplates')}</button>

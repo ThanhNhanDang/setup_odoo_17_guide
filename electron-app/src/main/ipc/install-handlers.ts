@@ -18,10 +18,11 @@ function safe<T>(fn: () => Promise<T>): Promise<T | { ok: false; msg: string }> 
 export function registerInstallHandlers(ctx: IpcContext): void {
   // --- Status ---
   ipcMain.handle('status', async (_event, data: Record<string, string>) => {
+    const odooVersion = data?.odoo_version || DEFAULT_ODOO_VERSION;
     const baseDir = data?.base_dir || DEFAULT_BASE_DIR;
     const projectsDir = data?.projects_dir || DEFAULT_PROJECTS_DIR;
     const odooSourceDir = data?.odoo_source_dir || 'odoo';
-    return safe(() => detectStatus(baseDir, projectsDir, odooSourceDir));
+    return safe(() => detectStatus(baseDir, projectsDir, odooSourceDir, odooVersion));
   });
 
   // --- Status All Versions (for "All" filter) ---
@@ -34,14 +35,14 @@ export function registerInstallHandlers(ctx: IpcContext): void {
         const baseDir = getDefaultBaseDir(ver);
         const projectsDir = getDefaultProjectsDir(ver);
         try {
-          const s = await detectStatus(baseDir, projectsDir);
+          const s = await detectStatus(baseDir, projectsDir, 'odoo', ver);
           if (!baseResult) baseResult = s;
           allProjects.push(...s.projects);
         } catch { /* skip unavailable version */ }
       }
 
       if (!baseResult) {
-        return detectStatus(DEFAULT_BASE_DIR, DEFAULT_PROJECTS_DIR);
+        return detectStatus(DEFAULT_BASE_DIR, DEFAULT_PROJECTS_DIR, 'odoo', DEFAULT_ODOO_VERSION);
       }
       // Return base status with merged projects from all versions
       return { ...baseResult, projects: allProjects };

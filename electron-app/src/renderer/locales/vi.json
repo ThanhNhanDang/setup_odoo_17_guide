@@ -28,7 +28,9 @@
     "saved": "Đã lưu", "updated": "Đã cập nhật",
     "urlLocked": "Đã khóa — có project đang dùng phiên bản này",
     "about": "Thông tin", "currentVersion": "Phiên bản hiện tại:", "checkUpdates": "Kiểm tra cập nhật",
-    "language": "Ngôn ngữ"
+    "language": "Ngôn ngữ",
+    "preferredIDE": "IDE ưu tiên",
+    "preferredIDEDesc": "Chọn trình soạn thảo sẽ mở khi nhấn nút IDE trên thẻ dự án."
   },
   "dashboard": {
     "title": "Trang chủ", "desc": "Tổng quan các dự án Odoo của bạn",
@@ -62,7 +64,7 @@
   },
   "project": {
     "start": "Khởi động", "stop": "Dừng", "starting": "Đang khởi động...", "stopping": "Đang dừng...",
-    "vsCode": "VS Code", "explorer": "Thư mục", "editConfig": "Sửa cấu hình",
+    "vsCode": "VS Code", "antigravity": "Antigravity", "explorer": "Thư mục", "editConfig": "Sửa cấu hình",
     "duplicate": "Nhân bản", "delete": "Xoá", "detail": "Chi tiết",
     "create": "Tạo dự án", "cancel": "Huỷ", "save": "Lưu",
     "saveRestart": "Lưu & Khởi động lại", "resetTemplates": "Đặt lại Template",

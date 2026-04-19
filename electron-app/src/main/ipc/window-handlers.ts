@@ -25,56 +25,78 @@ export function registerWindowHandlers(ctx: IpcContext): void {
     return { path: result.filePaths[0].replace(/\\/g, '/') };
   });
 
-  // --- Open VS Code ---
-  // Launch VS Code as non-elevated user via Shell.Application COM object.
-  // Without this, VS Code inherits admin elevation from our process,
+  // --- Open IDE (VS Code or Antigravity) ---
+  // Launch the IDE as non-elevated user via Shell.Application COM object.
+  // Without this, the IDE inherits admin elevation from our process,
   // which breaks IME software (e.g. Unikey for Vietnamese input).
   ipcMain.handle('open_vscode', async (_event, data: Record<string, string>) => {
     const targetPath = data?.path;
+    const ide = (data?.ide || 'vscode').toLowerCase();
     if (!targetPath) return { ok: false, msg: 'No path provided' };
     try {
-      const { findVSCode } = require('../services/detection');
-      let vscodePath: string = findVSCode();
-      if (!vscodePath) return { ok: false, msg: 'VS Code not found' };
+      const detection = require('../services/detection');
 
-      // When findVSCode returns 'code' (CLI alias), resolve to the actual
-      // Code.exe path. Shell.Application needs an executable, not a .cmd.
-      if (vscodePath === 'code') {
+      let idePath: string | null = null;
+      let cliName = 'code';
+      let exeBaseName = 'Code.exe';
+      let ideLabel = 'VS Code';
+
+      if (ide === 'antigravity') {
+        idePath = detection.findAntigravity();
+        cliName = 'antigravity';
+        exeBaseName = 'Antigravity.exe';
+        ideLabel = 'Antigravity';
+      } else {
+        idePath = detection.findVSCode();
+      }
+
+      if (!idePath) {
+        // Fallback: if preferred IDE not found, try the other one
+        if (ide === 'antigravity') {
+          idePath = detection.findVSCode();
+          if (idePath) { cliName = 'code'; exeBaseName = 'Code.exe'; ideLabel = 'VS Code'; }
+        } else {
+          idePath = detection.findAntigravity();
+          if (idePath) { cliName = 'antigravity'; exeBaseName = 'Antigravity.exe'; ideLabel = 'Antigravity'; }
+        }
+      }
+      if (!idePath) return { ok: false, msg: `${ideLabel} not found` };
+
+      // When detection returns a CLI alias (e.g. 'code' or 'antigravity'),
+      // resolve it to the actual .exe. Shell.Application needs an executable.
+      if (idePath === cliName) {
         try {
-          const where = execFileSync('cmd.exe', ['/c', 'where code'], {
+          const where = execFileSync('cmd.exe', ['/c', `where ${cliName}`], {
             timeout: 5000, windowsHide: true, encoding: 'utf8',
             stdio: ['pipe', 'pipe', 'pipe'],
           });
-          // 'where code' may return Code.exe directly or bin\code / bin\code.cmd
           const lines = where.trim().split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-          const exeLine = lines.find(l => l.toLowerCase().endsWith('code.exe'));
+          const exeLine = lines.find(l => l.toLowerCase().endsWith(exeBaseName.toLowerCase()));
           if (exeLine && existsSync(exeLine)) {
-            vscodePath = exeLine;
+            idePath = exeLine;
           } else {
-            // Fallback: first line might be bin\code, navigate up to Code.exe
             const first = lines[0];
             if (first) {
-              const codeExe = join(dirname(first), '..', 'Code.exe');
-              if (existsSync(codeExe)) vscodePath = codeExe;
+              const resolved = join(dirname(first), '..', exeBaseName);
+              if (existsSync(resolved)) idePath = resolved;
             }
           }
-        } catch { /* keep 'code' as fallback */ }
+        } catch { /* keep CLI alias as fallback */ }
       }
 
       // Use a temp VBScript + wscript //B (completely silent, no console).
       // Shell.Application.ShellExecute launches through Explorer's non-elevated token.
-      // VBScript quoting: double-quote inside string = ""
-      const vbsPath = join(tmpdir(), `open_vscode_${Date.now()}.vbs`);
+      const vbsPath = join(tmpdir(), `open_ide_${Date.now()}.vbs`);
       const vbsLines = [
         'Set objShell = CreateObject("Shell.Application")',
-        `objShell.ShellExecute "${vscodePath}", """${targetPath}""", "", "open", 1`,
+        `objShell.ShellExecute "${idePath}", """${targetPath}""", "", "open", 1`,
       ];
       const vbsContent = vbsLines.join('\r\n') + '\r\n';
       writeFileSync(vbsPath, vbsContent, 'utf-8');
       execFile('wscript.exe', ['//B', '//Nologo', vbsPath], { windowsHide: true }, () => {
         try { unlinkSync(vbsPath); } catch (_) { /* ignore */ }
       });
-      return { ok: true };
+      return { ok: true, ide: ideLabel };
     } catch (e) {
       return { ok: false, msg: String(e) };
     }

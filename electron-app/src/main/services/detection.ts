@@ -259,6 +259,75 @@ export function findVSCode(): string | null {
 }
 
 /**
+ * Find Google Antigravity IDE installation. Returns path to Antigravity.exe or null.
+ * Antigravity is a VS Code fork — install layout mirrors VS Code's per-user installer.
+ * Checks: PATH (antigravity --version), standard install locations, Start Menu shortcuts.
+ */
+export function findAntigravity(): string | null {
+  // Check if 'antigravity' is in PATH
+  try {
+    const output = execFileSync('cmd.exe', ['/c', 'antigravity --version'], {
+      timeout: 5000,
+      windowsHide: true,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    const ver = output.trim().split('\n')[0]?.trim();
+    if (ver && /^\d+\.\d+/.test(ver)) return 'antigravity';
+  } catch { /* not in PATH */ }
+
+  // Check standard install locations (VS Code-style)
+  const localAppData = process.env.LOCALAPPDATA || '';
+  const programFiles = process.env['ProgramFiles'] || 'C:\\Program Files';
+  const candidates = [
+    path.join(localAppData, 'Programs', 'Antigravity', 'Antigravity.exe'),
+    path.join(localAppData, 'Programs', 'antigravity', 'Antigravity.exe'),
+    path.join(localAppData, 'Programs', 'Google Antigravity', 'Antigravity.exe'),
+    path.join(programFiles, 'Antigravity', 'Antigravity.exe'),
+    path.join(programFiles, 'Google Antigravity', 'Antigravity.exe'),
+    'C:\\Program Files\\Antigravity\\Antigravity.exe',
+    'C:\\Program Files (x86)\\Antigravity\\Antigravity.exe',
+  ];
+  for (const p of candidates) {
+    if (p && fs.existsSync(p)) return p;
+  }
+
+  // Start Menu .lnk lookup
+  const startMenuDirs = [
+    path.join(process.env.APPDATA || '', 'Microsoft', 'Windows', 'Start Menu', 'Programs'),
+    'C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs',
+  ];
+  for (const menuDir of startMenuDirs) {
+    try {
+      if (!fs.existsSync(menuDir)) continue;
+      const walk = (dir: string): string | null => {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          const fullPath = path.join(dir, entry.name);
+          if (entry.isDirectory()) {
+            const found = walk(fullPath);
+            if (found) return found;
+          } else if (
+            entry.name.toLowerCase().includes('antigravity') &&
+            entry.name.endsWith('.lnk')
+          ) {
+            const target = readLnkTarget(fullPath);
+            if (target && target.toLowerCase().endsWith('antigravity.exe') && fs.existsSync(target)) {
+              return target;
+            }
+          }
+        }
+        return null;
+      };
+      const found = walk(menuDir);
+      if (found) return found;
+    } catch { /* menu dir not accessible */ }
+  }
+
+  return null;
+}
+
+/**
  * Get VS Code version string (if installed).
  */
 export function getVSCodeVersion(): string {

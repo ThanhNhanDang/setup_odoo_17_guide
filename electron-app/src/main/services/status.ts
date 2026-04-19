@@ -2,7 +2,8 @@ import * as fs from 'fs';
 import * as net from 'net';
 import * as path from 'path';
 import {
-  findPython311,
+  findPython,
+  findPythonViaLauncher,
   findPostgresBin,
   findDocker,
   findDockerPostgres,
@@ -22,7 +23,7 @@ import {
 } from './detection';
 import { parseIniFile, iniGet } from './ini-parser';
 import { DEFAULT_BASE_DIR, getDefaultBaseDir } from './config';
-import { DEFAULT_ODOO_VERSION, ALL_VERSIONS } from './odoo-versions';
+import { DEFAULT_ODOO_VERSION, ALL_VERSIONS, getVersionConfig, getPythonCandidates, isValidVersion } from './odoo-versions';
 import { isNginxInstalled, findNginxAcrossBaseDirs } from '../utils/nginx';
 
 // ---------------------------------------------------------------------------
@@ -65,6 +66,7 @@ export interface ProjectInfo {
 export interface StatusResult {
   readonly python311: boolean;
   readonly python311_path: string;
+  readonly python_version: string;
   readonly postgres: boolean;
   readonly postgres_path: string;
   readonly postgres_local: boolean;
@@ -308,15 +310,18 @@ function detectOdooSourceDirs(baseDir: string): readonly string[] {
 let _statusCache: { result: StatusResult; timestamp: number; key: string } | null = null;
 const CACHE_TTL = 5000; // 5 seconds
 
-export async function detectStatus(baseDir: string, projectsDir: string, odooSourceDir: string = 'odoo'): Promise<StatusResult> {
+export async function detectStatus(baseDir: string, projectsDir: string, odooSourceDir: string = 'odoo', odooVersion: string = DEFAULT_ODOO_VERSION): Promise<StatusResult> {
+  const effectiveVersion = isValidVersion(odooVersion) ? odooVersion : DEFAULT_ODOO_VERSION;
+  const vCfg = getVersionConfig(effectiveVersion);
   // Return cache if fresh and same params
-  const cacheKey = `${baseDir}::${projectsDir}::${odooSourceDir}`;
+  const cacheKey = `${baseDir}::${projectsDir}::${odooSourceDir}::${effectiveVersion}`;
   if (_statusCache && _statusCache.key === cacheKey && Date.now() - _statusCache.timestamp < CACHE_TTL) {
     return _statusCache.result;
   }
 
   // Fast: file-only checks (no external processes)
-  const py311 = findPython311();
+  // Detect Python for the selected Odoo version (not hardcoded to 3.11).
+  const py311 = findPython(getPythonCandidates(effectiveVersion)) || findPythonViaLauncher(vCfg.pythonVersionPrefix);
   const pgBin = findPostgresBin();
   const sourceCandidates = detectOdooSourceDirs(baseDir);
   // Use user's choice if it exists, otherwise auto-detect first candidate
@@ -377,6 +382,7 @@ export async function detectStatus(baseDir: string, projectsDir: string, odooSou
   const result: StatusResult = {
     python311: py311 !== null,
     python311_path: py311 || '',
+    python_version: vCfg.pythonVersion,
     postgres: pgOk,
     postgres_path: pgDetail,
     postgres_local: pgBin !== null,

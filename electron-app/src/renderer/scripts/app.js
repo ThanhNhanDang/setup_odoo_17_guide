@@ -256,7 +256,15 @@ const SETTINGS_FIELD_IDS = [
   'httpPort', 'dbHost', 'dbPort', 'dbUser', 'dbPassword', 'pgSuperPassword', 'pgMode',
   'addonsPath', 'adminPasswd', 'longpollingPort', 'logLevel', 'workers',
   'listDb', 'dbfilter', 'proxyMode', 'serverWideModules', 'dataDir', 'memHard', 'memSoft',
+  'preferredIDE',
 ];
+
+/** Preferred IDE: 'vscode' (default) or 'antigravity'. Read from the form select. */
+function getPreferredIDE() {
+  const el = typeof document !== 'undefined' && document.getElementById('preferredIDE');
+  const v = el && el.value;
+  return v === 'antigravity' ? 'antigravity' : 'vscode';
+}
 
 function saveSettingsToDisk() {
   if (!window.electronAPI) return;
@@ -292,6 +300,11 @@ async function loadSettingsFromDisk() {
     if (s.odooVersion && $('globalVersion')) {
       $('globalVersion').value = s.odooVersion;
       _syncInstallVersionLabel(s.odooVersion);
+      // Also update step name labels to match the restored version
+      const labels = getVersionLabels(s.odooVersion);
+      if ($('stepName-install_python')) $('stepName-install_python').textContent = labels.python;
+      if ($('stepName-install_postgres')) $('stepName-install_postgres').textContent = labels.postgres;
+      if ($('stepName-clone_odoo')) $('stepName-clone_odoo').textContent = labels.clone;
     }
   } catch { /* first launch — no saved settings */ }
 }
@@ -315,6 +328,13 @@ async function loadSettingsFromDisk() {
     } else {
       el.addEventListener('input', onSettingChange);
     }
+  }
+  // Preferred IDE change → re-render dashboard so card buttons pick up new icon
+  const ideEl = $('preferredIDE');
+  if (ideEl) {
+    ideEl.addEventListener('change', () => {
+      if (_status && typeof renderDashboard === 'function') renderDashboard(_status);
+    });
   }
 })();
 
@@ -544,7 +564,7 @@ async function refreshStatus() {
   // Build all HTML strings FIRST (no DOM access — pure computation)
   const items = [
     ['Git', s.git, s.git_version || ''],
-    ['Python 3.11', s.python311, s.python311_path],
+    [s.python_version || 'Python', s.python311, s.python311_path],
     ['PostgreSQL', s.postgres, _pgStatusDetail(s)],
     ['VS Code', s.vscode, s.vscode_version || ''],
     ['Nginx', s.nginx, s.nginx ? 'HTTPS proxy' : ''],
@@ -659,7 +679,7 @@ function renderProjects(s) {
       </div>
       <div class="project-actions">
         ${renderActionBtn(p)}
-        <button class="btn btn-vscode btn-xs" onclick="openVSCode('${escAttr(p.path)}',event)">${t('project.vsCode')}</button>
+        <button class="btn btn-vscode btn-xs" onclick="openVSCode('${escAttr(p.path)}',event)">${getPreferredIDE() === 'antigravity' ? t('project.antigravity') : t('project.vsCode')}</button>
         <button class="btn btn-outline btn-xs" onclick="openExplorer('${escAttr(p.path)}',event)">${t('project.explorer')}</button>
         <button class="btn btn-outline btn-xs" onclick="editConfig('${escAttr(p.name)}')">${t('project.editConfig')}</button>
         <button class="btn btn-outline btn-xs" onclick="duplicateProject('${escAttr(p.name)}','${escAttr(p.http_port)}')">${t('project.duplicate')}</button>
@@ -1079,7 +1099,9 @@ function toggleOdoo(name, isRunning) {
 }
 
 async function openVSCode(projPath, e) {
-  await withBtnPending(e, 'vscode', t('project.vsCode'), () => api('open_vscode', { path: projPath }));
+  const ide = getPreferredIDE();
+  const label = ide === 'antigravity' ? t('project.antigravity') : t('project.vsCode');
+  await withBtnPending(e, ide, label, () => api('open_vscode', { path: projPath, ide }));
 }
 async function openExplorer(projPath, e) {
   await withBtnPending(e, 'explorer', t('project.explorer'), () => api('open_explorer', { path: projPath }));

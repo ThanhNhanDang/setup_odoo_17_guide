@@ -449,6 +449,7 @@ export function registerLogHandlers(ctx: IpcContext): void {
     projectName: string; projectsDir?: string; baseDir?: string;
     odooVersion?: string; httpPort: string; logLevel?: string;
     upgradeModules?: string[]; upgradeDb?: string; odooSourceDir?: string;
+    autoDetectUpgrade?: boolean;
   }) => {
     try {
       const odooVersion = data.odooVersion || DEFAULT_ODOO_VERSION;
@@ -485,10 +486,9 @@ export function registerLogHandlers(ctx: IpcContext): void {
         }
       }
 
-      // Stop Odoo + gevent worker on their ports (if running)
+      // Stop Odoo + gevent worker on their ports, then wait for ports to be free.
       const port = data.httpPort;
       if (port && /^\d{1,5}$/.test(port)) {
-        // Also find gevent port from odoo.conf
         const portsToKill = [port];
         try {
           const { parseIniFile: pif, iniGet: ig } = require('../services/ini-parser');
@@ -497,23 +497,36 @@ export function registerLogHandlers(ctx: IpcContext): void {
           if (gp && /^\d{1,5}$/.test(gp)) portsToKill.push(gp);
         } catch { /* ignore */ }
 
-        const pids = new Set<string>();
-        for (const p of portsToKill) {
-          try {
-            const { output } = await runCmd(`netstat -ano | findstr ":${p}.*LISTENING"`);
-            for (const line of output.trim().split('\n').filter(Boolean)) {
-              const parts = line.trim().split(/\s+/);
-              const pid = parts[parts.length - 1];
-              if (pid && pid !== '0') pids.add(pid);
-            }
-          } catch { /* port not listening */ }
-        }
+        const collectPids = async (): Promise<Set<string>> => {
+          const found = new Set<string>();
+          for (const p of portsToKill) {
+            try {
+              const { output } = await runCmd(`netstat -ano | findstr ":${p}.*LISTENING"`);
+              for (const line of output.trim().split('\n').filter(Boolean)) {
+                const parts = line.trim().split(/\s+/);
+                const pid = parts[parts.length - 1];
+                if (pid && pid !== '0') found.add(pid);
+              }
+            } catch { /* port not listening */ }
+          }
+          return found;
+        };
+
+        // Kill + children (taskkill /T to sweep worker sub-processes)
+        const pids = await collectPids();
         for (const pid of pids) {
-          await runCmd(`taskkill /F /PID ${pid}`);
+          await runCmd(`taskkill /F /T /PID ${pid}`);
         }
         if (pids.size > 0) {
           ctx.logger.log(`  > Odoo stopped (PID: ${[...pids].join(', ')}) [ports: ${portsToKill.join(', ')}]`);
-          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+        // Poll until all target ports are free (max ~10s) to avoid bind races on Odoo 19 with workers > 0.
+        for (let attempt = 0; attempt < 20; attempt++) {
+          await new Promise(r => setTimeout(r, 500));
+          const still = await collectPids();
+          if (still.size === 0) break;
+          for (const pid of still) { await runCmd(`taskkill /F /T /PID ${pid}`); }
+          if (attempt === 19) ctx.logger.log(`  > Warning: ports still in use after wait: ${[...still].join(', ')}`);
         }
       }
 
@@ -524,18 +537,86 @@ export function registerLogHandlers(ctx: IpcContext): void {
       const logFile = path.join(projectPath, 'odoo.log').replace(/\\/g, '/');
       let cmd = `"${venvPy}" "${odooBin}" -c "${confFile}" --logfile "${logFile}"`;
 
-      if (data.upgradeModules && data.upgradeModules.length > 0) {
-        const safeModName = /^[a-zA-Z_][a-zA-Z0-9_\-]*$/;
-        const safeModules = data.upgradeModules.filter(m => safeModName.test(m));
-        const safeDbName = /^[a-zA-Z_][a-zA-Z0-9_\-]*$/;
-        const upgradeDb = data.upgradeDb && safeDbName.test(data.upgradeDb) ? data.upgradeDb : '';
-        if (safeModules.length > 0 && upgradeDb) {
-          cmd += ` -d ${upgradeDb} -u ${safeModules.join(',')}`;
-          ctx.logger.log(`  > Upgrading modules on DB '${upgradeDb}': ${safeModules.join(', ')}`);
-        } else if (safeModules.length > 0) {
-          ctx.logger.log(`  > Warning: modules selected but no target database specified — skipping -u flag`);
+      // Auto-detect modules whose source files changed since last restart.
+      // Skipped when autoDetectUpgrade is explicitly false.
+      const autoDetected = new Set<string>();
+      const stampFile = path.join(projectPath, '.odoo-last-restart');
+      const autoDetectEnabled = data.autoDetectUpgrade !== false;
+      let lastRestartMs = 0;
+      try {
+        lastRestartMs = parseInt(fs.readFileSync(stampFile, 'utf8').trim(), 10) || 0;
+      } catch { /* first run or no stamp */ }
+
+      if (autoDetectEnabled && lastRestartMs > 0) {
+        try {
+          const { parseIniFile: pif, iniGet: ig } = require('../services/ini-parser');
+          const iniC = pif(confFile);
+          const addonsPath = ig(iniC, 'options', 'addons_path', '');
+          const hasRecentFile = (dir: string, after: number, depth = 0): boolean => {
+            if (depth > 6) return false; // safety cap
+            try {
+              for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+                if (entry.name === '__pycache__' || entry.name === '.git' || entry.name === 'node_modules') continue;
+                const full = path.join(dir, entry.name);
+                try {
+                  const st = fs.statSync(full);
+                  if (st.isDirectory()) {
+                    if (hasRecentFile(full, after, depth + 1)) return true;
+                  } else if (st.mtimeMs > after) {
+                    return true;
+                  }
+                } catch { /* unreadable */ }
+              }
+            } catch { /* unreadable dir */ }
+            return false;
+          };
+          for (const rawPath of (addonsPath || '').split(',')) {
+            const p = rawPath.trim();
+            if (!p) continue;
+            const absP = path.isAbsolute(p) ? p : path.join(projectPath, p);
+            if (p.replace(/\\/g, '/').includes('odoo/addons')) continue; // skip base
+            if (!fs.existsSync(absP)) continue;
+            for (const entry of fs.readdirSync(absP)) {
+              const modDir = path.join(absP, entry);
+              const manifest = path.join(modDir, '__manifest__.py');
+              if (!fs.existsSync(manifest)) continue;
+              if (hasRecentFile(modDir, lastRestartMs)) autoDetected.add(entry);
+            }
+          }
+        } catch (e) {
+          ctx.logger.log(`  > Auto-detect modified modules failed: ${e}`);
         }
       }
+
+      const manualModules = Array.isArray(data.upgradeModules) ? data.upgradeModules : [];
+      const mergedModules = Array.from(new Set<string>([...manualModules, ...autoDetected]));
+      if (mergedModules.length > 0) {
+        const safeModName = /^[a-zA-Z_][a-zA-Z0-9_\-]*$/;
+        const safeModules = mergedModules.filter(m => safeModName.test(m));
+        // Odoo DB names can start with a letter/digit and include letters, digits, _ and - (quoted in command).
+        const safeDbName = /^[a-zA-Z0-9_][a-zA-Z0-9_\-]*$/;
+        const rawDb = (data.upgradeDb || '').trim();
+        const upgradeDb = rawDb && safeDbName.test(rawDb) ? rawDb : '';
+        if (safeModules.length > 0 && upgradeDb) {
+          // Odoo handles `-u mod -d db` by running the upgrade on startup, then
+          // continuing to serve HTTP — no `--stop-after-init` or chaining needed.
+          cmd += ` -d "${upgradeDb}" -u ${safeModules.join(',')}`;
+          const src = autoDetected.size > 0
+            ? ` (auto-detected since ${new Date(lastRestartMs).toISOString()}: ${[...autoDetected].join(', ')}${manualModules.length ? ' | manual: ' + manualModules.join(', ') : ''})`
+            : '';
+          ctx.logger.log(`  > Upgrading modules on DB '${upgradeDb}': ${safeModules.join(', ')}${src}`);
+          ctx.logger.log(`  > Restart command: ${cmd}`);
+        } else if (safeModules.length > 0) {
+          if (!rawDb) {
+            ctx.logger.log(`  > Warning: modules selected but no target database specified — skipping -u flag`);
+          } else {
+            ctx.logger.log(`  > Warning: target database '${rawDb}' contains unsupported characters — skipping -u flag`);
+          }
+        }
+      }
+
+      // Stamp current time so the next restart can diff from here.
+      try { fs.writeFileSync(stampFile, String(Date.now()), 'utf8'); } catch { /* best effort */ }
 
       // Use shared function: ensure PG ready + start Odoo
       return await ensurePgAndStartOdoo(ctx, { baseDir, projectPath, confFile, odooSourceDir, cmd });

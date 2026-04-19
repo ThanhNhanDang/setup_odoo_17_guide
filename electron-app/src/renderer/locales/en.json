@@ -28,7 +28,9 @@
     "saved": "Saved", "updated": "Updated",
     "urlLocked": "Locked — a project with this version exists",
     "about": "About", "currentVersion": "Current version:", "checkUpdates": "Check for Updates",
-    "language": "Language"
+    "language": "Language",
+    "preferredIDE": "Preferred IDE",
+    "preferredIDEDesc": "Choose which editor opens when you click the IDE button on project cards."
   },
   "dashboard": {
     "title": "Dashboard", "desc": "Overview of your Odoo projects",
@@ -62,7 +64,7 @@
   },
   "project": {
     "start": "Start", "stop": "Stop", "starting": "Starting...", "stopping": "Stopping...",
-    "vsCode": "VS Code", "explorer": "Explorer", "editConfig": "Edit Config",
+    "vsCode": "VS Code", "antigravity": "Antigravity", "explorer": "Explorer", "editConfig": "Edit Config",
     "duplicate": "Duplicate", "delete": "Delete", "detail": "Detail",
     "create": "Create Project", "cancel": "Cancel", "save": "Save",
     "saveRestart": "Save & Restart", "resetTemplates": "Reset Templates",
