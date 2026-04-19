@@ -71,7 +71,6 @@ function setTimeRange(range, btn) {
   // Update active button
   document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
-  api('track-action', { action: 'ADMIN_DASH_SET_RANGE', meta: { range } }).catch(() => {});
   loadDashboard();
   resetCountdown();
 }
@@ -152,8 +151,6 @@ function manualRefresh() {
   // Add a pulse effect to the whole dashboard
   const content = document.getElementById('dashContent');
   if (content) content.classList.add('refreshing');
-
-  api('track-action', { action: 'ADMIN_DASH_MANUAL_REFRESH' }).catch(() => {});
   loadDashboard().then(() => {
     if (btn) setTimeout(() => btn.classList.remove('spinning'), 600);
     if (content) setTimeout(() => content.classList.remove('refreshing'), 600);
