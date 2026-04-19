@@ -872,17 +872,22 @@ function renderTable(logs, users) {
 function formatActionType(type) {
   const map = {
     'APP_LAUNCHED': 'App Launch',
-    'PROJECT_CREATED': 'Create Project',
-    'PROJECT_DELETED': 'Delete Project',
+    'PROJECT_CREATED': 'Create',
+    'PROJECT_DELETED': 'Delete',
     'PROJECT_DUPLICATED': 'Duplicate',
     'ODOO_STARTED': 'Start Odoo',
     'ODOO_STOPPED': 'Stop Odoo',
-    'FULL_INSTALL_STARTED': 'Install Start',
-    'FULL_INSTALL_COMPLETED': 'Install Done',
+    'FULL_INSTALL_STARTED': 'Install',
+    'FULL_INSTALL_COMPLETED': 'Installed',
     'STEP_RUN': 'Step Run',
     'SETTINGS_SAVED': 'Settings',
+    'ADMIN_DASHBOARD_OPENED': 'Admin',
+    'MONITOR_OPENED': 'Monitor',
   };
-  return map[type] || type;
+  if (map[type]) return map[type];
+  // Auto-format: SOME_ACTION_NAME → Some Action Name (max 16 chars)
+  const label = type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).toLowerCase().replace(/^\w/, c => c.toUpperCase());
+  return label.length > 16 ? label.slice(0, 14) + '…' : label;
 }
 
 function getActionBadgeClass(type) {
