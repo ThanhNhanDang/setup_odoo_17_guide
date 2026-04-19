@@ -744,6 +744,8 @@ async function saveAndRestart() {
       selectedModules.push(cb.value);
     });
 
+    if (window.electronAPI) window.electronAPI.invoke('track-action', { action: 'MONITOR_DO_RESTART', meta: { project: currentProjectName, logLevel, modules: selectedModules.length } }).catch(()=>{});
+
     const upgradeDb = document.getElementById('upgradeDbSelect')?.value || '';
     const res = await window.electronAPI.invoke('log-viewer-restart', {
       projectName: currentProjectName, projectsDir, baseDir, odooVersion,
@@ -782,10 +784,10 @@ async function saveAndRestart() {
   }
 }
 
-// IPC: receive log lines from main process
 if (window.electronAPI) {
   // Load i18n FIRST, then init everything else
   loadI18n().then(() => {
+    window.electronAPI.invoke('track-action', { action: 'MONITOR_OPENED', meta: { project: currentProjectName } }).catch(()=>{});
     // Run all init tasks in parallel — none depend on each other
     loadProjectInfo();
     loadProjectList();
@@ -1081,6 +1083,7 @@ async function doCreateDb() {
   const country = document.getElementById('createDbCountry').value.trim();
 
   document.getElementById('btnDoCreateDb').disabled = true;
+  if (window.electronAPI) window.electronAPI.invoke('track-action', { action: 'MONITOR_DO_CREATE_DB', meta: { project: currentProjectName } }).catch(()=>{});
 
   // Pre-register job + insert row BEFORE API call to prevent race with db-job-progress event
   _inlineJobs.set('create', { type: 'create', dbName: name, status: 'running', step: 'creating_db', elapsed: 0, output: [], error: null, startTime: Date.now() });
@@ -1146,6 +1149,7 @@ async function doRestoreDb() {
   if (!filePath) { msgEl.className = 'db-msg error'; msgEl.textContent = ti('logViewer.backupRequired'); return; }
 
   document.getElementById('btnDoRestoreDb').disabled = true;
+  if (window.electronAPI) window.electronAPI.invoke('track-action', { action: 'MONITOR_DO_RESTORE_DB', meta: { project: currentProjectName } }).catch(()=>{});
 
   // Pre-register job + insert row BEFORE API call to prevent race with db-job-progress event
   _inlineJobs.set('restore', { type: 'restore', dbName: name, status: 'running', step: 'preparing', elapsed: 0, output: [], error: null, startTime: Date.now() });
@@ -1193,6 +1197,7 @@ async function doDropDb() {
   document.getElementById('btnDoDropDb').disabled = true;
   const dropTarget = _dbDropTarget;
   const dropKey = `drop:${dropTarget}`;
+  if (window.electronAPI) window.electronAPI.invoke('track-action', { action: 'MONITOR_DO_DROP_DB', meta: { project: currentProjectName } }).catch(()=>{});
 
   // Pre-register job + transform row BEFORE API call to prevent race
   _inlineJobs.set(dropKey, { type: 'drop', dbName: dropTarget, status: 'running', step: 'terminating_connections', elapsed: 0, output: [], error: null, startTime: Date.now() });

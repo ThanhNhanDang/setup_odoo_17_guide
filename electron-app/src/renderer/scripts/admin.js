@@ -79,6 +79,7 @@ async function openAdminWindow() {
   const custom = r.style.cssText || '';
 
   try {
+    api('track-action', { action: 'ADMIN_DASHBOARD_OPENED' }).catch(() => {});
     await api('open-admin-window', {
       themePreset: preset,
       themeMode: mode,

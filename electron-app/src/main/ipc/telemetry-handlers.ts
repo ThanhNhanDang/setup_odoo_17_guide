@@ -102,4 +102,10 @@ export function registerTelemetryHandlers(ctx: IpcContext): void {
 
     return { ok: true, msg: 'opened' };
   });
+
+  // Generic frontend action tracking
+  ipcMain.handle('track-action', async (_event, data: { action: string; meta?: Record<string, any> }) => {
+    trackEvent(data.action, data.meta || {}).catch(() => {});
+    return { ok: true };
+  });
 }

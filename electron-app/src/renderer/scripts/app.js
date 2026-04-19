@@ -173,7 +173,10 @@ function showPanel(name, el) {
   if (el) el.classList.add('active');
   if (name === 'dashboard' || name === 'settings' || name === 'projects') refreshStatus();
   if (name === 'settings' && typeof syncSettingsPanel === 'function') syncSettingsPanel();
-  if (name === 'help') renderHelpPanel();
+  if (name === 'help') {
+    renderHelpPanel();
+    api('track-action', { action: 'HELP_VIEWED' }).catch(() => {});
+  }
   if (name === 'log') pollLog();
 }
 
@@ -1050,6 +1053,8 @@ async function startOdoo(name) {
       // Clear base_dir so backend derives it from odoo_version via getDefaultBaseDir()
       delete data.base_dir;
     }
+    if (proj?.http_port) data.http_port = proj.http_port;
+    if (proj?.longpolling_port) data.longpolling_port = proj.longpolling_port;
     showToastMessage(t('toast.odooStarting'), 'info');
     const res = await api('start_odoo', data);
     if (res.ok) {

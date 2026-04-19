@@ -172,33 +172,59 @@ function appendOfflineLog(entry: Record<string, unknown>): void {
   }
 }
 
+let _flushing = false;
+
 export async function flushOfflineLogs(): Promise<number> {
+  // Prevent concurrent flushes (could cause duplicates)
+  if (_flushing) return 0;
+  _flushing = true;
+
   const filePath = getOfflineLogPath();
-  if (!fs.existsSync(filePath)) return 0;
-
-  let logs: Record<string, unknown>[];
-  try {
-    logs = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-  } catch {
-    return 0;
-  }
-  if (!Array.isArray(logs) || logs.length === 0) return 0;
+  let logs: Record<string, unknown>[] = [];
 
   try {
-    // Batch insert all offline logs
+    if (!fs.existsSync(filePath)) return 0;
+
+    try {
+      logs = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    } catch {
+      return 0;
+    }
+    if (!Array.isArray(logs) || logs.length === 0) return 0;
+
+    // Step 1: Immediately clear the file BEFORE uploading.
+    // This prevents new logs appended during upload from being wiped out later,
+    // and prevents re-uploading the same batch on next flush cycle.
+    fs.writeFileSync(filePath, '[]', 'utf8');
+
+    // Step 2: Upload the batch to Supabase
     const { status } = await supabaseRequest('POST', 'action_logs', logs, {
       'Prefer': 'return=minimal',
     });
+
     if (status >= 200 && status < 300) {
-      // Clear the offline log file
-      fs.writeFileSync(filePath, '[]', 'utf8');
       console.log(`[Telemetry] Flushed ${logs.length} offline logs`);
       return logs.length;
     }
+
+    // Step 3: Upload failed — put the logs back (prepend to any new logs added during upload)
+    throw new Error(`HTTP ${status}`);
   } catch {
-    // Still offline — will retry next cycle
+    // Restore failed batch: merge back with any new logs that were added during the upload attempt
+    if (logs.length > 0) {
+      try {
+        let current: Record<string, unknown>[] = [];
+        if (fs.existsSync(filePath)) {
+          try { current = JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch { current = []; }
+        }
+        const merged = [...logs, ...current].slice(-10_000);
+        fs.writeFileSync(filePath, JSON.stringify(merged, null, 2), 'utf8');
+      } catch { /* truly hopeless — silently drop */ }
+    }
+    return 0;
+  } finally {
+    _flushing = false;
   }
-  return 0;
 }
 
 // ---------------------------------------------------------------------------

@@ -154,6 +154,14 @@ export function registerProjectHandlers(ctx: IpcContext): void {
     const logFile = path.join(projPath, 'odoo.log').replace(/\\/g, '/');
     const cmd = `"${venvPy}" "${odooBin}" -c "${conf}" --logfile "${logFile}"`;
 
+    // Read actual port from project's odoo.conf (not from form defaults)
+    let projectHttpPort = data?.http_port || '8069';
+    try {
+      const { parseIniFile: pif, iniGet: ig } = require('../services/ini-parser');
+      const ini = pif(conf);
+      projectHttpPort = ig(ini, 'options', 'http_port', projectHttpPort);
+    } catch { /* use fallback */ }
+
     try {
       const result = await ensurePgAndStartOdoo(ctx, {
         baseDir, projectPath: projPath, confFile: conf, odooSourceDir, cmd,
@@ -192,9 +200,8 @@ export function registerProjectHandlers(ctx: IpcContext): void {
             if (dm) projectDomain = dm[1].trim();
           } catch {}
           if (projectDomain && !nginxProjects.some((p: any) => p.domain === projectDomain)) {
-            const httpPort = data?.http_port || '8069';
-            const lpPort = String(parseInt(httpPort, 10) + 3);
-            nginxProjects.push({ domain: projectDomain, port: httpPort, longpollingPort: lpPort });
+            const lpPort = String(parseInt(projectHttpPort, 10) + 3);
+            nginxProjects.push({ domain: projectDomain, port: projectHttpPort, longpollingPort: lpPort });
           }
           for (const np of nginxProjects) {
             if (np.domain) addHostEntry(np.domain);
@@ -210,7 +217,7 @@ export function registerProjectHandlers(ctx: IpcContext): void {
       }
 
       invalidateStatusCache();
-      trackEvent('ODOO_STARTED', { project: data?.project_name, port: data?.http_port, version: odooVersion }).catch(() => {});
+      trackEvent('ODOO_STARTED', { project: projectName, port: projectHttpPort, version: odooVersion }).catch(() => {});
       return { ok: true, command: cmd };
     } catch (e) {
       return { ok: false, msg: String(e) };

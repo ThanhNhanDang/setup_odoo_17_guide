@@ -4,8 +4,7 @@
 			"path": "."
 		},
 		{
-			"path": "../../../test_odoo_17"
+			"path": "../extra-addons_18/STI-backend-new"
 		}
-	],
-	"settings": {}
+	]
 }
