@@ -10,6 +10,7 @@ import {
   fetchAdminStats,
   fetchActionLogs,
   fetchUsers,
+  trackEvent,
 } from '../services/telemetry';
 
 export function registerTelemetryHandlers(ctx: IpcContext): void {
