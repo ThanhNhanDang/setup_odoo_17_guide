@@ -1,6 +1,6 @@
 {
   "name": "odoo-installer",
-  "version": "1.13.10",
+  "version": "1.13.11",
   "description": "One-click installer for Odoo 15/17/19 development environments on Windows",
   "main": "dist/main/index.js",
   "scripts": {
@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "electron-updater": "^6.8.3",
-    "ini": "^5.0.0"
+    "ini": "^5.0.0",
+    "node-machine-id": "^1.1.12"
   }
 }
