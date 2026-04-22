@@ -858,7 +858,11 @@ export async function stepCreateProject(
   }
   // Replace {project_name} for dbfilter
   confContent = confContent.replace(/\{project_name\}/g, projectName);
-  fs.writeFileSync(path.join(proj, 'odoo.conf'), confContent, 'utf8');
+  // Write as latin1 — Python configparser on Windows reads cp1252 (superset of latin1).
+  // Template comments are ASCII-only so latin1 encoding is safe. UTF-8 with diacritics
+  // would crash configparser with `UnicodeDecodeError: byte 0x90`.
+  const asciiSafe = confContent.normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^\x00-\x7F]/g, '');
+  fs.writeFileSync(path.join(proj, 'odoo.conf'), asciiSafe, 'latin1');
 
   // launch.json from template
   const venvPython = path.join(baseDir, 'venv', 'Scripts', 'python.exe').replace(/\\/g, '\\\\');

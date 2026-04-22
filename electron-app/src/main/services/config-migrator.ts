@@ -137,8 +137,22 @@ export function migrateOdooConf(
   const outputLines: string[] = [];
   const seenKeys = new Set<string>();
   let inOptions = false;
+  let strippedNonAscii = false;
 
-  for (const line of lines) {
+  // Python configparser on Windows reads odoo.conf with cp1252 encoding by default
+  // and CRASHES on UTF-8 diacritics (`UnicodeDecodeError: byte 0x90`). Strip any
+  // non-ASCII chars from comments — preserves structure, removes only diacritics.
+  const toAscii = (line: string): string => {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith(';') && !trimmed.startsWith('#')) return line;
+    if (/^[\x00-\x7F]*$/.test(line)) return line;
+    strippedNonAscii = true;
+    // Normalize + remove combining marks, then drop any remaining non-ASCII.
+    return line.normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^\x00-\x7F]/g, '');
+  };
+
+  for (const rawLine of lines) {
+    const line = toAscii(rawLine);
     const trimmed = line.trim();
 
     // Preserve blank lines + comments + section headers verbatim
@@ -226,10 +240,18 @@ export function migrateOdooConf(
     }
   }
 
-  const changed = deletedKeys.length > 0 || forcedKeys.length > 0 || markerAdded;
+  if (strippedNonAscii) {
+    warnings.push(
+      'Stripped non-ASCII chars from comments to avoid cp1252 UnicodeDecodeError on Windows.'
+    );
+  }
+
+  const changed = deletedKeys.length > 0 || forcedKeys.length > 0 || markerAdded || strippedNonAscii;
   if (changed) {
     const newContent = outputLines.join('\n');
-    fs.writeFileSync(confFile, newContent, 'utf8');
+    // Write as latin1 to guarantee cp1252-compatible bytes on Windows.
+    // Stripping non-ASCII above ensures no data loss.
+    fs.writeFileSync(confFile, newContent, 'latin1');
   }
 
   return { changed, deletedKeys, forcedKeys, warnings };
