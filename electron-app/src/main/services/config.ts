@@ -66,12 +66,17 @@ export const PROJECT_DEFAULTS: Readonly<Record<string, string>> = {
   db_password: 'odoo',
   log_level: 'error',
   log_handler: ':ERROR',
-  workers: '2',
-  limit_memory_hard: '10737418240',
-  limit_memory_soft: '10737418240',
+  // Windows-safe default: workers=0 (threaded).
+  // Prefork (workers>0) chỉ chạy native trên Linux. Windows bị lỗi
+  // `orm_signaling_registry does not exist` nếu bật prefork.
+  workers: '0',
+  // 2.5GB hard / 2GB soft — đủ cho dev, không ăn hết RAM như 10GB trước đây.
+  limit_memory_hard: '2684354560',
+  limit_memory_soft: '2147483648',
   list_db: 'True',
   dbfilter: '',
-  proxy_mode: 'True',
+  // proxy_mode: False khi chạy trực tiếp (không nginx). User bật lại khi cần.
+  proxy_mode: 'False',
   server_wide_modules: 'base,web',
   data_dir: '',
 };

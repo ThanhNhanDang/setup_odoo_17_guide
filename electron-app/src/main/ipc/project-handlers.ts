@@ -350,25 +350,25 @@ export async function ensurePgAndStartOdoo(ctx: IpcContext, opts: {
     }
   }
 
-  // Auto-upgrade workers=0 → workers=2 for legacy projects
+  // Migrate legacy config (xóa option deprecated + fix limit quá cao).
+  // An toàn cho project cũ — KHÔNG đụng DB credentials, ports, paths.
+  // Workers chỉ CẢNH BÁO chứ không auto-override (user có thể chủ ý set >0).
   try {
-    const { parseIniFile, iniGet, iniSet, stringifyIni } = require('../services/ini-parser');
-    const ini = parseIniFile(confFile);
-    const currentWorkers = iniGet(ini, 'options', 'workers', '0');
-    if (currentWorkers === '0') {
-      ctx.logger.log('  > Upgrading workers=0 → workers=2 for better performance...');
-      const updated = iniSet(ini, 'options', 'workers', '2');
-      // Preserve comment lines (project_domain, odoo_version) at top of file
-      const rawConf = fs.readFileSync(confFile, 'utf8');
-      const commentLines = rawConf.split('\n').filter((l: string) => l.startsWith(';'));
-      const newContent = commentLines.length > 0
-        ? commentLines.join('\n') + '\n' + stringifyIni(updated)
-        : stringifyIni(updated);
-      fs.writeFileSync(confFile, newContent, 'utf8');
-      ctx.logger.log('  > odoo.conf updated: workers=2');
+    const { migrateOdooConf } = require('../services/config-migrator');
+    const result = migrateOdooConf(confFile);
+    if (result.changed) {
+      if (result.deletedKeys.length > 0) {
+        ctx.logger.log(`  > Config migrate: xóa ${result.deletedKeys.length} option deprecated [${result.deletedKeys.join(', ')}]`);
+      }
+      for (const f of result.forcedKeys) {
+        ctx.logger.log(`  > Config migrate: ${f.key} ${f.from} → ${f.to}`);
+      }
+    }
+    for (const w of result.warnings) {
+      ctx.logger.log(`  > ⚠️  ${w}`);
     }
   } catch (e) {
-    ctx.logger.log(`  > Auto-upgrade workers check failed: ${e}`);
+    ctx.logger.log(`  > Config migrate skipped: ${e}`);
   }
 
   const odooEnv = { ...process.env };
