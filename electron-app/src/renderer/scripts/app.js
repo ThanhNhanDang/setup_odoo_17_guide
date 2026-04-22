@@ -1059,9 +1059,10 @@ async function startOdoo(name) {
     const res = await api('start_odoo', data);
     if (res.ok) {
       showToastMessage(t('toast.odooWaiting'), 'info');
-      // Poll until running or timeout (30s) — lightweight mode avoids full DOM rebuild
+      // Poll until running or timeout (90s) — first start compile asset bundle
+      // có thể mất 20-30s cho Odoo lớn (css + js minify), cần margin rộng hơn.
       let running = false;
-      for (let i = 0; i < 15; i++) {
+      for (let i = 0; i < 45; i++) {
         await new Promise(r => setTimeout(r, 2000));
         await refreshStatus({ lightweight: true });
         const proj = _status?.projects?.find(p => p.name === name);

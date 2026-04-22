@@ -85,8 +85,12 @@ function getForceValue(key: string, current: string, platform: NodeJS.Platform):
       return parseInt(current, 10) >= 64 ? '8' : undefined;
 
     case 'workers': {
-      // Windows prefork không chạy native → log warning nhưng không force.
-      // User có thể chủ ý (WSL, test). Không override silently.
+      // Windows: FORCE workers=0. Prefork (workers>=1) không chạy native trên Windows,
+      // gây lỗi 'orm_signaling_registry does not exist' liên tục + response chậm/timeout.
+      // User deploy Linux prod sẽ chỉnh trực tiếp trên server, không dùng Electron app này.
+      if (platform === 'win32' && parseInt(current, 10) > 0) {
+        return '0';
+      }
       return undefined;
     }
 
