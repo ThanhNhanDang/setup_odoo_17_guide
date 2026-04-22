@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Desktop Electron app for one-click Odoo (15/17/19) installation and project management on Windows. Supports multiple Odoo versions via a version registry pattern. Native desktop app using IPC communication (no HTTP server).
+Desktop Electron app for one-click Odoo (15/17/18/19) installation and project management on Windows. Supports multiple Odoo versions via a version registry pattern. Native desktop app using IPC communication (no HTTP server).
 
 **Platform**: Windows only
 **Language**: TypeScript (main/preload) + Vanilla JS (renderer)
@@ -46,6 +46,7 @@ Three-process Electron architecture with IPC communication:
 | `log-handlers.ts` | Log file watching (PowerShell tail + poll fallback), log viewer windows, log-viewer-info/restart |
 | `db-handlers.ts` | DB CRUD (list/create/drop/restore), job tracking with file persistence (`db-jobs.json`), dismiss |
 | `monitor-handlers.ts` | Thin orchestrator calling log-handlers + db-handlers |
+| `telemetry-handlers.ts` | Admin password verify, action tracking, fetch admin stats/logs/users, open admin window |
 
 **Services** (`src/main/services/`): Business logic layer called by IPC handlers.
 
@@ -57,6 +58,11 @@ Three-process Electron architecture with IPC communication:
 | `status.ts` | System detection (Python, PG, Git, Docker, Nginx) + `parseProjectConfig` + `checkPort` |
 | `detection.ts` | Path finding, `.lnk` shortcut parsing, Docker container detection, async detection functions |
 | `ini-parser.ts` | INI file read/write for `odoo.conf` — immutable pattern (`iniSet()` returns new object) |
+| `telemetry.ts` | Init/flush offline action logs, `trackEvent`, fetch admin stats/logs/users, verify admin password |
+| `logger.ts` | In-memory log buffer for install steps |
+| `updater.ts` | Auto-update orchestration via `electron-updater` (GitHub Releases) |
+| `step-lock.ts` | Prevent concurrent install steps |
+| `config.ts` | Default paths and URLs |
 
 **Utils** (`src/main/utils/`): Pure helpers (shell, download, nginx, hosts, caddy).
 
@@ -81,16 +87,26 @@ Three-process Electron architecture with IPC communication:
 | `update.js` | Auto-update download + install |
 | `theme.js` | Dark/light mode, 4 presets, custom colors, broadcastTheme to monitors |
 | `help.js` | Help panel: docs, troubleshooting, tour rendering |
+| `admin.js` | Admin password prompt + open admin dashboard window |
 
 **Monitor Window** (`log-viewer.html` + `scripts/log-viewer.js` + `styles/log-viewer.css`):
 - Independent BrowserWindow per project
 - Tabs: Log (realtime tail) + Database (CRUD with inline progress rows)
 - Theme synced from main app via IPC `theme-changed` event
 
+**Admin Dashboard Window** (`admin-dashboard.html` + `scripts/admin-dashboard.js` + `scripts/lib/chart.min.js` + `styles/admin-dashboard.css`):
+- Separate BrowserWindow opened via `open-admin-window` IPC after password verification
+- Shows telemetry stats, action logs, and user list (populated via `fetch-admin-stats` / `fetch-admin-logs` / `fetch-admin-users`)
+- Charts rendered with bundled `chart.min.js` (in `scripts/lib/` — the only third-party script in the renderer)
+
 **Styles**:
 - `styles/themes.css` — 4 theme presets (default/autonsi/cyberpunk/luxury) × dark/light modes
 - `styles/main.css` — Layout and component styles
 - `styles/log-viewer.css` — Monitor window styles
+- `styles/admin.css` — Admin password modal styles
+- `styles/admin-dashboard.css` — Admin dashboard window styles
+- `styles/docs.css` — Help panel styles
+- `styles/tour.css` — Guided tour overlay styles
 
 **Locales**: `en.json`, `vi.json`, `ko.json` — all user-facing text must be in all 3 files.
 

@@ -31,7 +31,8 @@ electron-app/
 │   │   │   ├── project-handlers # Project CRUD, start/stop Odoo
 │   │   │   ├── log-handlers     # Log watching, monitor windows
 │   │   │   ├── db-handlers      # Database CRUD, job persistence
-│   │   │   └── monitor-handlers # Orchestrator: log + db
+│   │   │   ├── monitor-handlers # Orchestrator: log + db
+│   │   │   └── telemetry-handlers # Admin auth, action tracking, admin window
 │   │   ├── services/            # Business logic
 │   │   │   ├── odoo-versions.ts # Version registry (single source of truth)
 │   │   │   ├── installer.ts     # 8 install steps
@@ -42,7 +43,8 @@ electron-app/
 │   │   │   ├── ini-parser.ts    # Immutable INI read/write
 │   │   │   ├── logger.ts        # In-memory log buffer
 │   │   │   ├── updater.ts       # Auto-update via GitHub Releases
-│   │   │   └── step-lock.ts     # Prevent concurrent steps
+│   │   │   ├── step-lock.ts     # Prevent concurrent steps
+│   │   │   └── telemetry.ts     # Action logs, offline buffer, admin stats, auth
 │   │   └── utils/               # Pure helpers
 │   │       ├── shell.ts         # runCmd, runCmdStreaming
 │   │       ├── download.ts      # HTTP download + progress
@@ -54,6 +56,7 @@ electron-app/
 │   └── renderer/                # Renderer Process (Vanilla JS)
 │       ├── index.html           # Main SPA
 │       ├── log-viewer.html      # Monitor window (HTML only)
+│       ├── admin-dashboard.html # Admin dashboard window (HTML only)
 │       ├── scripts/
 │       │   ├── i18n.js          # Internationalization engine
 │       │   ├── app.js           # Core: nav, API, forms, projects
@@ -64,11 +67,17 @@ electron-app/
 │       │   ├── help.js          # Docs, troubleshooting
 │       │   ├── tour.js          # Guided tour overlay
 │       │   ├── docs-data.js     # Help content data
-│       │   └── log-viewer.js    # Monitor window logic
+│       │   ├── log-viewer.js    # Monitor window logic
+│       │   ├── admin.js         # Admin password prompt + open admin window
+│       │   ├── admin-dashboard.js # Admin dashboard logic (stats, logs, users, charts)
+│       │   └── lib/
+│       │       └── chart.min.js # Chart.js (only third-party script in renderer)
 │       ├── styles/
 │       │   ├── themes.css       # 4 presets × 2 modes + transitions
 │       │   ├── main.css         # Layout + components
 │       │   ├── log-viewer.css   # Monitor window styles
+│       │   ├── admin.css        # Admin password modal
+│       │   ├── admin-dashboard.css # Admin dashboard window
 │       │   ├── docs.css         # Help panel
 │       │   └── tour.css         # Tour overlay
 │       └── locales/
@@ -254,6 +263,7 @@ sequenceDiagram
 | **Monitor** | `watch-log`, `unwatch-log`, `open-log-window`, `broadcast-theme`, `log-window-pin`, `log-window-minimize`, `log-window-maximize` |
 | **Log Viewer** | `log-viewer-server-status`, `log-viewer-projects`, `log-viewer-info`, `log-viewer-restart` |
 | **Database** | `monitor-list-databases`, `monitor-create-database`, `monitor-drop-database`, `monitor-restore-database`, `monitor-db-job-status`, `monitor-dismiss-db-job` |
+| **Telemetry / Admin** | `admin-verify-password`, `fetch-admin-stats`, `fetch-admin-logs`, `fetch-admin-users`, `open-admin-window`, `track-action` |
 
 ### Push Events (Main → Renderer)
 
@@ -294,8 +304,9 @@ ini.options.http_port = '8069';
 ### Renderer Script Loading (Global Scope)
 Tất cả renderer scripts share global scope qua `<script>` tags. Thứ tự load quan trọng:
 
+**`index.html`** (main window):
 ```html
-<script src="scripts/i18n.js"></script>      <!-- 1. i18n engine (t() function) -->
+<script src="scripts/i18n.js"></script>       <!-- 1. i18n engine (t() function) -->
 <script src="scripts/docs-data.js"></script>  <!-- 2. Help content data -->
 <script src="scripts/tour.js"></script>       <!-- 3. Tour component -->
 <script src="scripts/app.js"></script>        <!-- 4. Core: defines api(), $(), shared state -->
@@ -304,7 +315,17 @@ Tất cả renderer scripts share global scope qua `<script>` tags. Thứ tự l
 <script src="scripts/update.js"></script>     <!-- 7. Depends on api() -->
 <script src="scripts/theme.js"></script>      <!-- 8. Depends on $(), api() -->
 <script src="scripts/help.js"></script>       <!-- 9. Depends on t(), tour -->
+<script src="scripts/admin.js"></script>      <!-- 10. Admin password + open admin window -->
 ```
+
+**`admin-dashboard.html`** (admin window — separate BrowserWindow):
+```html
+<script src="scripts/lib/chart.min.js"></script>   <!-- 1. Chart.js (bundled third-party) -->
+<script src="scripts/admin-dashboard.js"></script> <!-- 2. Stats / logs / users / charts -->
+```
+
+**`log-viewer.html`** (per-project monitor window — separate BrowserWindow):
+- Loads `scripts/log-viewer.js` + `styles/log-viewer.css` independently. Syncs theme from main app via `theme-changed` IPC event.
 
 ### Theme System
 ```
