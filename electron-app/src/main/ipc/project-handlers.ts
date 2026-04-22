@@ -164,7 +164,7 @@ export function registerProjectHandlers(ctx: IpcContext): void {
 
     try {
       const result = await ensurePgAndStartOdoo(ctx, {
-        baseDir, projectPath: projPath, confFile: conf, odooSourceDir, cmd,
+        baseDir, projectPath: projPath, confFile: conf, odooSourceDir, cmd, odooVersion,
       });
       if (!result.ok) return result;
 
@@ -264,9 +264,9 @@ export function registerProjectHandlers(ctx: IpcContext): void {
 /** Shared: Ensure PostgreSQL ready + start Odoo process */
 export async function ensurePgAndStartOdoo(ctx: IpcContext, opts: {
   baseDir: string; projectPath: string; confFile: string;
-  odooSourceDir: string; cmd: string;
+  odooSourceDir: string; cmd: string; odooVersion?: string;
 }): Promise<{ ok: boolean; msg: string }> {
-  const { baseDir, projectPath, confFile, odooSourceDir, cmd } = opts;
+  const { baseDir, projectPath, confFile, odooSourceDir, cmd, odooVersion } = opts;
 
   let projectDbPort = '5434';
   let projectDbUser = 'odoo';
@@ -355,7 +355,7 @@ export async function ensurePgAndStartOdoo(ctx: IpcContext, opts: {
   // Workers chỉ CẢNH BÁO chứ không auto-override (user có thể chủ ý set >0).
   try {
     const { migrateOdooConf } = require('../services/config-migrator');
-    const result = migrateOdooConf(confFile);
+    const result = migrateOdooConf(confFile, process.platform, odooVersion);
     if (result.changed) {
       if (result.deletedKeys.length > 0) {
         ctx.logger.log(`  > Config migrate: xóa ${result.deletedKeys.length} option deprecated [${result.deletedKeys.join(', ')}]`);

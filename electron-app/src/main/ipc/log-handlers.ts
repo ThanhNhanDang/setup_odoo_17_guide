@@ -631,7 +631,7 @@ export function registerLogHandlers(ctx: IpcContext): void {
       try { fs.writeFileSync(stampFile, String(Date.now()), 'utf8'); } catch { /* best effort */ }
 
       // Use shared function: ensure PG ready + start Odoo
-      return await ensurePgAndStartOdoo(ctx, { baseDir, projectPath, confFile, odooSourceDir, cmd });
+      return await ensurePgAndStartOdoo(ctx, { baseDir, projectPath, confFile, odooSourceDir, cmd, odooVersion });
     } catch (e) {
       return { ok: false, msg: String(e) };
     }

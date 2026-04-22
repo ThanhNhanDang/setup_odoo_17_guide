@@ -107,14 +107,25 @@ export interface MigrationResult {
  *   - Comment lines at top (project_domain, odoo_version markers)
  *   - All keys not in DELETE_KEYS or FORCE logic
  *   - User-chosen values for http_port, db_*, paths, etc.
+ *
+ * @param odooVersion Version để thêm `; odoo_version = X` marker nếu file thiếu.
+ *                    Dashboard dùng marker này để filter project theo version.
  */
-export function migrateOdooConf(confFile: string, platform: NodeJS.Platform = process.platform): MigrationResult {
+export function migrateOdooConf(
+  confFile: string,
+  platform: NodeJS.Platform = process.platform,
+  odooVersion?: string,
+): MigrationResult {
   if (!fs.existsSync(confFile)) {
     return { changed: false, deletedKeys: [], forcedKeys: [], warnings: ['File not found'] };
   }
 
   const raw = fs.readFileSync(confFile, 'utf8');
   const lines = raw.split(/\r?\n/);
+
+  // Check if marker comments exist (dashboard filter + domain detection depend on these)
+  const hasVersionMarker = /^;\s*odoo_version\s*=\s*\d+/m.test(raw);
+  const hasDomainMarker = /^;\s*project_domain\s*=/m.test(raw);
 
   const deletedKeys: string[] = [];
   const forcedKeys: { key: string; from: string; to: string }[] = [];
@@ -190,7 +201,28 @@ export function migrateOdooConf(confFile: string, platform: NodeJS.Platform = pr
     }
   }
 
-  const changed = deletedKeys.length > 0 || forcedKeys.length > 0;
+  // Prepend missing marker comments — dashboard filters projects by `; odoo_version`
+  // và đọc domain từ `; project_domain`. Nếu thiếu, project bị ẩn khỏi tab version
+  // tương ứng trong Dashboard.
+  let markerAdded = false;
+  if (odooVersion && !hasVersionMarker) {
+    outputLines.unshift(`; odoo_version = ${odooVersion}`);
+    forcedKeys.push({ key: '; odoo_version', from: '(missing)', to: odooVersion });
+    markerAdded = true;
+  }
+  if (!hasDomainMarker) {
+    // Extract dbfilter giá trị để gợi ý project_domain. Nếu không có, để trống.
+    const dbfilterMatch = raw.match(/^dbfilter\s*=\s*\^([a-z0-9_-]+)/im);
+    const projectName = dbfilterMatch?.[1]?.replace(/\[.*?\]/g, '_') || '';
+    if (projectName) {
+      const version = odooVersion || '19';
+      outputLines.unshift(`; project_domain = ${projectName}.odoo${version}.local`);
+      forcedKeys.push({ key: '; project_domain', from: '(missing)', to: `${projectName}.odoo${version}.local` });
+      markerAdded = true;
+    }
+  }
+
+  const changed = deletedKeys.length > 0 || forcedKeys.length > 0 || markerAdded;
   if (changed) {
     const newContent = outputLines.join('\n');
     fs.writeFileSync(confFile, newContent, 'utf8');
