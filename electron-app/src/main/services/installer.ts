@@ -13,7 +13,7 @@ import { getVersionConfig, getEffectiveVersionConfig, getPythonCandidates, DEFAU
 
 export type UrlOverrides = Record<string, { pythonUrl?: string; postgresUrl?: string }>;
 import { findPython, findPythonViaLauncher, findPostgresBin, findDocker, findDockerPostgres, findVSCode, findGit, findWkhtmltopdf } from './detection';
-import { runCmd, runCmdStreaming } from '../utils/shell';
+import { runCmd, runCmdStreaming, ensureDir } from '../utils/shell';
 import { downloadFile } from '../utils/download';
 import { installNginx, isNginxInstalled, findNginxAcrossBaseDirs } from '../utils/nginx';
 import { StepLockManager } from './step-lock';
@@ -67,7 +67,7 @@ export async function stepInstallGit(baseDir: string, logger: LoggerService): Pr
   }
 
   logger.log('Downloading Git for Windows...');
-  fs.mkdirSync(baseDir, { recursive: true });
+  ensureDir(baseDir);
   const installer = path.join(baseDir, 'git-installer.exe');
   try {
     await downloadFile(GIT_URL, installer, logger, 'install_git');
@@ -93,7 +93,7 @@ export async function stepInstallVSCode(baseDir: string, logger: LoggerService):
     return { ok: true, msg: 'Already installed' };
   }
   logger.log('Downloading VS Code (latest stable)...');
-  fs.mkdirSync(baseDir, { recursive: true });
+  ensureDir(baseDir);
   const installer = path.join(baseDir, 'vscode-installer.exe');
   try {
     await downloadFile(VSCODE_URL, installer, logger, 'install_vscode');
@@ -140,7 +140,7 @@ export async function stepInstallWkhtmltopdf(baseDir: string, logger: LoggerServ
   }
 
   logger.log('Downloading wkhtmltopdf...');
-  fs.mkdirSync(baseDir, { recursive: true });
+  ensureDir(baseDir);
   const installer = path.join(baseDir, 'wkhtmltopdf-installer.exe');
   try {
     await downloadFile(WKHTMLTOPDF_URL, installer, logger, 'install_wkhtmltopdf');
@@ -173,7 +173,7 @@ export async function stepInstallPython(baseDir: string, logger: LoggerService, 
   }
   const installerName = path.basename(new URL(vCfg.pythonUrl).pathname);
   logger.log(`Downloading ${vCfg.pythonVersion}...`);
-  fs.mkdirSync(baseDir, { recursive: true });
+  ensureDir(baseDir);
   const installer = path.join(baseDir, installerName);
   try {
     await downloadFile(vCfg.pythonUrl, installer, logger, 'install_python');
@@ -245,7 +245,7 @@ async function installPgvectorNative(
 
   // Download pgvector zip
   logger.log('  > Downloading pgvector extension...');
-  fs.mkdirSync(baseDir, { recursive: true });
+  ensureDir(baseDir);
   const zipPath = path.join(baseDir, `pgvector-pg${pgVer}.zip`);
   try {
     await downloadFile(pgvectorUrl, zipPath, logger, 'install_pgvector');
@@ -449,7 +449,7 @@ export async function stepInstallPostgres(
   // Native install
   if (pgMode === 'native' || pgMode === 'auto') {
     logger.log(`Downloading PostgreSQL ${pgVer} (native installer)...`);
-    fs.mkdirSync(baseDir, { recursive: true });
+    ensureDir(baseDir);
     const installer = path.join(baseDir, `postgresql-${pgVer}-installer.exe`);
     try {
       await downloadFile(vCfg.postgresUrl, installer, logger, 'install_postgres');
@@ -571,7 +571,7 @@ export async function stepCreatePgUser(
 
 export async function stepCloneOdoo(baseDir: string, logger: LoggerService, odooVersion: string = DEFAULT_ODOO_VERSION, odooSourceDir: string = 'odoo'): Promise<StepResult> {
   const vCfg = getVersionConfig(odooVersion);
-  fs.mkdirSync(baseDir, { recursive: true });
+  ensureDir(baseDir);
   const odooBin = path.join(baseDir, odooSourceDir, 'odoo-bin');
   if (fs.existsSync(odooBin)) {
     logger.log('Odoo source already cloned.');
@@ -760,7 +760,7 @@ export async function stepCreateProject(
   odooVersion: string = DEFAULT_ODOO_VERSION,
   onProgress?: ProgressFn,
 ): Promise<StepResult> {
-  fs.mkdirSync(projectsDir, { recursive: true });
+  ensureDir(projectsDir);
   const proj = path.join(projectsDir, projectName);
 
   if (!projectName.trim()) {
@@ -980,8 +980,8 @@ export async function stepFullInstall(
   odooVersion: string = DEFAULT_ODOO_VERSION,
   urlOverrides?: UrlOverrides,
 ): Promise<readonly FullInstallResult[]> {
-  fs.mkdirSync(baseDir, { recursive: true });
-  fs.mkdirSync(projectsDir, { recursive: true });
+  ensureDir(baseDir);
+  ensureDir(projectsDir);
 
   const vCfgPorts = getVersionConfig(odooVersion);
   const dbPort = opts.db_port || vCfgPorts.defaultDbPort;

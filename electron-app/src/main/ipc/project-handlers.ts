@@ -416,23 +416,8 @@ export async function ensurePgAndStartOdoo(ctx: IpcContext, opts: {
     const workers = parseInt(iniGet(iniConf, 'options', 'workers', '0'), 10);
     const geventPort = iniGet(iniConf, 'options', 'gevent_port', '');
     if (workers > 0 && geventPort && process.platform === 'win32') {
-      const venvPy2 = path.join(baseDir, 'venv', 'Scripts', 'python.exe');
-      const odooBin2 = path.join(baseDir, odooSourceDir, 'odoo-bin');
-      const geventCmd = `"${venvPy2}" "${odooBin2}" gevent -c "${confFile}"`;
-      ctx.logger.log(`Starting gevent worker on port ${geventPort}: ${geventCmd}`);
-      const geventProc = execChild(geventCmd, {
-        cwd: projectPath, windowsHide: true, maxBuffer: 10 * 1024 * 1024, env: odooEnv,
-      });
-      geventProc.stdout?.on('data', (d: string) => {
-        for (const line of d.toString().split('\n').filter(Boolean)) ctx.logger.log(`[gevent] ${line.trim()}`);
-      });
-      geventProc.stderr?.on('data', (d: string) => {
-        for (const line of d.toString().split('\n').filter(Boolean)) ctx.logger.log(`[gevent:err] ${line.trim()}`);
-      });
-      geventProc.on('exit', (code2: number | null) => {
-        if (code2 !== null && code2 !== 0) ctx.logger.log(`[gevent] Process exited with code ${code2}`);
-      });
-      ctx.logger.log(`  > Gevent longpolling/websocket worker started on port ${geventPort}`);
+      // (Gevent worker disabled: 'odoo-bin gevent' is removed in Odoo 16+ and websockets run in threaded mode on Windows)
+      ctx.logger.log(`  > Skipping gevent worker (Odoo 16+ uses threaded websockets on Windows)`);
     }
   } catch (e) {
     ctx.logger.log(`  > Gevent worker start failed: ${e}`);
