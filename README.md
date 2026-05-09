@@ -13,8 +13,6 @@ A one‑click Windows desktop app for setting up and managing Odoo **15 / 17 / 1
 
 ## Screenshots
 
-> Drop images into `electron-app/screenshot/` with the filenames below and they will render here.
-
 ### Dashboard
 ![Dashboard](electron-app/screenshot/dashboard.png)
 
@@ -31,7 +29,14 @@ A one‑click Windows desktop app for setting up and managing Odoo **15 / 17 / 1
 ![Monitor database](electron-app/screenshot/monitor-db.png)
 
 ### Settings & themes
-![Settings](electron-app/screenshot/settings.png)
+
+![Settings 1](electron-app/screenshot/settings-1.png)
+
+![Settings 2](electron-app/screenshot/settings-2.png)
+
+![Settings 3](electron-app/screenshot/settings-3.png)
+
+![Settings 4](electron-app/screenshot/settings-4.png)
 
 ---
 

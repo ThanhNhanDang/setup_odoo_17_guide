@@ -1,5 +1,20 @@
 import { exec, spawn, ChildProcess } from 'child_process';
+import * as fs from 'fs';
 import { LoggerService } from '../services/logger';
+
+/**
+ * Create a directory if it does not exist. Safe for drive roots on Windows:
+ * `fs.mkdirSync('E:\\', { recursive: true })` throws EPERM even though the
+ * root already exists, so we skip when the path is already a directory.
+ */
+export function ensureDir(dir: string): void {
+  if (fs.existsSync(dir)) {
+    try {
+      if (fs.statSync(dir).isDirectory()) return;
+    } catch { /* fall through to mkdir */ }
+  }
+  fs.mkdirSync(dir, { recursive: true });
+}
 
 // ---------------------------------------------------------------------------
 // Shell utilities - replaces Python run_cmd()
