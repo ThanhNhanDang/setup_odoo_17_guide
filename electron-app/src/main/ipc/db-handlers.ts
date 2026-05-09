@@ -344,13 +344,19 @@ export function registerDbHandlers(ctx: IpcContext): void {
         ).catch(() => {});
 
         // Set password via odoo-bin (hashed properly)
-        await runCmdStreaming(
-          `"${venvPy}" "${odooBin}" shell -d "${dbName}" -c "${dbConf.confFile}" --no-http -c "${dbConf.confFile}" <<< "env['res.users'].browse(2).write({'password': '${safePassword}'}); env.cr.commit()"`,
-          ctx.logger, { cwd: projectPath, env: odooEnv }
-        ).catch(() => {
+        const scriptPath = path.join(app.getPath('temp'), `odoo_shell_${Date.now()}_${Math.floor(Math.random()*1000)}.py`);
+        try {
+          fs.writeFileSync(scriptPath, `env['res.users'].browse(2).write({'password': '${safePassword}'}); env.cr.commit()`);
+          await runCmdStreaming(
+            `"${venvPy}" "${odooBin}" shell -d "${dbName}" -c "${dbConf.confFile}" --no-http -c "${dbConf.confFile}" < "${scriptPath}"`,
+            ctx.logger, { cwd: projectPath, env: odooEnv }
+          );
+        } catch (e) {
           // Fallback: just log, password might need manual set
           ctx.logger.log('  > Note: Could not set admin password via shell. Default password may apply.');
-        });
+        } finally {
+          try { fs.unlinkSync(scriptPath); } catch (e) { /* ignore */ }
+        }
 
         // Set phone if provided
         if (data.adminPhone) {

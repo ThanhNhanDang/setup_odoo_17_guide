@@ -287,7 +287,7 @@ http {
         }
 
         location /longpolling/ {
-            proxy_pass http://127.0.0.1:${lpPort};
+            proxy_pass http://127.0.0.1:${p.port};
             proxy_http_version 1.1;
             proxy_set_header Connection "";
             proxy_set_header Host $host;
@@ -334,7 +334,7 @@ http {
         }
 
         location /longpolling/ {
-            proxy_pass http://127.0.0.1:${lpPort};
+            proxy_pass http://127.0.0.1:${p.port};
             proxy_http_version 1.1;
             proxy_set_header Connection "";
             proxy_set_header Host $host;
@@ -343,7 +343,7 @@ http {
         }
 
         location /websocket {
-            proxy_pass http://127.0.0.1:${lpPort};
+            proxy_pass http://127.0.0.1:${p.port};
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection $connection_upgrade;

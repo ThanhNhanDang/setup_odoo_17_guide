@@ -81,8 +81,9 @@ function getForceValue(key: string, current: string, platform: NodeJS.Platform):
       return current === 'False' || !current ? 'True' : undefined;
 
     case 'db_maxconn':
-      // 64 quá cao cho workers=0. 8 là đủ.
-      return parseInt(current, 10) >= 64 ? '8' : undefined;
+      // Odoo 19 discuss/bus module cần ít nhất 128. Giá trị < 128 (bao gồm 8 và 64
+      // từ các version migrator cũ) gây PoolError khi nhiều request đồng thời.
+      return parseInt(current, 10) < 128 ? '128' : undefined;
 
     case 'workers': {
       // Windows: FORCE workers=0. Prefork (workers>=1) không chạy native trên Windows,

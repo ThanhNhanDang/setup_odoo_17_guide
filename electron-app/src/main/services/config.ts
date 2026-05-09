@@ -75,8 +75,8 @@ export const PROJECT_DEFAULTS: Readonly<Record<string, string>> = {
   limit_memory_soft: '2147483648',
   list_db: 'True',
   dbfilter: '',
-  // proxy_mode: False khi chạy trực tiếp (không nginx). User bật lại khi cần.
-  proxy_mode: 'False',
+  // proxy_mode: True is required for Nginx reverse proxy to pass websocket connections correctly.
+  proxy_mode: 'True',
   server_wide_modules: 'base,web',
   data_dir: '',
 };
