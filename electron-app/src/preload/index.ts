@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'pick-file', 'pick-logo', 'save-logo', 'broadcast-theme',
       'monitor-list-databases', 'monitor-create-database', 'monitor-drop-database', 'monitor-restore-database',
       'monitor-db-job-status', 'monitor-dismiss-db-job',
+      'monitor-list-tables', 'monitor-run-sql',
       'admin-verify-password', 'fetch-admin-stats', 'fetch-admin-logs', 'fetch-admin-users', 'open-admin-window',
       'track-action',
     ];

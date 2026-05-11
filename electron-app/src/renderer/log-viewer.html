@@ -495,6 +495,67 @@ html,body{background:#0d1117;margin:0;padding:0}
   </div>
 </div>
 
+<!-- Explore DB Modal (Tables drill-in + SQL runner) -->
+<div class="db-modal-overlay" id="modalExploreDb">
+  <div class="db-modal db-modal-wide">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <h3 id="exploreDbTitle" style="margin:0">Explore Database</h3>
+      <button class="btn-close-modal" onclick="hideDbModal('modalExploreDb')" title="Close">&times;</button>
+    </div>
+    <div class="db-explore-tabs">
+      <button class="db-explore-tab active" id="exploreTabBtnTables" onclick="switchExploreTab('tables')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+        <span id="exploreTabTablesLabel">Tables</span>
+      </button>
+      <button class="db-explore-tab" id="exploreTabBtnSql" onclick="switchExploreTab('sql')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        <span id="exploreTabSqlLabel">SQL</span>
+      </button>
+      <div class="db-explore-tab-spacer"></div>
+      <span class="db-explore-meta" id="exploreElapsed"></span>
+    </div>
+    <div class="db-msg" id="exploreMsg"></div>
+    <!-- Tab: Tables -->
+    <div class="db-explore-pane active" id="explorePaneTables">
+      <div class="db-explore-toolbar">
+        <input type="text" id="exploreTableSearch" placeholder="Filter tables..." oninput="filterExploreTables(this.value)">
+        <button class="db-toolbar-btn" onclick="loadTablesForCurrentDb()" title="Refresh">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+        </button>
+        <span class="db-explore-meta" id="exploreTableCount"></span>
+        <span class="db-explore-meta" id="exploreBackToList" style="display:none">
+          <a href="#" onclick="backToTableList();return false">&larr; <span id="exploreBackLabel">Back to tables</span></a>
+        </span>
+      </div>
+      <div class="db-explore-content" id="exploreTablesContent">
+        <div class="db-loading"><span class="restart-spinner"></span><span id="exploreLoading">Loading...</span></div>
+      </div>
+    </div>
+    <!-- Tab: SQL -->
+    <div class="db-explore-pane" id="explorePaneSql">
+      <div class="db-sql-bar">
+        <label id="exploreSqlHint" style="font-size:0.66rem;color:var(--text-dim);margin:0">Type any SQL. Write statements (UPDATE/DELETE/DROP/...) need confirmation.</label>
+      </div>
+      <div class="db-sql-presets" id="exploreSqlPresets">
+        <span class="db-sql-presets-label" id="exploreSqlPresetsLabel">Quick queries:</span>
+        <!-- chips populated by JS -->
+      </div>
+      <textarea id="exploreSqlInput" class="db-sql-textarea" placeholder="SELECT * FROM res_users LIMIT 10;" spellcheck="false"></textarea>
+      <div class="db-sql-actions">
+        <button class="db-toolbar-btn primary" onclick="runCustomSql()" id="btnRunSql">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span id="exploreRunLabel">Run (Ctrl+Enter)</span>
+        </button>
+        <button class="db-toolbar-btn" onclick="document.getElementById('exploreSqlInput').value=''" id="btnClearSql">
+          <span id="exploreClearLabel">Clear</span>
+        </button>
+        <span class="db-explore-meta" id="exploreSqlMeta"></span>
+      </div>
+      <div class="db-explore-content" id="exploreSqlResult"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Drop DB Confirm Modal -->
 <div class="db-modal-overlay" id="modalDropDb">
   <div class="db-modal">

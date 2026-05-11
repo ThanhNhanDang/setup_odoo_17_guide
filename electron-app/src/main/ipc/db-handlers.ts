@@ -686,4 +686,171 @@ export function registerDbHandlers(ctx: IpcContext): void {
     persistJobs();
     return { ok: true };
   });
+
+  // =========================================================================
+  // DB Explorer: list tables, run SQL
+  // =========================================================================
+
+  const DB_NAME_RE = /^[a-zA-Z_][a-zA-Z0-9_\-]*$/;
+
+  /**
+   * RFC 4180 CSV parser with NULL distinction (per psql --csv semantics).
+   * - Quoted empty `""`  → empty string ''
+   * - Unquoted empty     → null (PostgreSQL NULL)
+   * Handles embedded commas, quotes, and newlines inside quoted fields.
+   */
+  function parseCsv(text: string): (string | null)[][] {
+    const rows: (string | null)[][] = [];
+    let row: (string | null)[] = [];
+    let field = '';
+    let inQuotes = false;
+    let wasQuoted = false; // becomes true if the current field had any quoted segment
+    let i = 0;
+    const pushField = () => {
+      row.push(field === '' && !wasQuoted ? null : field);
+      field = ''; wasQuoted = false;
+    };
+    while (i < text.length) {
+      const ch = text[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (text[i + 1] === '"') { field += '"'; i += 2; continue; }
+          inQuotes = false; i++; continue;
+        }
+        field += ch; i++; continue;
+      }
+      if (ch === '"') { inQuotes = true; wasQuoted = true; i++; continue; }
+      if (ch === ',') { pushField(); i++; continue; }
+      if (ch === '\r') { i++; continue; }
+      if (ch === '\n') { pushField(); rows.push(row); row = []; i++; continue; }
+      field += ch; i++;
+    }
+    // Flush trailing field/row if non-empty
+    if (field.length > 0 || wasQuoted || row.length > 0) {
+      pushField();
+      rows.push(row);
+    }
+    return rows;
+  }
+
+  /** List tables in a database with row counts and sizes (from pg_stat_user_tables). */
+  ipcMain.handle('monitor-list-tables', async (_event, data: { projectName: string; dbName: string; projectsDir?: string; odooVersion?: string }) => {
+    try {
+      if (!data.dbName || !DB_NAME_RE.test(data.dbName)) return { ok: false, msg: 'INVALID_DB_NAME' };
+      const odooVersion = data.odooVersion || DEFAULT_ODOO_VERSION;
+      const projectsDir = data.projectsDir || getDefaultProjectsDir(odooVersion);
+      const dbConf = readDbConfig(data.projectName, projectsDir);
+      if (!dbConf) return { ok: false, msg: 'CONFIG_NOT_FOUND' };
+
+      const pg = getPgTools(dbConf.password);
+      if (!pg) return { ok: false, msg: 'PG_NOT_FOUND' };
+
+      const psql = path.join(pg.pgBin, 'psql.exe');
+      // n_live_tup is an approximation (cheap). pg_relation_size returns table size in bytes.
+      // Use quote_ident to safely build qualified name for pg_relation_size.
+      const query = `SELECT schemaname, relname, n_live_tup, pg_size_pretty(pg_relation_size((quote_ident(schemaname)||'.'||quote_ident(relname))::regclass)) FROM pg_stat_user_tables ORDER BY schemaname, relname`;
+      const { code, output } = await runCmd(
+        `"${psql}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -d "${data.dbName}" -tAF "|" -c "${query.replace(/"/g, '\\"')}"`,
+        undefined, pg.env
+      );
+      if (code !== 0) return { ok: false, msg: output.trim() || 'LIST_TABLES_FAILED' };
+
+      const tables = output.trim().split('\n').filter(Boolean).map(line => {
+        const parts = line.split('|');
+        return {
+          schema: (parts[0] || '').trim(),
+          name: (parts[1] || '').trim(),
+          rowCount: parseInt((parts[2] || '0').trim(), 10) || 0,
+          size: (parts[3] || '').trim(),
+        };
+      }).filter(t => t.name);
+
+      return { ok: true, tables };
+    } catch (e) {
+      return { ok: false, msg: String(e) };
+    }
+  });
+
+  /** Run arbitrary SQL against a database. Returns columns/rows for SELECTs, or raw output for DML/DDL. */
+  ipcMain.handle('monitor-run-sql', async (_event, data: { projectName: string; dbName: string; sql: string; projectsDir?: string; odooVersion?: string }) => {
+    let sqlFile: string | null = null;
+    try {
+      if (!data.dbName || !DB_NAME_RE.test(data.dbName)) return { ok: false, msg: 'INVALID_DB_NAME' };
+      const sql = (data.sql || '').trim();
+      if (!sql) return { ok: false, msg: 'EMPTY_SQL' };
+
+      const odooVersion = data.odooVersion || DEFAULT_ODOO_VERSION;
+      const projectsDir = data.projectsDir || getDefaultProjectsDir(odooVersion);
+      const dbConf = readDbConfig(data.projectName, projectsDir);
+      if (!dbConf) return { ok: false, msg: 'CONFIG_NOT_FOUND' };
+
+      const pg = getPgTools(dbConf.password);
+      if (!pg) return { ok: false, msg: 'PG_NOT_FOUND' };
+
+      const psql = path.join(pg.pgBin, 'psql.exe');
+
+      // Write SQL to temp file. Using a file avoids shell-escaping nightmares
+      // (quotes, newlines, $$). CSV format is selected via the --csv flag — not
+      // via \pset — so psql does not echo "Output format is csv." which would
+      // otherwise get parsed as a phantom first CSV row.
+      // In psql --csv mode, NULL → unquoted empty field; '' → quoted empty field.
+      // parseCsv() distinguishes them.
+      sqlFile = path.join(app.getPath('temp'), `db_explore_${Date.now()}_${Math.floor(Math.random() * 100000)}.sql`);
+      fs.writeFileSync(sqlFile, sql + '\n', 'utf8');
+
+      const t0 = Date.now();
+      const { code, output } = await runCmd(
+        `"${psql}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -d "${data.dbName}" -X --csv -v ON_ERROR_STOP=1 -f "${sqlFile}"`,
+        undefined, pg.env
+      );
+      const elapsed = Date.now() - t0;
+
+      // psql writes errors to stderr which runCmd merges into output.
+      // Heuristic: detect "ERROR:" or non-zero exit + no parseable CSV.
+      const stripped = output.trim();
+      const isError = code !== 0 && /^psql:|^ERROR:/m.test(stripped);
+      if (isError) {
+        return { ok: false, msg: stripped, elapsed };
+      }
+
+      // Try to parse as CSV. If the SQL was DML/DDL (UPDATE/INSERT/DELETE/CREATE/etc.),
+      // psql prints messages like "UPDATE 5" — not CSV. Detect by checking first non-empty line.
+      const lines = stripped.split('\n');
+      const firstLine = (lines[0] || '').trim();
+      const isCsvLikely = firstLine.length > 0 && !/^(UPDATE|INSERT|DELETE|CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|COMMIT|ROLLBACK|BEGIN|SET|SHOW|VACUUM|ANALYZE|COMMENT|REINDEX|CLUSTER|COPY)\b/i.test(firstLine);
+
+      if (!isCsvLikely) {
+        // DML/DDL — return raw message
+        return { ok: true, message: stripped, elapsed };
+      }
+
+      // Parse CSV
+      const rows = parseCsv(output);
+      if (rows.length === 0) return { ok: true, columns: [], rows: [], elapsed };
+
+      // Header row: column names are never NULL — coerce to string.
+      const columns = (rows[0] || []).map(c => c ?? '');
+      const dataRows = rows.slice(1);
+
+      // Cap response size to prevent runaway memory use in renderer
+      const MAX_ROWS = 10000;
+      const truncated = dataRows.length > MAX_ROWS;
+      const final = truncated ? dataRows.slice(0, MAX_ROWS) : dataRows;
+
+      return {
+        ok: true,
+        columns,
+        rows: final,
+        rowCount: dataRows.length,
+        truncated,
+        elapsed,
+      };
+    } catch (e) {
+      return { ok: false, msg: String(e) };
+    } finally {
+      if (sqlFile) {
+        try { fs.unlinkSync(sqlFile); } catch { /* ignore */ }
+      }
+    }
+  });
 }

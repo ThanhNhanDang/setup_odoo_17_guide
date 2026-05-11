@@ -1032,10 +1032,16 @@ async function loadDatabases(silent) {
       <td>${esc(db.encoding)}</td>
       <td class="db-actions">${
         ['postgres','template0','template1'].includes(db.name) ? '' :
-        `<button class="db-toolbar-btn danger" onclick="showDropDbModal('${escJs(db.name)}')" style="padding:3px 8px;font-size:0.68rem">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>
-          ${ti('monitor.drop')}
-        </button>`
+        `<div class="db-row-actions">
+          <button class="db-toolbar-btn" onclick="showExploreDbModal('${escJs(db.name)}')" title="${ti('monitor.exploreTitle')}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            ${ti('monitor.explore')}
+          </button>
+          <button class="db-toolbar-btn danger" onclick="showDropDbModal('${escJs(db.name)}')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>
+            ${ti('monitor.drop')}
+          </button>
+        </div>`
       }</td>
     </tr>`;
   }
@@ -1229,6 +1235,265 @@ async function doDropDb() {
     document.getElementById('btnDoDropDb').disabled = false;
   }
 }
+
+// =============================================================================
+// DB Explorer: Tables drill-in + SQL runner
+// =============================================================================
+
+let _exploreDbName = null;
+let _exploreTab = 'tables';
+let _exploreTablesCache = []; // [{schema, name, rowCount, size}]
+let _exploreCurrentTable = null; // { schema, name } when viewing a table's data
+
+function showExploreDbModal(dbName) {
+  _exploreDbName = dbName;
+  _exploreTab = 'tables';
+  _exploreCurrentTable = null;
+  _exploreTablesCache = [];
+  document.getElementById('exploreDbTitle').textContent = `${ti('monitor.explore')}: ${dbName}`;
+  document.getElementById('exploreTableSearch').value = '';
+  document.getElementById('exploreSqlInput').value = '';
+  document.getElementById('exploreSqlResult').innerHTML = '';
+  document.getElementById('exploreSqlMeta').textContent = '';
+  document.getElementById('exploreElapsed').textContent = '';
+  document.getElementById('exploreTableCount').textContent = '';
+  document.getElementById('exploreBackToList').style.display = 'none';
+  const msg = document.getElementById('exploreMsg');
+  msg.className = 'db-msg';
+  msg.textContent = '';
+  // Default to Tables tab
+  switchExploreTab('tables');
+  renderSqlPresets();
+  showDbModal('modalExploreDb');
+  loadTablesForCurrentDb();
+}
+
+function switchExploreTab(tab) {
+  _exploreTab = tab;
+  document.getElementById('exploreTabBtnTables').classList.toggle('active', tab === 'tables');
+  document.getElementById('exploreTabBtnSql').classList.toggle('active', tab === 'sql');
+  document.getElementById('explorePaneTables').classList.toggle('active', tab === 'tables');
+  document.getElementById('explorePaneSql').classList.toggle('active', tab === 'sql');
+  // Clear elapsed when switching
+  document.getElementById('exploreElapsed').textContent = '';
+}
+
+async function loadTablesForCurrentDb() {
+  if (!_exploreDbName) return;
+  _exploreCurrentTable = null;
+  document.getElementById('exploreBackToList').style.display = 'none';
+  const content = document.getElementById('exploreTablesContent');
+  content.innerHTML = `<div class="db-loading"><span class="restart-spinner"></span><span>${ti('monitor.loading')}</span></div>`;
+  const res = await window.electronAPI.invoke('monitor-list-tables', {
+    projectName: currentProjectName, dbName: _exploreDbName, projectsDir, odooVersion,
+  }).catch(e => ({ ok: false, msg: String(e) }));
+  if (!res?.ok) {
+    content.innerHTML = `<div class="db-empty"><div>${esc(_dbErr(res?.msg))}</div></div>`;
+    document.getElementById('exploreTableCount').textContent = '';
+    return;
+  }
+  _exploreTablesCache = res.tables || [];
+  document.getElementById('exploreTableCount').textContent = ti('monitor.tableCount', { n: _exploreTablesCache.length });
+  renderExploreTableList(_exploreTablesCache);
+}
+
+function renderExploreTableList(tables) {
+  const content = document.getElementById('exploreTablesContent');
+  if (tables.length === 0) {
+    content.innerHTML = `<div class="db-empty"><div>${ti('monitor.noTables')}</div></div>`;
+    return;
+  }
+  let html = '<table class="db-table db-explore-table"><thead><tr>';
+  html += `<th>${ti('monitor.tableSchema')}</th><th>${ti('monitor.tableName')}</th><th>${ti('monitor.tableRows')}</th><th>${ti('monitor.tableSize')}</th><th></th>`;
+  html += '</tr></thead><tbody>';
+  for (const t of tables) {
+    html += `<tr>
+      <td>${esc(t.schema)}</td>
+      <td><strong>${esc(t.name)}</strong></td>
+      <td class="db-size">${t.rowCount.toLocaleString()}</td>
+      <td class="db-size">${esc(t.size)}</td>
+      <td><button class="db-toolbar-btn" onclick="viewTableData('${escJs(t.schema)}','${escJs(t.name)}')" style="padding:2px 7px;font-size:0.66rem">${ti('monitor.viewData')}</button></td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  content.innerHTML = html;
+}
+
+function filterExploreTables(query) {
+  if (_exploreCurrentTable) return; // ignore while viewing data
+  const q = (query || '').toLowerCase().trim();
+  if (!q) { renderExploreTableList(_exploreTablesCache); return; }
+  const filtered = _exploreTablesCache.filter(t => t.name.toLowerCase().includes(q) || t.schema.toLowerCase().includes(q));
+  renderExploreTableList(filtered);
+}
+
+async function viewTableData(schema, table) {
+  _exploreCurrentTable = { schema, name: table };
+  document.getElementById('exploreBackToList').style.display = '';
+  const content = document.getElementById('exploreTablesContent');
+  content.innerHTML = `<div class="db-loading"><span class="restart-spinner"></span><span>${ti('monitor.loading')}</span></div>`;
+  // Escape identifiers — double any existing quotes
+  const qSchema = '"' + schema.replace(/"/g, '""') + '"';
+  const qTable = '"' + table.replace(/"/g, '""') + '"';
+  const sql = `SELECT * FROM ${qSchema}.${qTable} LIMIT 100`;
+  const res = await window.electronAPI.invoke('monitor-run-sql', {
+    projectName: currentProjectName, dbName: _exploreDbName, sql, projectsDir, odooVersion,
+  }).catch(e => ({ ok: false, msg: String(e) }));
+  if (!res?.ok) {
+    content.innerHTML = `<div class="db-empty"><pre class="db-sql-error">${esc(res?.msg || 'Failed')}</pre></div>`;
+    document.getElementById('exploreElapsed').textContent = '';
+    return;
+  }
+  document.getElementById('exploreElapsed').textContent = res.elapsed != null ? `${res.elapsed} ms` : '';
+  const header = `<div class="db-explore-tableheader"><strong>${esc(schema)}.${esc(table)}</strong> <span class="db-explore-meta">${ti('monitor.showingFirst', { n: 100 })}</span></div>`;
+  content.innerHTML = header + renderQueryResult(res);
+}
+
+function backToTableList() {
+  _exploreCurrentTable = null;
+  document.getElementById('exploreBackToList').style.display = 'none';
+  document.getElementById('exploreElapsed').textContent = '';
+  renderExploreTableList(_exploreTablesCache);
+}
+
+function renderQueryResult(res) {
+  if (res.message != null) {
+    // DML/DDL result (non-SELECT)
+    return `<pre class="db-sql-message">${esc(res.message)}</pre>`;
+  }
+  const cols = res.columns || [];
+  const rows = res.rows || [];
+  if (cols.length === 0 && rows.length === 0) {
+    return `<div class="db-empty"><div>${ti('monitor.noRows')}</div></div>`;
+  }
+  let html = '';
+  if (res.truncated) {
+    html += `<div class="db-explore-warn">${ti('monitor.truncated', { n: rows.length })}</div>`;
+  } else if (rows.length > 0) {
+    html += `<div class="db-explore-meta db-explore-rowcount">${ti('monitor.rowsReturned', { n: rows.length })}</div>`;
+  }
+  html += '<div class="db-explore-tablewrap"><table class="db-table db-result-table"><thead><tr>';
+  for (const c of cols) html += `<th>${esc(c)}</th>`;
+  html += '</tr></thead><tbody>';
+  for (const row of rows) {
+    html += '<tr>';
+    for (let i = 0; i < cols.length; i++) {
+      const v = row[i];
+      if (v === null || v === undefined) {
+        html += '<td class="db-cell-null">NULL</td>';
+      } else if (v === '') {
+        html += '<td class="db-cell-empty">""</td>';
+      } else {
+        html += `<td>${esc(v)}</td>`;
+      }
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table></div>';
+  return html;
+}
+
+// Preset queries — common Odoo + PG admin queries.
+// In Odoo 17 res_company / res_users use delegation inheritance from res_partner,
+// so columns like `name`, `country_id`, `email` live on res_partner — must JOIN.
+const _SQL_PRESETS = [
+  { key: 'users',
+    sql: "SELECT u.id, u.login, p.name, u.active, u.create_date\nFROM res_users u\nJOIN res_partner p ON p.id = u.partner_id\nORDER BY u.id;" },
+  { key: 'partners',
+    sql: "SELECT id, name, email, phone, create_date\nFROM res_partner\nORDER BY create_date DESC NULLS LAST\nLIMIT 50;" },
+  { key: 'companies',
+    sql: "SELECT c.id, p.name, c.currency_id, p.country_id\nFROM res_company c\nJOIN res_partner p ON p.id = c.partner_id\nORDER BY c.id;" },
+  { key: 'modules',
+    sql: "SELECT name, state, latest_version\nFROM ir_module_module\nWHERE state = 'installed'\nORDER BY name;" },
+  { key: 'tableSizes',
+    sql: "SELECT relname AS table_name,\n       n_live_tup AS row_count,\n       pg_size_pretty(pg_total_relation_size(relid)) AS total_size\nFROM pg_stat_user_tables\nORDER BY pg_total_relation_size(relid) DESC\nLIMIT 20;" },
+  { key: 'dbSize',
+    sql: "SELECT pg_size_pretty(pg_database_size(current_database())) AS db_size;" },
+  { key: 'activeConns',
+    sql: "SELECT pid, usename, application_name, state, query_start\nFROM pg_stat_activity\nWHERE datname = current_database()\nORDER BY query_start DESC NULLS LAST;" },
+  { key: 'newUsers',
+    sql: "SELECT u.id, u.login, p.name, u.create_date\nFROM res_users u\nJOIN res_partner p ON p.id = u.partner_id\nORDER BY u.create_date DESC NULLS LAST\nLIMIT 20;" },
+  { key: 'cronJobs',
+    sql: "SELECT id, active, interval_number, interval_type, nextcall\nFROM ir_cron\nORDER BY active DESC, nextcall NULLS LAST;" },
+];
+
+function renderSqlPresets() {
+  const wrap = document.getElementById('exploreSqlPresets');
+  if (!wrap) return;
+  const labelHtml = `<span class="db-sql-presets-label">${ti('monitor.sqlPresetsLabel')}</span>`;
+  const chips = _SQL_PRESETS.map((p, i) => {
+    const label = ti('monitor.preset.' + p.key);
+    return `<span class="db-sql-chip" onclick="applySqlPreset(${i})" title="${esc(p.sql)}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+      ${esc(label)}
+    </span>`;
+  }).join('');
+  wrap.innerHTML = labelHtml + chips;
+}
+
+function applySqlPreset(idx) {
+  const p = _SQL_PRESETS[idx];
+  if (!p) return;
+  const ta = document.getElementById('exploreSqlInput');
+  ta.value = p.sql;
+  ta.focus();
+  // Move cursor to end
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+}
+
+const _WRITE_RE = /^\s*(?:WITH\s+[^;]*\s+)?(UPDATE|DELETE|INSERT|DROP|ALTER|TRUNCATE|CREATE|GRANT|REVOKE|REINDEX|VACUUM|COPY)\b/i;
+
+async function runCustomSql() {
+  if (!_exploreDbName) return;
+  const sql = document.getElementById('exploreSqlInput').value.trim();
+  const meta = document.getElementById('exploreSqlMeta');
+  const result = document.getElementById('exploreSqlResult');
+  if (!sql) {
+    meta.textContent = ti('monitor.emptySql');
+    return;
+  }
+  // Confirm dialog for write statements
+  if (_WRITE_RE.test(sql)) {
+    const ok = window.confirm(ti('monitor.confirmWriteSql'));
+    if (!ok) return;
+  }
+  const btn = document.getElementById('btnRunSql');
+  btn.disabled = true;
+  meta.textContent = ti('monitor.running');
+  result.innerHTML = `<div class="db-loading"><span class="restart-spinner"></span><span>${ti('monitor.running')}</span></div>`;
+  const res = await window.electronAPI.invoke('monitor-run-sql', {
+    projectName: currentProjectName, dbName: _exploreDbName, sql, projectsDir, odooVersion,
+  }).catch(e => ({ ok: false, msg: String(e) }));
+  btn.disabled = false;
+  if (!res?.ok) {
+    meta.textContent = '';
+    document.getElementById('exploreElapsed').textContent = res?.elapsed != null ? `${res.elapsed} ms` : '';
+    result.innerHTML = `<pre class="db-sql-error">${esc(res?.msg || 'Failed')}</pre>`;
+    return;
+  }
+  document.getElementById('exploreElapsed').textContent = res.elapsed != null ? `${res.elapsed} ms` : '';
+  meta.textContent = '';
+  result.innerHTML = renderQueryResult(res);
+}
+
+function _dbErr(msg) {
+  if (!msg) return ti('monitor.dbError');
+  // Map known backend codes via existing i18n keys; otherwise show as-is
+  const known = ['PG_NOT_FOUND','CONFIG_NOT_FOUND','INVALID_DB_NAME','EMPTY_SQL','LIST_TABLES_FAILED'];
+  if (known.includes(msg)) return ti('monitor.' + msg);
+  return msg;
+}
+
+// Ctrl+Enter to run SQL
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    const modal = document.getElementById('modalExploreDb');
+    if (modal && modal.classList.contains('show') && _exploreTab === 'sql') {
+      e.preventDefault();
+      runCustomSql();
+    }
+  }
+});
 
 async function dismissJob(type, dbName) {
   const key = type === 'drop' ? `drop:${dbName}` : type;
