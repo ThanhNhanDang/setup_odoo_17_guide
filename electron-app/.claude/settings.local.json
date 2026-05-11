@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(node -e \"const { findVSCode } = require\\(''./dist/main/services/detection''\\); console.log\\(''findVSCode:'', findVSCode\\(\\)\\);\")",
+      "Bash(where code:*)",
+      "Bash(node -e \":*)"
+    ]
+  }
+}

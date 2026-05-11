@@ -1,0 +1,7 @@
+{
+  "tool_name": "Glob",
+  "tool_input_preview": "{\"pattern\":\"**/odoo.conf\",\"path\":\"D:\\\\workspaces\"}",
+  "error": "Ripgrep search timed out after 20 seconds. The search may have matched files but did not complete in time. Try searching a more specific path or pattern.",
+  "timestamp": "2026-05-11T07:43:38.995Z",
+  "retry_count": 1
+}
