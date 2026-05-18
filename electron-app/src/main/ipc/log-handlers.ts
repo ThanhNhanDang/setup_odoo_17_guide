@@ -1,5 +1,4 @@
 import { ipcMain, BrowserWindow, app } from 'electron';
-import { spawn } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import { runCmd, runCmdStreaming } from '../utils/shell';
@@ -16,9 +15,9 @@ export function registerLogHandlers(ctx: IpcContext): void {
 
   // =========================================================================
   // Watch project log file (realtime tail)
-  // Primary: PowerShell Get-Content -Wait (reliable on Windows, like tail -f)
-  // Fallback: stat-based polling if PowerShell fails
-  // Supports multiple windows watching the same log file
+  // Native stat-based polling at 250ms — no PowerShell, no stdout buffering.
+  // Reads only the new bytes (lastSize → newSize) each tick.
+  // Supports multiple windows watching the same log file.
   // =========================================================================
 
   function broadcastLogLines(logPath: string, lines: string[]): void {
@@ -36,29 +35,38 @@ export function registerLogHandlers(ctx: IpcContext): void {
     }
   }
 
-  /** Fallback: stat-based polling when PowerShell is unavailable */
-  function startPollFallback(logPath: string, entry: LogWatcherEntry): void {
-    if (entry.pollTimer) return; // already polling
+  /** Fast file-size polling. Opens an FD each tick to get the accurate
+   *  size via fstat — fs.statSync goes through the directory entry which
+   *  on NTFS can lag behind for actively-written files. */
+  function startPolling(logPath: string, entry: LogWatcherEntry): void {
+    if (entry.pollTimer) return;
     let reading = false;
+    let tailBuffer = ''; // carry incomplete last line between ticks
     entry.pollTimer = setInterval(() => {
       if (reading) return;
+      reading = true;
+      let fd: number | null = null;
       try {
-        const newSize = fs.statSync(logPath).size;
-        if (newSize === entry.lastSize) return;
-        reading = true;
+        fd = fs.openSync(logPath, 'r');
+        const newSize = fs.fstatSync(fd).size;
+        if (newSize === entry.lastSize) { fs.closeSync(fd); fd = null; return; }
         const readStart = newSize < entry.lastSize ? 0 : entry.lastSize;
         const readLen = newSize - readStart;
         const buf = Buffer.alloc(readLen);
-        const fd = fs.openSync(logPath, 'r');
         fs.readSync(fd, buf, 0, readLen, readStart);
-        fs.closeSync(fd);
+        fs.closeSync(fd); fd = null;
         entry.lastSize = newSize;
-        const newLines = buf.toString('utf8').split('\n').filter(Boolean);
+        tailBuffer += buf.toString('utf8');
+        const parts = tailBuffer.split('\n');
+        tailBuffer = parts.pop() || ''; // keep incomplete last line
+        const newLines = parts.map(s => s.replace(/\r$/, '')).filter(Boolean);
         if (newLines.length > 0) broadcastLogLines(logPath, newLines);
-      } catch { /* ignore */ } finally {
+      } catch {
+        if (fd !== null) { try { fs.closeSync(fd); } catch {} }
+      } finally {
         reading = false;
       }
-    }, 300);
+    }, 250);
   }
 
   ipcMain.handle('watch-log', async (event, data: { logPath: string }) => {
@@ -68,16 +76,18 @@ export function registerLogHandlers(ctx: IpcContext): void {
 
     // Read last ~64KB of the file (streaming tail, not entire file)
     const TAIL_BYTES = 64 * 1024;
-    const fileSize = fs.statSync(logPath).size;
+    const fdInit = fs.openSync(logPath, 'r');
+    const fileSize = fs.fstatSync(fdInit).size;
     const startPos = Math.max(0, fileSize - TAIL_BYTES);
     const tailBuf = Buffer.alloc(Math.min(TAIL_BYTES, fileSize));
-    const fd = fs.openSync(logPath, 'r');
-    fs.readSync(fd, tailBuf, 0, tailBuf.length, startPos);
-    fs.closeSync(fd);
+    fs.readSync(fdInit, tailBuf, 0, tailBuf.length, startPos);
+    fs.closeSync(fdInit);
     const tailText = tailBuf.toString('utf8');
     const allLines = tailText.split('\n');
     // If we started mid-line (startPos > 0), drop the first partial line
-    const last1000 = (startPos > 0 ? allLines.slice(1) : allLines).slice(-1000);
+    const last1000 = (startPos > 0 ? allLines.slice(1) : allLines)
+      .map(s => s.replace(/\r$/, ''))
+      .slice(-1000);
 
     const callerWindow = BrowserWindow.fromWebContents(event.sender) || ctx.mainWindow;
 
@@ -87,44 +97,10 @@ export function registerLogHandlers(ctx: IpcContext): void {
       return { ok: true, lines: last1000 };
     }
 
-    // Create new watcher
+    // Create new watcher (poll from current end-of-file)
     const subscribers = new Set<BrowserWindow>([callerWindow]);
-    const entry: LogWatcherEntry = { tailProc: null, pollTimer: null, lastSize: fs.statSync(logPath).size, subscribers };
-
-    // Primary: PowerShell Get-Content -Wait (like tail -f, reliable on Windows)
-    try {
-      const proc = spawn('powershell', [
-        '-NoProfile', '-NoLogo', '-Command',
-        `Get-Content -Path '${logPath.replace(/'/g, "''")}' -Wait -Tail 0 -Encoding UTF8`,
-      ], { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
-
-      let buffer = '';
-      proc.stdout!.on('data', (chunk: Buffer) => {
-        buffer += chunk.toString('utf8');
-        const parts = buffer.split('\n');
-        buffer = parts.pop() || ''; // keep incomplete last line in buffer
-        const lines = parts.filter(Boolean);
-        if (lines.length > 0) broadcastLogLines(logPath, lines);
-      });
-
-      proc.on('error', () => {
-        // PowerShell failed — start poll fallback
-        entry.tailProc = null;
-        startPollFallback(logPath, entry);
-      });
-      proc.on('exit', () => {
-        // Process ended (e.g. file deleted) — start poll fallback if still watching
-        if (ctx.logWatchers.has(logPath) && !entry.pollTimer) {
-          entry.tailProc = null;
-          startPollFallback(logPath, entry);
-        }
-      });
-      entry.tailProc = proc;
-    } catch {
-      // PowerShell not available — use poll fallback
-      startPollFallback(logPath, entry);
-    }
-
+    const entry: LogWatcherEntry = { tailProc: null, pollTimer: null, lastSize: fileSize, subscribers };
+    startPolling(logPath, entry);
     ctx.logWatchers.set(logPath, entry);
     return { ok: true, lines: last1000 };
   });
@@ -603,27 +579,108 @@ export function registerLogHandlers(ctx: IpcContext): void {
       if (mergedModules.length > 0) {
         const safeModName = /^[a-zA-Z_][a-zA-Z0-9_\-]*$/;
         const safeModules = mergedModules.filter(m => safeModName.test(m));
-        // Odoo DB names can start with a letter/digit and include letters, digits, _ and - (quoted in command).
         const safeDbName = /^[a-zA-Z0-9_][a-zA-Z0-9_\-]*$/;
         const rawDb = (data.upgradeDb || '').trim();
-        const upgradeDb = rawDb && safeDbName.test(rawDb) ? rawDb : '';
-        if (safeModules.length > 0 && upgradeDb) {
-          // Odoo handles `-u mod -d db` by running the upgrade on startup, then
-          // continuing to serve HTTP — no `--stop-after-init` or chaining needed.
+        const isAllDbs = rawDb === '*';
+        const upgradeDb = (!isAllDbs && rawDb && safeDbName.test(rawDb)) ? rawDb : '';
+
+        if (safeModules.length === 0) {
+          // Modules filtered out by safety regex — skip upgrade silently.
+        } else if (isAllDbs) {
+          // ── Multi-DB upgrade: iterate ALL DBs matching dbfilter, sequentially.
+          // Each: `odoo-bin -d <db> -u <mods> --stop-after-init --no-http` (blocking).
+          // After all done, fall through to normal start (cmd has no -u).
+          const { parseIniFile: pif, iniGet: ig } = require('../services/ini-parser');
+          const iniC = pif(confFile);
+          const dbHost = ig(iniC, 'options', 'db_host', 'localhost');
+          const dbPort2 = ig(iniC, 'options', 'db_port', '5432');
+          const dbUser = ig(iniC, 'options', 'db_user', 'odoo');
+          const dbPasswd = ig(iniC, 'options', 'db_password', 'odoo');
+          const dbfilterRaw = ig(iniC, 'options', 'dbfilter', '');
+
+          const { findPostgresBin } = require('../services/detection');
+          const pgBin = findPostgresBin();
+          if (!pgBin) {
+            ctx.logger.log(`  > Error: PostgreSQL bin not found — cannot list DBs for upgrade-all`);
+            return { ok: false, msg: 'PG_NOT_FOUND' };
+          }
+          const psql = path.join(pgBin, 'psql.exe');
+          const psqlEnv = { ...process.env, PGPASSWORD: dbPasswd };
+
+          const { output: listOut, code: listCode } = await runCmd(
+            `"${psql}" -h ${dbHost} -p ${dbPort2} -U ${dbUser} -d postgres -tAc "SELECT datname FROM pg_database WHERE datistemplate=false AND datname<>'postgres'"`,
+            undefined, psqlEnv,
+          );
+          if (listCode !== 0) {
+            ctx.logger.log(`  > Error: failed listing DBs: ${listOut.trim()}`);
+            return { ok: false, msg: 'DB_LIST_FAILED' };
+          }
+          let allDbs = listOut.split('\n').map(s => s.trim()).filter(Boolean);
+          if (dbfilterRaw) {
+            try {
+              const normalized = dbfilterRaw.replace(/(?<!\[)-(?!_\])/g, '[-_]');
+              const re = new RegExp(normalized);
+              allDbs = allDbs.filter(n => re.test(n));
+            } catch { /* invalid regex — use all */ }
+          }
+          // Filter safe names + dedupe
+          allDbs = allDbs.filter(n => safeDbName.test(n));
+
+          if (allDbs.length === 0) {
+            ctx.logger.log(`  > No DBs matched dbfilter '${dbfilterRaw}' — nothing to upgrade`);
+          } else {
+            ctx.logger.log(`==================================================`);
+            ctx.logger.log(`Upgrading ${safeModules.length} module(s) on ${allDbs.length} DB(s)`);
+            ctx.logger.log(`Modules: ${safeModules.join(', ')}`);
+            ctx.logger.log(`DBs: ${allDbs.join(', ')}`);
+            ctx.logger.log(`==================================================`);
+
+            const odooEnvU = { ...process.env };
+            if (pgBin && !odooEnvU.PATH?.includes(pgBin)) {
+              odooEnvU.PATH = `${pgBin};${odooEnvU.PATH || ''}`;
+            }
+
+            let failedCount = 0;
+            for (let i = 0; i < allDbs.length; i++) {
+              const db = allDbs[i];
+              ctx.logger.log(``);
+              ctx.logger.log(`[${i + 1}/${allDbs.length}] Upgrading '${db}'...`);
+              // Push progress event so renderer can show "Upgrading 2/3 t4tek_sti_test..."
+              ctx.mainWindow.webContents.send('upgrade-all-progress', {
+                projectName: data.projectName, current: i + 1, total: allDbs.length, dbName: db,
+              });
+              const upCmd = `"${venvPy}" "${odooBin}" -c "${confFile}" -d "${db}" -u ${safeModules.join(',')} --stop-after-init --no-http`;
+              const exitCode = await runCmdStreaming(upCmd, ctx.logger, { cwd: projectPath, env: odooEnvU });
+              if (exitCode !== 0) {
+                failedCount++;
+                ctx.logger.log(`[${i + 1}/${allDbs.length}] FAILED '${db}' (exit ${exitCode}) — continuing...`);
+              } else {
+                ctx.logger.log(`[${i + 1}/${allDbs.length}] OK '${db}'`);
+              }
+            }
+            ctx.logger.log(``);
+            ctx.logger.log(`==================================================`);
+            ctx.logger.log(`Upgrade-all done. Success: ${allDbs.length - failedCount}/${allDbs.length}. Starting Odoo...`);
+            ctx.logger.log(`==================================================`);
+            ctx.mainWindow.webContents.send('upgrade-all-progress', {
+              projectName: data.projectName, current: allDbs.length, total: allDbs.length, dbName: '', done: true, failed: failedCount,
+            });
+          }
+          // cmd already built without -u → fall through to normal start
+        } else if (upgradeDb) {
+          // Single-DB upgrade (original behavior): integrate -u into start command
           cmd += ` -d "${upgradeDb}" -u ${safeModules.join(',')}`;
           const src = autoDetected.size > 0
             ? ` (auto-detected since ${new Date(lastRestartMs).toISOString()}: ${[...autoDetected].join(', ')}${manualModules.length ? ' | manual: ' + manualModules.join(', ') : ''})`
             : '';
           ctx.logger.log(`  > Upgrading modules on DB '${upgradeDb}': ${safeModules.join(', ')}${src}`);
           ctx.logger.log(`  > Restart command: ${cmd}`);
-        } else if (safeModules.length > 0) {
-          if (!rawDb) {
-            ctx.logger.log(`  > Error: modules selected but no target database specified — aborting restart`);
-            return { ok: false, msg: 'NO_UPGRADE_DB' };
-          } else {
-            ctx.logger.log(`  > Error: target database '${rawDb}' contains unsupported characters — aborting restart`);
-            return { ok: false, msg: 'INVALID_UPGRADE_DB' };
-          }
+        } else if (!rawDb) {
+          ctx.logger.log(`  > Error: modules selected but no target database specified — aborting restart`);
+          return { ok: false, msg: 'NO_UPGRADE_DB' };
+        } else {
+          ctx.logger.log(`  > Error: target database '${rawDb}' contains unsupported characters — aborting restart`);
+          return { ok: false, msg: 'INVALID_UPGRADE_DB' };
         }
       }
 

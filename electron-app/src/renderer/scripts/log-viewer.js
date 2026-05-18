@@ -630,6 +630,14 @@ function populateUpgradeDbSelect(dbNames) {
   placeholder.textContent = `-- ${ti('logViewer.selectDb')} --`;
   sel.appendChild(placeholder);
 
+  // "All matching DBs" option — backend iterates dbfilter-matched DBs sequentially
+  if (dbNames.length > 1) {
+    const allOpt = document.createElement('option');
+    allOpt.value = '*';
+    allOpt.textContent = `⚡ ${ti('logViewer.allDbs')} (${dbNames.length})`;
+    sel.appendChild(allOpt);
+  }
+
   for (const name of dbNames) {
     const opt = document.createElement('option');
     opt.value = name;
@@ -638,7 +646,7 @@ function populateUpgradeDbSelect(dbNames) {
   }
 
   // Auto-select: restore previous or pick first if only one DB
-  if (prev && dbNames.includes(prev)) {
+  if (prev && (prev === '*' || dbNames.includes(prev))) {
     sel.value = prev;
   } else if (dbNames.length === 1) {
     sel.value = dbNames[0];
@@ -807,6 +815,21 @@ if (window.electronAPI) {
       }
     }).catch(err => {
       console.error('[log-viewer] watch-log error:', err);
+    });
+
+    // Upgrade-all progress — show "[2/3] Upgrading t4tek_sti_test..." on the restart button
+    window.electronAPI.onEvent('upgrade-all-progress', (data) => {
+      if (data.projectName && data.projectName !== currentProjectName) return;
+      const label = document.getElementById('restartLabel');
+      if (!label) return;
+      if (data.done) {
+        const okLabel = data.failed > 0
+          ? ti('logViewer.upgradeAllPartial', { failed: data.failed, total: data.total })
+          : ti('logViewer.upgradeAllDone', { total: data.total });
+        label.textContent = okLabel;
+      } else {
+        label.textContent = `[${data.current}/${data.total}] ${data.dbName}...`;
+      }
     });
 
     // Realtime updates (register after i18n loaded so ti() works)

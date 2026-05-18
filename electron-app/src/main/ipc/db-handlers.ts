@@ -269,24 +269,30 @@ export function registerDbHandlers(ctx: IpcContext): void {
           return;
         }
 
-        // Step 1b: Enable pgvector extension if this Odoo version needs it
+        // Step 1b: Enable extensions
+        //   - unaccent (mọi version): tăng tốc search Odoo dùng `unaccent = True`
+        //   - pg_trgm (mọi version): hỗ trợ similarity search cho Odoo 16+ name_search
+        //   - vector (Odoo 19): AI/embedding modules
+        // Extension cần SUPERUSER → thử project user trước (thường KHÔNG có quyền),
+        // rồi fallback postgres superuser. Lỗi cũng bỏ qua (best effort).
         const vCfg = getVersionConfig(odooVersion);
-        if (vCfg.pgvector) {
-          emit('init_schema', 20, 'Enabling pgvector extension...');
-          const psqlPgvec = path.join(pg.pgBin, 'psql.exe');
-          const superEnv = { ...process.env, PGPASSWORD: dbConf.password };
-          // Try with project user first, then fallback to postgres superuser
-          const { code: vecCode } = await runCmd(
-            `"${psqlPgvec}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -d "${dbName}" -c "CREATE EXTENSION IF NOT EXISTS vector;"`,
-            undefined, superEnv
+        const baseExt = ['unaccent', 'pg_trgm'];
+        const extensions = vCfg.pgvector ? [...baseExt, 'vector'] : baseExt;
+        emit('init_schema', 20, `Enabling extensions: ${extensions.join(', ')}...`);
+        const psqlExt = path.join(pg.pgBin, 'psql.exe');
+        const superPgEnv = { ...process.env, PGPASSWORD: 'postgres' };
+        for (const ext of extensions) {
+          // Try project user first (may have permission if granted SUPERUSER)
+          const { code: extCode } = await runCmd(
+            `"${psqlExt}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -d "${dbName}" -c "CREATE EXTENSION IF NOT EXISTS ${ext};"`,
+            undefined, pg.env
           );
-          if (vecCode !== 0) {
-            // Retry with postgres superuser
-            const superPgEnv = { ...process.env, PGPASSWORD: 'postgres' };
+          if (extCode !== 0) {
+            // Fallback: postgres superuser
             await runCmd(
-              `"${psqlPgvec}" -h ${dbConf.host} -p ${dbConf.port} -U postgres -d "${dbName}" -c "CREATE EXTENSION IF NOT EXISTS vector;"`,
+              `"${psqlExt}" -h ${dbConf.host} -p ${dbConf.port} -U postgres -d "${dbName}" -c "CREATE EXTENSION IF NOT EXISTS ${ext};"`,
               undefined, superPgEnv
-            );
+            ).catch(() => { /* best effort */ });
           }
         }
 
@@ -573,21 +579,23 @@ export function registerDbHandlers(ctx: IpcContext): void {
           return;
         }
 
-        // Step 2b: Enable pgvector extension if this Odoo version needs it
+        // Step 2b: Enable extensions BEFORE restore (avoid "extension does not exist" errors)
         const restoreVCfg = getVersionConfig(odooVersion);
-        if (restoreVCfg.pgvector) {
-          emit('restoring_data', 25, 'Enabling pgvector extension...');
-          const psqlPgvec = path.join(pg.pgBin, 'psql.exe');
-          const { code: vecCode } = await runCmd(
-            `"${psqlPgvec}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -d "${dbName}" -c "CREATE EXTENSION IF NOT EXISTS vector;"`,
+        const restoreBaseExt = ['unaccent', 'pg_trgm'];
+        const restoreExt = restoreVCfg.pgvector ? [...restoreBaseExt, 'vector'] : restoreBaseExt;
+        emit('restoring_data', 25, `Enabling extensions: ${restoreExt.join(', ')}...`);
+        const psqlExtR = path.join(pg.pgBin, 'psql.exe');
+        const superPgEnvR = { ...process.env, PGPASSWORD: 'postgres' };
+        for (const ext of restoreExt) {
+          const { code: extCode } = await runCmd(
+            `"${psqlExtR}" -h ${dbConf.host} -p ${dbConf.port} -U ${dbConf.user} -d "${dbName}" -c "CREATE EXTENSION IF NOT EXISTS ${ext};"`,
             undefined, pg.env
           );
-          if (vecCode !== 0) {
-            const superPgEnv = { ...process.env, PGPASSWORD: 'postgres' };
+          if (extCode !== 0) {
             await runCmd(
-              `"${psqlPgvec}" -h ${dbConf.host} -p ${dbConf.port} -U postgres -d "${dbName}" -c "CREATE EXTENSION IF NOT EXISTS vector;"`,
-              undefined, superPgEnv
-            );
+              `"${psqlExtR}" -h ${dbConf.host} -p ${dbConf.port} -U postgres -d "${dbName}" -c "CREATE EXTENSION IF NOT EXISTS ${ext};"`,
+              undefined, superPgEnvR
+            ).catch(() => { /* best effort */ });
           }
         }
 

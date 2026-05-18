@@ -95,6 +95,11 @@ function getForceValue(key: string, current: string, platform: NodeJS.Platform):
       return undefined;
     }
 
+    // DISABLED: không tự migrate db_sslmode/dev_mode để tránh thay đổi behavior
+    // đột ngột trên project cũ. User muốn tối ưu thì sửa thủ công trong odoo.conf:
+    //   - db_sslmode = disable (cho localhost, bỏ handshake)
+    //   - dev_mode = (rỗng, không có reload/qweb/xml — tăng tốc backend)
+
     default:
       return undefined;
   }

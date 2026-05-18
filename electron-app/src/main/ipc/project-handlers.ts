@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import { runCmd } from '../utils/shell';
 import { IpcContext } from './context';
 import { DEFAULT_BASE_DIR, DEFAULT_PROJECTS_DIR, getDefaultBaseDir, getDefaultProjectsDir, getTemplatesDir } from '../services/config';
-import { DEFAULT_ODOO_VERSION } from '../services/odoo-versions';
+import { DEFAULT_ODOO_VERSION, getVersionConfig } from '../services/odoo-versions';
 import { invalidateStatusCache } from '../services/status';
 import { stepCreateProject } from '../services/installer';
 import { readProjectConfig, saveProjectConfig, deleteProject, duplicateProject } from '../services/projects';
@@ -371,6 +371,15 @@ export async function ensurePgAndStartOdoo(ctx: IpcContext, opts: {
     ctx.logger.log(`  > Config migrate skipped: ${e}`);
   }
 
+  // DISABLED: background extension ensure trên existing DBs.
+  // Lý do: helper này spawn nhiều psql process song song khi Start Odoo,
+  // có thể gây lock contention với Odoo registry init. Chuyển sang chỉ chạy
+  // khi tạo/restore DB (xem db-handlers.ts). User muốn add ext cho DB cũ
+  // → chạy thủ công qua Monitor SQL tab: `CREATE EXTENSION IF NOT EXISTS unaccent;`
+  // if (pgBin) {
+  //   ensureProjectDbExtensions(ctx, pgBin, confFile, odooVersion || '17').catch(() => {});
+  // }
+
   const odooEnv = { ...process.env };
   // Isolate PYTHONPATH — remove paths from other Odoo versions to prevent
   // cross-version module loading (e.g. odoo_18_base addons loaded in v19 process)
@@ -425,6 +434,97 @@ export async function ensurePgAndStartOdoo(ctx: IpcContext, opts: {
 
   invalidateStatusCache();
   return { ok: true, msg: 'Started' };
+}
+
+/**
+ * Best-effort: cài extension cần thiết trên các DB của project (idempotent).
+ *
+ * - Đọc dbfilter từ odoo.conf để xác định DB nào thuộc project.
+ * - Chạy CREATE EXTENSION IF NOT EXISTS cho từng extension trên từng DB.
+ * - Thử project user trước → fallback postgres superuser nếu fail (extension cần SUPERUSER).
+ * - LỖI BỎ QUA — đây là tối ưu, không phải bắt buộc.
+ *
+ * Chạy background (không await) sau khi PG ready và config đã migrate.
+ * Mục tiêu: project cũ tạo từ trước migration cũng có unaccent/pg_trgm/vector.
+ */
+async function ensureProjectDbExtensions(
+  ctx: IpcContext,
+  pgBin: string,
+  confFile: string,
+  odooVersion: string,
+): Promise<void> {
+  try {
+    const { parseIniFile, iniGet } = require('../services/ini-parser');
+    const ini = parseIniFile(confFile);
+    const dbHost = iniGet(ini, 'options', 'db_host', 'localhost');
+    const dbPort = iniGet(ini, 'options', 'db_port', '5432');
+    const dbUser = iniGet(ini, 'options', 'db_user', 'odoo');
+    const dbPassword = iniGet(ini, 'options', 'db_password', 'odoo');
+    const dbfilterRaw = iniGet(ini, 'options', 'dbfilter', '');
+
+    const psql = path.join(pgBin, 'psql.exe');
+    if (!fs.existsSync(psql)) return;
+
+    // List DBs; filter theo dbfilter của project nếu có
+    const userEnv = { ...process.env, PGPASSWORD: dbPassword };
+    const { output: listOut, code: listCode } = await runCmd(
+      `"${psql}" -h ${dbHost} -p ${dbPort} -U ${dbUser} -d postgres -tAc "SELECT datname FROM pg_database WHERE datistemplate=false AND datname<>'postgres'"`,
+      undefined, userEnv,
+    );
+    if (listCode !== 0) return;
+
+    let dbNames = listOut.split('\n').map(s => s.trim()).filter(Boolean);
+    if (dbfilterRaw) {
+      try {
+        const normalized = dbfilterRaw.replace(/(?<!\[)-(?!_\])/g, '[-_]');
+        const re = new RegExp(normalized);
+        dbNames = dbNames.filter(n => re.test(n));
+      } catch { /* invalid regex — process all */ }
+    }
+    if (dbNames.length === 0) return;
+
+    const vCfg = getVersionConfig(odooVersion);
+    const baseExt = ['unaccent', 'pg_trgm'];
+    const extensions = vCfg.pgvector ? [...baseExt, 'vector'] : baseExt;
+    const superEnv = { ...process.env, PGPASSWORD: 'postgres' };
+
+    let installedAny = false;
+    for (const db of dbNames) {
+      // Quick check: skip nếu cả 3 extension đã tồn tại (tránh spam log)
+      const { output: extOut } = await runCmd(
+        `"${psql}" -h ${dbHost} -p ${dbPort} -U ${dbUser} -d "${db}" -tAc "SELECT extname FROM pg_extension WHERE extname IN ('${extensions.join("','")}')"`,
+        undefined, userEnv,
+      );
+      const existing = new Set(extOut.split('\n').map(s => s.trim()).filter(Boolean));
+      const missing = extensions.filter(e => !existing.has(e));
+      if (missing.length === 0) continue;
+
+      for (const ext of missing) {
+        // Project user (usually fails — needs SUPERUSER)
+        const { code: c1 } = await runCmd(
+          `"${psql}" -h ${dbHost} -p ${dbPort} -U ${dbUser} -d "${db}" -c "CREATE EXTENSION IF NOT EXISTS ${ext};"`,
+          undefined, userEnv,
+        );
+        if (c1 === 0) {
+          installedAny = true;
+          continue;
+        }
+        // Fallback: postgres superuser
+        const { code: c2 } = await runCmd(
+          `"${psql}" -h ${dbHost} -p ${dbPort} -U postgres -d "${db}" -c "CREATE EXTENSION IF NOT EXISTS ${ext};"`,
+          undefined, superEnv,
+        );
+        if (c2 === 0) {
+          installedAny = true;
+        }
+      }
+    }
+    if (installedAny) {
+      ctx.logger.log(`  > DB extensions ensured (${extensions.join(', ')}) on ${dbNames.length} DB(s)`);
+    }
+  } catch {
+    // Best effort — silently ignore. Odoo will work without these extensions.
+  }
 }
 
 // --- Pick & Save Logo ---
