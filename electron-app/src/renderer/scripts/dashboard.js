@@ -124,9 +124,8 @@ function renderKanbanCard(p, isDemo) {
           ${p.custom_modules > 0 ? `<span class="kanban-tag kanban-tag-modules">${p.custom_modules} modules</span>` : ''}
         </div>
         <button class="kanban-log-btn" data-tour="card-monitor" ${onclick(`openLogWindow('${escAttr(p.name)}','${escAttr(p.logfile || (p.path + '\\\\odoo.log'))}',event,'${escAttr(p.http_port || '8069')}','${escAttr(p.domain || '')}')`)} title="${t('project.monitor')}"${btnDisabled}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-        </button>
-      </div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </button>      </div>
       <div class="kanban-card-actions" data-tour="card-actions">
         ${actionBtn}
         <div class="kanban-actions-center">
@@ -535,4 +534,3 @@ async function saveDetailAndRestart(name) {
     showToastMessage(t('toast.error', { msg: e.message }), 'error');
   }
 }
-
